@@ -1,0 +1,210 @@
+---
+import Layout from '../../../layouts/Layout.astro'
+import { supabase } from '../../../lib/supabase'
+
+const ADMIN_PASSWORD = import.meta.env.ADMIN_PASSWORD || 'xtcer2024'
+const cookie = Astro.cookies.get('admin_auth')
+if (cookie?.value !== ADMIN_PASSWORD) {
+  return Astro.redirect('/admin/login')
+}
+
+const { id } = Astro.params
+const { data: post } = await supabase
+  .from('posts')
+  .select('*')
+  .eq('id', id)
+  .single()
+
+if (!post) {
+  return Astro.redirect('/admin/dashboard')
+}
+---
+
+<Layout title={`编辑 - ${post.title}`}>
+  <main class="admin-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <a href="/" class="logo">XTCer</a>
+        <span class="version">v1.0</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/admin/dashboard" class="nav-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          仪表盘
+        </a>
+        <a href="/admin/dashboard" class="nav-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          文章管理
+        </a>
+        <a href="/admin/new" class="nav-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14m-7-7h14"/></svg>
+          新建文章
+        </a>
+      </nav>
+    </aside>
+
+    <div class="main-content">
+      <header class="content-header">
+        <div>
+          <a href="/admin/dashboard" class="back-link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            返回
+          </a>
+          <h1>编辑文章</h1>
+          <p class="subtitle">上次修改 {new Date(post.created_at).toLocaleDateString('zh-CN')}</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-ghost" id="toggle-preview">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            预览
+          </button>
+          <button class="btn btn-primary" id="save-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            保存
+          </button>
+        </div>
+      </header>
+
+      <div class="editor-container">
+        <input type="text" id="post-title" class="input title-input" value={post.title} placeholder="输入标题..." />
+        <div class="editor-wrapper">
+          <textarea id="post-content" class="input editor" placeholder="在这里写内容...">{post.content}</textarea>
+          <div id="preview" class="preview markdown-body" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</Layout>
+
+<script>
+  import { marked } from 'marked'
+
+  const titleInput = document.getElementById('post-title') as HTMLInputElement
+  const contentInput = document.getElementById('post-content') as HTMLTextAreaElement
+  const preview = document.getElementById('preview')!
+  const togglePreview = document.getElementById('toggle-preview')!
+  const saveBtn = document.getElementById('save-btn')!
+  const postId = window.location.pathname.split('/').pop()
+  let showPreview = false
+  let saved = true
+
+  titleInput.addEventListener('input', () => { saved = false })
+  contentInput.addEventListener('input', () => {
+    saved = false
+    if (showPreview) {
+      preview.innerHTML = marked.parse(contentInput.value) as string
+    }
+  })
+
+  togglePreview.addEventListener('click', () => {
+    showPreview = !showPreview
+    if (showPreview) {
+      preview.innerHTML = marked.parse(contentInput.value) as string
+      preview.style.display = 'block'
+      contentInput.style.display = 'none'
+      togglePreview.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>编辑`
+    } else {
+      preview.style.display = 'none'
+      contentInput.style.display = 'block'
+      contentInput.focus()
+      togglePreview.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>预览`
+    }
+  })
+
+  saveBtn.addEventListener('click', async () => {
+    const title = titleInput.value.trim()
+    const content = contentInput.value.trim()
+    if (!title) { titleInput.focus(); return }
+
+    saveBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>保存中...`
+    ;(saveBtn as HTMLButtonElement).disabled = true
+
+    const res = await fetch(`/api/posts/${postId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, content }),
+    })
+
+    if (res.ok) {
+      saved = true
+      saveBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>已保存`
+      setTimeout(() => {
+        saveBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>保存`
+        ;(saveBtn as HTMLButtonElement).disabled = false
+      }, 2000)
+    } else {
+      alert('保存失败')
+      saveBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/></svg>保存`
+      ;(saveBtn as HTMLButtonElement).disabled = false
+    }
+  })
+
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault()
+      saveBtn.click()
+    }
+  })
+
+  window.addEventListener('beforeunload', (e) => {
+    if (!saved) { e.preventDefault(); e.returnValue = '' }
+  })
+</script>
+
+<style>
+  .admin-layout { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 240px; flex-shrink: 0; background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+    border-right: 1px solid var(--glass-border); padding: 1.5rem 0;
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: 50;
+  }
+  .sidebar-header { padding: 0 1.5rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 0.5rem; }
+  .logo { font-size: 1.25rem; font-weight: 700; color: var(--text); }
+  .version { font-size: 0.6875rem; color: var(--text-muted); background: var(--surface); padding: 0.125rem 0.5rem; border-radius: 999px; }
+  .sidebar-nav { display: flex; flex-direction: column; gap: 0.125rem; padding: 0 0.75rem; }
+  .nav-item {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.5rem 0.75rem; border-radius: var(--radius-sm);
+    color: var(--text-muted); font-size: 0.875rem; transition: all 0.15s;
+  }
+  .nav-item:hover { color: var(--text); background: var(--surface); }
+
+  .main-content { flex: 1; margin-left: 240px; padding: 2rem; }
+  .content-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; }
+  .back-link {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 0.75rem;
+  }
+  .back-link:hover { color: var(--text); }
+  .content-header h1 { font-size: 1.75rem; font-weight: 700; }
+  .subtitle { color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem; }
+  .header-actions { display: flex; gap: 0.75rem; }
+
+  .editor-container { display: flex; flex-direction: column; gap: 1rem; }
+  .title-input { font-size: 1.5rem; font-weight: 600; padding: 1rem 1.25rem; background: var(--surface); }
+  .editor-wrapper { position: relative; min-height: 60vh; }
+  .editor { width: 100%; min-height: 60vh; padding: 1.25rem; font-size: 0.9375rem; line-height: 1.8; resize: none; }
+  .preview {
+    width: 100%; min-height: 60vh; padding: 1.25rem;
+    background: var(--surface); border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm); overflow-y: auto;
+  }
+  .preview :global(h1) { font-size: 2rem; margin-bottom: 1rem; color: var(--text); }
+  .preview :global(h2) { font-size: 1.5rem; margin: 1.5rem 0 0.75rem; color: var(--text); }
+  .preview :global(h3) { font-size: 1.25rem; margin: 1.25rem 0 0.5rem; color: var(--text); }
+  .preview :global(p) { margin-bottom: 1rem; color: var(--text-muted); line-height: 1.8; }
+  .preview :global(ul), .preview :global(ol) { margin: 1rem 0; padding-left: 1.5rem; color: var(--text-muted); }
+  .preview :global(li) { margin-bottom: 0.5rem; }
+  .preview :global(blockquote) { border-left: 3px solid var(--primary); padding-left: 1rem; margin: 1rem 0; color: var(--text-muted); }
+  .preview :global(code) { background: rgba(255,255,255,0.06); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.875em; }
+  .preview :global(pre) { background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+  .preview :global(pre code) { background: none; padding: 0; }
+  .preview :global(a) { color: var(--primary); }
+  .preview :global(strong) { color: var(--text); }
+
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .main-content { margin-left: 0; }
+  }
+</style>

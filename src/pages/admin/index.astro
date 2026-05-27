@@ -3,265 +3,269 @@ import Layout from '../../layouts/Layout.astro'
 import { supabase } from '../../lib/supabase'
 
 const ADMIN_PASSWORD = import.meta.env.ADMIN_PASSWORD || 'xtcer2024'
-
 const cookie = Astro.cookies.get('admin_auth')
-const isAuthenticated = cookie?.value === ADMIN_PASSWORD
-
-if (!isAuthenticated) {
+if (cookie?.value !== ADMIN_PASSWORD) {
   return Astro.redirect('/admin/login')
 }
+
+const { data: posts } = await supabase
+  .from('posts')
+  .select('id')
 ---
 
 <Layout title="管理后台 - XTCer">
-  <main>
-    <nav>
-      <div class="nav-content">
+  <main class="admin-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
         <a href="/" class="logo">XTCer</a>
-        <div class="nav-links">
-          <a href="/">首页</a>
-          <a href="/admin/logout">退出</a>
+        <span class="version">v1.0</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/admin/dashboard" class="nav-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          仪表盘
+        </a>
+        <a href="/admin/dashboard" class="nav-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          文章管理
+        </a>
+        <a href="/admin/new" class="nav-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14m-7-7h14"/></svg>
+          新建文章
+        </a>
+        <div class="nav-divider"></div>
+        <span class="nav-label">系统</span>
+        <a href="/admin" class="nav-item active">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          初始化设置
+        </a>
+        <div class="nav-divider"></div>
+        <a href="https://supabase.com/dashboard/project/ltwwyznurskgsphujarm" target="_blank" class="nav-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/></svg>
+          Supabase
+        </a>
+        <a href="/admin/logout" class="nav-item logout">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4m7 14l5-5-5-5m5 5H9"/></svg>
+          退出登录
+        </a>
+      </nav>
+    </aside>
+
+    <div class="main-content">
+      <header class="content-header">
+        <div>
+          <h1>初始化设置</h1>
+          <p class="subtitle">配置你的 XTCer 站点</p>
+        </div>
+      </header>
+
+      <div class="setup-grid">
+        <div class={`setup-card glass-card ${posts && posts.length > 0 ? 'done' : ''}`}>
+          <div class="setup-icon">
+            {posts && posts.length > 0 ? (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            ) : (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/></svg>
+            )}
+          </div>
+          <div class="setup-info">
+            <h3>数据库表</h3>
+            <p>{posts && posts.length > 0 ? `已有 ${posts.length} 篇文章` : '需要创建 posts 表'}</p>
+          </div>
+        </div>
+
+        <div class="setup-card glass-card done">
+          <div class="setup-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div class="setup-info">
+            <h3>Supabase 连接</h3>
+            <p>已连接到 ltwwyznurskgsphujarm</p>
+          </div>
+        </div>
+
+        <div class="setup-card glass-card done">
+          <div class="setup-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div class="setup-info">
+            <h3>Cloudflare Pages</h3>
+            <p>已部署到 xtcer-enp.pages.dev</p>
+          </div>
         </div>
       </div>
-    </nav>
 
-    <section class="admin">
-      <h1>管理后台</h1>
-      <p class="subtitle">通过 Supabase 管理你的内容</p>
-
-      <div class="cards">
-        <a href="https://supabase.com/dashboard/project/ltwwyznurskgsphujarm" target="_blank" class="card">
-          <div class="card-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
-              <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"></path>
-              <path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"></path>
-            </svg>
+      <section class="setup-section glass-card">
+        <h2>第一步：创建数据库表</h2>
+        <p>在 Supabase SQL 编辑器中运行以下 SQL：</p>
+        <div class="code-block">
+          <div class="code-header">
+            <span>SQL</span>
+            <button class="copy-btn" data-code="create-table">复制</button>
           </div>
-          <h2>数据库</h2>
-          <p>管理表结构和数据</p>
-        </a>
-
-        <a href="https://supabase.com/dashboard/project/ltwwyznurskgsphujarm/auth/users" target="_blank" class="card">
-          <div class="card-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
-          </div>
-          <h2>用户认证</h2>
-          <p>管理注册用户</p>
-        </a>
-
-        <a href="https://supabase.com/dashboard/project/ltwwyznurskgsphujarm/storage/buckets" target="_blank" class="card">
-          <div class="card-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="17 8 12 3 7 8"></polyline>
-              <line x1="12" y1="3" x2="12" y2="15"></line>
-            </svg>
-          </div>
-          <h2>文件存储</h2>
-          <p>上传和管理文件</p>
-        </a>
-
-        <a href="https://supabase.com/dashboard/project/ltwwyznurskgsphujarm/sql" target="_blank" class="card">
-          <div class="card-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="16 18 22 12 16 6"></polyline>
-              <polyline points="8 6 2 12 8 18"></polyline>
-            </svg>
-          </div>
-          <h2>SQL 编辑器</h2>
-          <p>执行自定义查询</p>
-        </a>
-      </div>
-
-      <div class="quick-start">
-        <h2>快速开始</h2>
-        <div class="steps">
-          <div class="step">
-            <span class="step-num">1</span>
-            <div>
-              <h3>创建 posts 表</h3>
-              <p>在 Supabase SQL 编辑器中运行：</p>
-              <pre><code>CREATE TABLE posts (
+          <pre><code id="create-table">CREATE TABLE posts (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   title TEXT NOT NULL,
   content TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 允许匿名读取
 ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow public read" ON posts
-  FOR SELECT USING (true);</code></pre>
-            </div>
+
+CREATE POLICY "Public can read" ON posts
+  FOR SELECT USING (true);
+
+CREATE POLICY "Anyone can insert" ON posts
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Anyone can update" ON posts
+  FOR UPDATE USING (true);
+
+CREATE POLICY "Anyone can delete" ON posts
+  FOR DELETE USING (true);</code></pre>
+        </div>
+        <div class="step-actions">
+          <a href="https://supabase.com/dashboard/project/ltwwyznurskgsphujarm/sql" target="_blank" class="btn btn-primary">
+            打开 SQL 编辑器
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </a>
+        </div>
+      </section>
+
+      <section class="setup-section glass-card">
+        <h2>第二步：开始写内容</h2>
+        <p>表创建好后，就可以开始管理你的文章了。</p>
+        <div class="step-actions">
+          <a href="/admin/dashboard" class="btn btn-primary">
+            进入管理面板
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </a>
+        </div>
+      </section>
+
+      <section class="setup-section glass-card">
+        <h2>管理后台密码</h2>
+        <p>当前密码通过环境变量 <code>ADMIN_PASSWORD</code> 设置。</p>
+        <p>在 Cloudflare Pages → Settings → Environment variables 中修改。</p>
+      </section>
+
+      <section class="setup-section glass-card">
+        <h2>快速参考</h2>
+        <div class="ref-grid">
+          <div class="ref-item">
+            <span class="ref-label">首页</span>
+            <code>/</code>
           </div>
-          <div class="step">
-            <span class="step-num">2</span>
-            <div>
-              <h3>添加内容</h3>
-              <p>在 Supabase 表编辑器中添加一些文章</p>
-            </div>
+          <div class="ref-item">
+            <span class="ref-label">管理后台</span>
+            <code>/admin</code>
           </div>
-          <div class="step">
-            <span class="step-num">3</span>
-            <div>
-              <h3>查看首页</h3>
-              <p>返回首页查看你的内容</p>
-            </div>
+          <div class="ref-item">
+            <span class="ref-label">文章管理</span>
+            <code>/admin/dashboard</code>
+          </div>
+          <div class="ref-item">
+            <span class="ref-label">新建文章</span>
+            <code>/admin/new</code>
+          </div>
+          <div class="ref-item">
+            <span class="ref-label">Supabase</span>
+            <code>dashboard</code>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   </main>
+
+  <script>
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const codeId = (btn as HTMLElement).dataset.code
+        const code = document.getElementById(codeId!)?.textContent || ''
+        navigator.clipboard.writeText(code)
+        btn.textContent = '已复制'
+        setTimeout(() => { btn.textContent = '复制' }, 2000)
+      })
+    })
+  </script>
 </Layout>
 
 <style>
-  nav {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    background: rgba(10, 10, 10, 0.8);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border);
-    z-index: 100;
+  .admin-layout { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 240px; flex-shrink: 0; background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+    border-right: 1px solid var(--glass-border); padding: 1.5rem 0;
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: 50;
+  }
+  .sidebar-header { padding: 0 1.5rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 0.5rem; }
+  .logo { font-size: 1.25rem; font-weight: 700; color: var(--text); }
+  .version { font-size: 0.6875rem; color: var(--text-muted); background: var(--surface); padding: 0.125rem 0.5rem; border-radius: 999px; }
+  .sidebar-nav { display: flex; flex-direction: column; gap: 0.125rem; padding: 0 0.75rem; }
+  .nav-item {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.5rem 0.75rem; border-radius: var(--radius-sm);
+    color: var(--text-muted); font-size: 0.875rem; transition: all 0.15s;
+  }
+  .nav-item:hover { color: var(--text); background: var(--surface); }
+  .nav-item.active { color: var(--primary); background: rgba(41,151,255,0.1); }
+  .nav-label { font-size: 0.6875rem; color: var(--text-muted); padding: 0.5rem 0.75rem 0.25rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .nav-divider { height: 1px; background: var(--border); margin: 0.5rem 0; }
+  .nav-item.logout { color: var(--red); }
+  .nav-item.logout:hover { background: rgba(255,69,58,0.1); }
+  .main-content { flex: 1; margin-left: 240px; padding: 2rem; max-width: 900px; }
+  .content-header { margin-bottom: 2rem; }
+  .content-header h1 { font-size: 1.75rem; font-weight: 700; }
+  .subtitle { color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem; }
+
+  .setup-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; }
+  .setup-card { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.25rem; }
+  .setup-card.done { border-color: rgba(48,209,88,0.2); }
+  .setup-icon { flex-shrink: 0; }
+  .setup-info h3 { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.125rem; }
+  .setup-info p { font-size: 0.75rem; color: var(--text-muted); }
+
+  .setup-section { padding: 1.75rem; margin-bottom: 1rem; }
+  .setup-section h2 { font-size: 1.125rem; margin-bottom: 0.75rem; }
+  .setup-section p { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1rem; line-height: 1.7; }
+  .setup-section code {
+    background: rgba(255,255,255,0.06); padding: 0.15rem 0.4rem;
+    border-radius: 4px; font-size: 0.8125rem; font-family: 'SF Mono', monospace;
   }
 
-  .nav-content {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 1rem 2rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  .code-block { margin: 1rem 0; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); }
+  .code-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.5rem 1rem; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border);
+    font-size: 0.75rem; color: var(--text-muted);
+  }
+  .copy-btn {
+    background: none; border: none; color: var(--primary); cursor: pointer;
+    font-size: 0.75rem; padding: 0;
+  }
+  .code-block pre {
+    padding: 1rem; margin: 0; background: rgba(0,0,0,0.3); overflow-x: auto;
+  }
+  .code-block code {
+    font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8125rem;
+    line-height: 1.7; color: var(--text-muted); background: none; padding: 0;
   }
 
-  .logo {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--text);
-  }
+  .step-actions { margin-top: 1.25rem; }
 
-  .nav-links {
-    display: flex;
-    gap: 1.5rem;
+  .ref-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .ref-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.625rem 0.875rem; background: rgba(255,255,255,0.03);
+    border-radius: var(--radius-sm); border: 1px solid var(--border);
   }
+  .ref-label { font-size: 0.8125rem; color: var(--text-muted); }
+  .ref-item code { font-size: 0.8125rem; font-family: 'SF Mono', monospace; color: var(--primary); background: none; padding: 0; }
 
-  .nav-links a {
-    color: var(--text-muted);
-    font-size: 0.875rem;
-  }
-
-  .admin {
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 6rem 2rem 4rem;
-  }
-
-  h1 {
-    font-size: 2rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-  }
-
-  .subtitle {
-    color: var(--text-muted);
-    margin-bottom: 3rem;
-  }
-
-  .cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin-bottom: 3rem;
-  }
-
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.5rem;
-    color: var(--text);
-    transition: all 0.2s;
-  }
-
-  .card:hover {
-    border-color: var(--primary);
-    transform: translateY(-2px);
-  }
-
-  .card-icon {
-    color: var(--primary);
-    margin-bottom: 1rem;
-  }
-
-  .card h2 {
-    font-size: 1rem;
-    font-weight: 600;
-    margin-bottom: 0.25rem;
-  }
-
-  .card p {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-  }
-
-  .quick-start h2 {
-    font-size: 1.25rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .steps {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-
-  .step {
-    display: flex;
-    gap: 1rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.5rem;
-  }
-
-  .step-num {
-    flex-shrink: 0;
-    width: 28px;
-    height: 28px;
-    background: var(--primary);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.8rem;
-    font-weight: 600;
-  }
-
-  .step h3 {
-    font-size: 1rem;
-    margin-bottom: 0.25rem;
-  }
-
-  .step p {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    margin-bottom: 0.75rem;
-  }
-
-  pre {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1rem;
-    overflow-x: auto;
-    font-size: 0.8rem;
-  }
-
-  code {
-    color: var(--primary);
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .main-content { margin-left: 0; }
+    .setup-grid { grid-template-columns: 1fr; }
+    .ref-grid { grid-template-columns: 1fr; }
   }
 </style>

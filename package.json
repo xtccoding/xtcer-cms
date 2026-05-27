@@ -8,9 +8,10 @@
     "preview": "astro preview"
   },
   "dependencies": {
-    "astro": "^5.7.10",
     "@astrojs/cloudflare": "^12.2.3",
-    "@supabase/supabase-js": "^2.49.4"
+    "@supabase/supabase-js": "^2.49.4",
+    "astro": "^5.7.10",
+    "marked": "^18.0.4"
   },
   "devDependencies": {
     "@types/node": "^22.15.3"

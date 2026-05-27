@@ -2,7 +2,6 @@
 import Layout from '../../layouts/Layout.astro'
 
 const ADMIN_PASSWORD = import.meta.env.ADMIN_PASSWORD || 'xtcer2024'
-
 const cookie = Astro.cookies.get('admin_auth')
 if (cookie?.value === ADMIN_PASSWORD) {
   return Astro.redirect('/admin')
@@ -16,11 +15,7 @@ if (Astro.request.method === 'POST') {
 
   if (password === ADMIN_PASSWORD) {
     Astro.cookies.set('admin_auth', ADMIN_PASSWORD, {
-      path: '/',
-      httpOnly: true,
-      secure: true,
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7,
+      path: '/', httpOnly: true, secure: true, sameSite: 'lax', maxAge: 60 * 60 * 24 * 7,
     })
     return Astro.redirect('/admin')
   } else {
@@ -29,27 +24,29 @@ if (Astro.request.method === 'POST') {
 }
 ---
 
-<Layout title="登录 - 管理后台">
+<Layout title="登录 - XTCer">
   <main>
     <div class="login-container">
-      <div class="login-card">
+      <div class="login-card glass-card">
+        <div class="login-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--primary)">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+          </svg>
+        </div>
         <h1>管理后台</h1>
         <p>请输入密码登录</p>
 
         {error && <div class="error">{error}</div>}
 
         <form method="POST">
-          <input
-            type="password"
-            name="password"
-            placeholder="输入密码"
-            required
-            autofocus
-          />
-          <button type="submit">登录</button>
+          <input type="password" name="password" class="input" placeholder="输入密码" required autofocus />
+          <button type="submit" class="btn btn-primary login-btn">登录</button>
         </form>
 
-        <a href="/" class="back">← 返回首页</a>
+        <a href="/" class="back">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          返回首页
+        </a>
       </div>
     </div>
   </main>
@@ -57,88 +54,24 @@ if (Astro.request.method === 'POST') {
 
 <style>
   .login-container {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
+    min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem;
   }
-
   .login-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 3rem;
-    width: 100%;
-    max-width: 400px;
-    text-align: center;
+    width: 100%; max-width: 380px; text-align: center; padding: 2.5rem;
   }
-
-  h1 {
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
-  }
-
-  p {
-    color: var(--text-muted);
-    margin-bottom: 2rem;
-  }
-
+  .login-icon { margin-bottom: 1.5rem; }
+  h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+  p { color: var(--text-muted); margin-bottom: 2rem; font-size: 0.875rem; }
   .error {
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    color: #ef4444;
-    padding: 0.75rem;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-    font-size: 0.875rem;
+    background: rgba(255,69,58,0.1); border: 1px solid rgba(255,69,58,0.2);
+    color: var(--red); padding: 0.75rem; border-radius: var(--radius-sm);
+    margin-bottom: 1rem; font-size: 0.875rem;
   }
-
-  form {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  input {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.875rem 1rem;
-    color: var(--text);
-    font-size: 1rem;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-
-  input:focus {
-    border-color: var(--primary);
-  }
-
-  button {
-    background: var(--primary);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 0.875rem;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-
-  button:hover {
-    background: var(--primary-hover);
-  }
-
+  form { display: flex; flex-direction: column; gap: 0.75rem; }
+  .login-btn { width: 100%; padding: 0.75rem; font-size: 0.9375rem; justify-content: center; }
   .back {
-    display: inline-block;
-    margin-top: 1.5rem;
-    color: var(--text-muted);
-    font-size: 0.875rem;
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    margin-top: 1.5rem; color: var(--text-muted); font-size: 0.8125rem;
   }
-
-  .back:hover {
-    color: var(--text);
-  }
+  .back:hover { color: var(--text); }
 </style>
