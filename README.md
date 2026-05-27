@@ -1,119 +1,119 @@
-# Payload Cloudflare Template
+# Payload Cloudflare 模板
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/payloadcms/payload/tree/main/templates/with-cloudflare-d1)
 
-**This can only be deployed on Paid Workers right now due to size limits.** This template comes configured with the bare minimum to get started on anything you need.
+**由于大小限制，目前只能部署到付费 Workers。** 此模板配置了最基础的功能，帮助你快速开始。
 
-## Quick start
+## 快速开始
 
-This template can be deployed directly to Cloudflare Workers by clicking the button to take you to the setup screen.
+此模板可以通过点击上方按钮直接部署到 Cloudflare Workers。
 
-From there you can connect your code to a git provider such Github or Gitlab, name your Workers, D1 Database and R2 Bucket as well as attach any additional environment variables or services you need.
+在部署界面中，你可以将代码连接到 Git 提供商（如 GitHub 或 GitLab），为 Workers、D1 数据库和 R2 存储桶命名，并添加所需的环境变量或服务。
 
-## Quick Start - local setup
+## 本地快速启动
 
-To spin up this template locally, follow these steps:
+要在本地运行此模板，请按以下步骤操作：
 
-### Clone
+### 克隆仓库
 
-After you click the `Deploy` button above, you'll want to have standalone copy of this repo on your machine. Cloudflare will connect your app to a git provider such as Github and you can access your code from there.
+点击上方 `Deploy` 按钮后，你需要在本地获取此仓库的独立副本。Cloudflare 会将你的应用连接到 GitHub 等 Git 提供商，你可以从那里访问代码。
 
-### Local Development
+### 本地开发
 
-## How it works
+## 工作原理
 
-Out of the box, using [`Wrangler`](https://developers.cloudflare.com/workers/wrangler/) will automatically create local bindings for you to connect to the remote services and it can even create a local mock of the services you're using with Cloudflare.
+开箱即用，使用 [`Wrangler`](https://developers.cloudflare.com/workers/wrangler/) 会自动创建本地绑定，帮助你连接远程服务，甚至可以创建 Cloudflare 服务的本地模拟。
 
-We've pre-configured Payload for you with the following:
+我们已为 Payload 预配置了以下内容：
 
-### Collections
+### 集合（Collections）
 
-See the [Collections](https://payloadcms.com/docs/configuration/collections) docs for details on how to extend this functionality.
+详情请参阅 [Collections](https://payloadcms.com/docs/configuration/collections) 文档，了解如何扩展此功能。
 
-- #### Users (Authentication)
+- #### Users（用户认证）
 
-  Users are auth-enabled collections that have access to the admin panel.
+  用户集合支持认证，可以访问管理面板。
 
-  For additional help, see the official [Auth Example](https://github.com/payloadcms/payload/tree/main/examples/auth) or the [Authentication](https://payloadcms.com/docs/authentication/overview#authentication-overview) docs.
+  更多帮助请参阅官方 [Auth Example](https://github.com/payloadcms/payload/tree/main/examples/auth) 或 [Authentication](https://payloadcms.com/docs/authentication/overview#authentication-overview) 文档。
 
-- #### Media
+- #### Media（媒体）
 
-  This is the uploads enabled collection.
+  这是启用文件上传的集合。
 
-### Image Storage (R2)
+### 图片存储（R2）
 
-Images will be served from an R2 bucket which you can then further configure to use a CDN to serve for your frontend directly.
+图片将从 R2 存储桶提供服务，你可以进一步配置 CDN 直接为前端提供服务。
 
-### D1 Database
+### D1 数据库
 
-The Worker will have direct access to a D1 SQLite database which Wrangler can connect locally to, just note that you won't have a connection string as you would typically with other providers.
+Worker 可以直接访问 D1 SQLite 数据库，Wrangler 可以在本地连接，注意你不会像其他提供商那样拥有连接字符串。
 
-You can enable read replicas by adding `readReplicas: 'first-primary'` in the DB adapter and then enabling it on your D1 Cloudflare dashboard. Read more about this feature on [our docs](https://payloadcms.com/docs/database/sqlite#d1-read-replicas).
+你可以在数据库适配器中添加 `readReplicas: 'first-primary'` 来启用读副本，然后在 D1 Cloudflare 控制面板中启用。了解更多请参阅 [官方文档](https://payloadcms.com/docs/database/sqlite#d1-read-replicas)。
 
-## Working with Cloudflare
+## 使用 Cloudflare
 
-Firstly, after installing dependencies locally you need to authenticate with Wrangler by running:
+首先，安装依赖后需要通过以下命令登录 Wrangler：
 
 ```bash
 pnpm wrangler login
 ```
 
-This will take you to Cloudflare to login and then you can use the Wrangler CLI locally for anything, use `pnpm wrangler help` to see all available options.
+这会跳转到 Cloudflare 登录页面，之后你可以本地使用 Wrangler CLI，输入 `pnpm wrangler help` 查看所有可用选项。
 
-Wrangler is pretty smart so it will automatically bind your services for local development just by running `pnpm dev`.
+Wrangler 非常智能，只需运行 `pnpm dev` 就会自动为本地开发绑定服务。
 
-## Deployments
+## 部署
 
-When you're ready to deploy, first make sure you have created your migrations:
+准备部署时，首先确保已创建数据库迁移：
 
 ```bash
 pnpm payload migrate:create
 ```
 
-Then run the following command:
+然后运行以下命令：
 
 ```bash
 pnpm run deploy
 ```
 
-This will spin up Wrangler in `production` mode, run any created migrations, build the app and then deploy the bundle up to Cloudflare.
+这将以 `production` 模式启动 Wrangler，运行所有已创建的迁移，构建应用并将打包文件部署到 Cloudflare。
 
-That's it! You can if you wish move these steps into your CI pipeline as well.
+完成！你也可以将这些步骤集成到 CI 流水线中。
 
-## Enabling logs
+## 启用日志
 
-By default logs are not enabled for your API, we've made this decision because it does run against your quota so we've left it opt-in. But you can easily enable logs in one click in the Cloudflare panel, [see docs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/#enable-workers-logs).
+默认情况下 API 日志未启用，因为日志会消耗配额，所以我们将其设为可选。但你可以在 Cloudflare 控制面板中一键启用日志，[查看文档](https://developers.cloudflare.com/workers/observability/logs/workers-logs/#enable-workers-logs)。
 
-### Logger Configuration
+### 日志配置
 
-This template includes a custom console-based logger compatible with Cloudflare Workers. Payload's default logger uses `pino-pretty`, which relies on Node.js APIs not available in Workers and would cause `fs.write is not implemented` errors.
+此模板包含一个与 Cloudflare Workers 兼容的自定义控制台日志记录器。Payload 默认使用 `pino-pretty`，它依赖 Node.js API，在 Workers 中不可用，会导致 `fs.write is not implemented` 错误。
 
-The custom logger in `payload.config.ts`:
+`payload.config.ts` 中的自定义日志记录器：
 
-- Routes logs through `console.*` methods which Workers handles correctly
-- Outputs JSON-formatted logs for Cloudflare observability
-- Only active in production (development uses the default `pino-pretty` for better DX)
+- 通过 `console.*` 方法输出日志，Workers 可以正确处理
+- 输出 JSON 格式的日志，方便 Cloudflare 可观测性
+- 仅在生产环境中启用（开发环境使用默认的 `pino-pretty` 以获得更好的开发体验）
 
-You can control the log level via the `PAYLOAD_LOG_LEVEL` environment variable (e.g., `debug`, `info`, `warn`, `error`).
+你可以通过 `PAYLOAD_LOG_LEVEL` 环境变量控制日志级别（如 `debug`、`info`、`warn`、`error`）。
 
-### Diagnostic Channel Errors
+### Diagnostic Channel 错误
 
-If you see "Failed to publish diagnostic channel message" errors in your observability logs, these typically come from the `undici` HTTP client library. The template includes `skipSafeFetch: true` in the Media collection to use native fetch instead of undici for file uploads, which helps reduce these errors.
+如果在可观测性日志中看到 "Failed to publish diagnostic channel message" 错误，这些通常来自 `undici` HTTP 客户端库。模板在 Media 集合中包含 `skipSafeFetch: true`，使用原生 fetch 代替 undici 进行文件上传，有助于减少这些错误。
 
-Cloudflare Workers runs in an [isolated environment that cannot access private IP ranges](https://developers.cloudflare.com/workers-vpc/examples/route-across-private-services/) by default, providing built-in SSRF protection. This makes `skipSafeFetch` safe to use.
+Cloudflare Workers 默认运行在[无法访问私有 IP 范围的隔离环境](https://developers.cloudflare.com/workers-vpc/examples/route-across-private-services/)中，提供内置的 SSRF 保护，因此使用 `skipSafeFetch` 是安全的。
 
-## Known issues
+## 已知问题
 
 ### GraphQL
 
-We are currently waiting on some issues with GraphQL to be [fixed upstream in Workers](https://github.com/cloudflare/workerd/issues/5175) so full support for GraphQL is not currently guaranteed when deployed.
+我们正在等待 Workers 上游修复一些 GraphQL [问题](https://github.com/cloudflare/workerd/issues/5175)，因此目前部署时 GraphQL 的完整支持无法保证。
 
-### Worker size limits
+### Worker 大小限制
 
-We currently recommend deploying this template to the Paid Workers plan due to bundle [size limits](https://developers.cloudflare.com/workers/platform/limits/#worker-size) of 3mb. We're actively trying to reduce our bundle footprint over time to better meet this metric.
+由于打包[大小限制](https://developers.cloudflare.com/workers/platform/limits/#worker-size)为 3MB，我们建议将此模板部署到付费 Workers 计划。我们正在积极减小打包体积以更好地满足这一指标。
 
-This also applies to your own code, in the case of importing a lot of libraries you may find yourself limited by the bundle.
+这也适用于你自己的代码，如果导入大量库，你可能会受到打包大小的限制。
 
-## Questions
+## 问题反馈
 
-If you have any issues or questions, reach out to us on [Discord](https://discord.com/invite/payload) or start a [GitHub discussion](https://github.com/payloadcms/payload/discussions).
+如有任何问题，请在 [Discord](https://discord.com/invite/payload) 上联系我们或发起 [GitHub 讨论](https://github.com/payloadcms/payload/discussions)。
