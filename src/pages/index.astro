@@ -1,0 +1,204 @@
+---
+import Layout from '../layouts/Layout.astro'
+import { supabase } from '../lib/supabase'
+
+const { data: posts } = await supabase
+  .from('posts')
+  .select('*')
+  .order('created_at', { ascending: false })
+  .limit(10)
+---
+
+<Layout title="XTCer">
+  <main>
+    <nav>
+      <div class="nav-content">
+        <a href="/" class="logo">XTCer</a>
+        <div class="nav-links">
+          <a href="/admin">管理后台</a>
+          <a href="https://supabase.com/dashboard" target="_blank">Supabase</a>
+        </div>
+      </div>
+    </nav>
+
+    <section class="hero">
+      <h1>XTCer</h1>
+      <p>轻量、美观的内容管理系统</p>
+      <div class="badges">
+        <span class="badge">Astro</span>
+        <span class="badge">Supabase</span>
+        <span class="badge">Cloudflare</span>
+      </div>
+    </section>
+
+    <section class="content">
+      <h2>最新内容</h2>
+      {posts && posts.length > 0 ? (
+        <div class="posts">
+          {posts.map((post) => (
+            <article class="post-card">
+              <h3>{post.title}</h3>
+              <p>{post.content}</p>
+              <time>{new Date(post.created_at).toLocaleDateString('zh-CN')}</time>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div class="empty">
+          <p>还没有内容</p>
+          <a href="/admin">去管理后台创建第一篇内容</a>
+        </div>
+      )}
+    </section>
+
+    <footer>
+      <p>Powered by Astro + Supabase + Cloudflare</p>
+    </footer>
+  </main>
+</Layout>
+
+<style>
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: rgba(10, 10, 10, 0.8);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
+  }
+
+  .nav-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .logo {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 1.5rem;
+  }
+
+  .nav-links a {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover {
+    color: var(--text);
+  }
+
+  .hero {
+    padding: 8rem 2rem 4rem;
+    text-align: center;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .hero h1 {
+    font-size: 4rem;
+    font-weight: 800;
+    letter-spacing: -0.05em;
+    background: linear-gradient(135deg, #fff 0%, #a1a1a1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 1rem;
+  }
+
+  .hero p {
+    font-size: 1.25rem;
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+  }
+
+  .badges {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+  }
+
+  .badge {
+    padding: 0.375rem 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  .content h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+    color: var(--text-muted);
+  }
+
+  .posts {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .post-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: border-color 0.2s;
+  }
+
+  .post-card:hover {
+    border-color: var(--primary);
+  }
+
+  .post-card h3 {
+    font-size: 1.125rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .post-card p {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .post-card time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .empty {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+
+  .empty p {
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+
+  footer {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+  }
+</style>

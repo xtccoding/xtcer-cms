@@ -1,0 +1,9 @@
+name = "xtcer-web"
+compatibility_date = "2025-05-28"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+PUBLIC_SUPABASE_URL = "https://ltwwyznurskgsphujarm.supabase.co"
+
+# 部署时设置环境变量:
+# wrangler pages secret put PUBLIC_SUPABASE_ANON_KEY
