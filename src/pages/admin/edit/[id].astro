@@ -23,6 +23,40 @@ if (!post) return Astro.redirect('/admin/dashboard')
         </a>
         <div class="editor-actions">
           <span class="save-status" id="save-status"></span>
+          <div class="ai-dropdown" id="ai-dropdown">
+            <button class="btn btn-ghost btn-sm ai-btn" id="ai-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 014 4v1h1a3 3 0 013 3v1a3 3 0 01-3 3h-1v4a4 4 0 01-8 0v-4H7a3 3 0 01-3-3v-1a3 3 0 013-3h1V6a4 4 0 014-4z"/></svg>
+              AI 助手
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="ai-menu" id="ai-menu">
+              <button class="ai-option" data-action="polish">
+                <span class="ai-option-icon">✨</span>
+                <div><strong>润色</strong><small>优化表达，更流畅专业</small></div>
+              </button>
+              <button class="ai-option" data-action="expand">
+                <span class="ai-option-icon">📝</span>
+                <div><strong>扩展</strong><small>添加细节和例子</small></div>
+              </button>
+              <button class="ai-option" data-action="summarize">
+                <span class="ai-option-icon">📋</span>
+                <div><strong>摘要</strong><small>生成100字摘要</small></div>
+              </button>
+              <button class="ai-option" data-action="title">
+                <span class="ai-option-icon">💡</span>
+                <div><strong>起标题</strong><small>生成5个标题建议</small></div>
+              </button>
+              <div class="ai-divider"></div>
+              <button class="ai-option" data-action="translate-en">
+                <span class="ai-option-icon">🇬🇧</span>
+                <div><strong>翻译成英文</strong></div>
+              </button>
+              <button class="ai-option" data-action="translate-zh">
+                <span class="ai-option-icon">🇨🇳</span>
+                <div><strong>翻译成中文</strong></div>
+              </button>
+            </div>
+          </div>
           <button class="btn btn-ghost btn-sm" id="toggle-preview">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             预览
@@ -33,6 +67,12 @@ if (!post) return Astro.redirect('/admin/dashboard')
           </button>
         </div>
       </header>
+
+      <div id="ai-status" class="ai-status" style="display:none">
+        <div class="ai-status-spinner"></div>
+        <span id="ai-status-text">AI 正在处理...</span>
+      </div>
+
       <div class="editor-body">
         <input type="text" id="post-title" class="input title-input" value={post.title} />
         <textarea id="post-content" class="input editor">{post.content}</textarea>
@@ -49,6 +89,10 @@ if (!post) return Astro.redirect('/admin/dashboard')
     const toggleBtn = document.getElementById('toggle-preview')!
     const saveBtn = document.getElementById('save-btn')!
     const saveStatus = document.getElementById('save-status')!
+    const aiBtn = document.getElementById('ai-btn')!
+    const aiMenu = document.getElementById('ai-menu')!
+    const aiStatus = document.getElementById('ai-status')!
+    const aiStatusText = document.getElementById('ai-status-text')!
     const postId = window.location.pathname.split('/').pop()
     let showPreview = false
     let saved = true
@@ -56,6 +100,61 @@ if (!post) return Astro.redirect('/admin/dashboard')
     const markDirty = () => { saved = false; saveStatus.textContent = '' }
     titleInput.addEventListener('input', markDirty)
     contentInput.addEventListener('input', () => { markDirty(); if (showPreview) preview.innerHTML = marked.parse(contentInput.value) as string })
+
+    aiBtn.addEventListener('click', () => { aiMenu.classList.toggle('show') })
+    document.addEventListener('click', (e) => { if (!(e.target as HTMLElement).closest('.ai-dropdown')) aiMenu.classList.remove('show') })
+
+    document.querySelectorAll('.ai-option').forEach(opt => {
+      opt.addEventListener('click', async () => {
+        const action = (opt as HTMLElement).dataset.action
+        aiMenu.classList.remove('show')
+        const content = contentInput.value.trim()
+        const title = titleInput.value.trim()
+        if (!content && action !== 'title') { contentInput.focus(); return }
+
+        aiStatus.style.display = 'flex'
+        aiStatus.style.color = ''
+        aiStatusText.textContent = 'AI 正在处理...'
+        ;(opt as HTMLButtonElement).disabled = true
+
+        try {
+          const res = await fetch('/api/ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, content, title }),
+          })
+          const data = await res.json()
+          if (res.ok && data.result) {
+            aiStatusText.textContent = `完成 (模型: ${data.model})`
+            setTimeout(() => { aiStatus.style.display = 'none' }, 3000)
+
+            if (action === 'title') {
+              const titles = data.result.split('\n').filter((t: string) => t.trim())
+              const chosen = prompt('选择一个标题（输入序号 1-5）:\n\n' + titles.map((t: string, i: number) => `${i+1}. ${t}`).join('\n'))
+              if (chosen && titles[parseInt(chosen)-1]) { titleInput.value = titles[parseInt(chosen)-1].replace(/^\d+[\.\)、]\s*/, ''); markDirty() }
+            } else if (action === 'summarize') {
+              alert('摘要:\n\n' + data.result)
+            } else {
+              if (confirm('是否用 AI 生成的内容替换当前内容？\n\n点击"确定"替换，点击"取消"追加到末尾。')) {
+                contentInput.value = data.result
+              } else {
+                contentInput.value += '\n\n' + data.result
+              }
+              markDirty()
+            }
+          } else {
+            aiStatusText.textContent = `错误: ${data.error || '未知错误'}`
+            aiStatus.style.color = 'var(--red)'
+            setTimeout(() => { aiStatus.style.display = 'none'; aiStatus.style.color = '' }, 5000)
+          }
+        } catch (e) {
+          aiStatusText.textContent = '网络错误，请重试'
+          aiStatus.style.color = 'var(--red)'
+          setTimeout(() => { aiStatus.style.display = 'none'; aiStatus.style.color = '' }, 5000)
+        }
+        ;(opt as HTMLButtonElement).disabled = false
+      })
+    })
 
     toggleBtn.addEventListener('click', () => {
       showPreview = !showPreview
@@ -92,6 +191,42 @@ if (!post) return Astro.redirect('/admin/dashboard')
   .back-link:hover { color: var(--text); }
   .editor-actions { display: flex; gap: 0.5rem; align-items: center; }
   .save-status { font-size: 0.75rem; color: var(--green); }
+
+  .ai-dropdown { position: relative; }
+  .ai-btn { gap: 0.25rem; }
+  .ai-menu {
+    display: none; position: absolute; top: 100%; right: 0; margin-top: 0.375rem;
+    min-width: 240px; padding: 0.375rem; z-index: 100;
+    background: rgba(30,30,30,0.95); backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border); border-radius: var(--radius);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .ai-menu.show { display: block; }
+  .ai-option {
+    display: flex; align-items: center; gap: 0.75rem; width: 100%;
+    padding: 0.5rem 0.625rem; border: none; background: none;
+    border-radius: var(--radius-sm); cursor: pointer; text-align: left;
+    transition: background 0.15s;
+  }
+  .ai-option:hover { background: var(--surface-hover); }
+  .ai-option-icon { font-size: 1rem; flex-shrink: 0; }
+  .ai-option strong { display: block; font-size: 0.8125rem; color: var(--text); }
+  .ai-option small { font-size: 0.6875rem; color: var(--text-muted); }
+  .ai-divider { height: 1px; background: var(--border); margin: 0.25rem 0; }
+
+  .ai-status {
+    display: flex; align-items: center; gap: 0.625rem;
+    padding: 0.625rem 1rem; margin-bottom: 0.75rem;
+    background: rgba(41,151,255,0.08); border: 1px solid rgba(41,151,255,0.15);
+    border-radius: var(--radius-sm); font-size: 0.8125rem; color: var(--primary);
+  }
+  .ai-status-spinner {
+    width: 14px; height: 14px; border: 2px solid rgba(41,151,255,0.2);
+    border-top-color: var(--primary); border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
   .editor-body { display: flex; flex-direction: column; gap: 0.75rem; }
   .title-input { font-size: 1.375rem; font-weight: 600; padding: 0.875rem 1rem; background: var(--surface); }
   .editor { width: 100%; min-height: 65vh; padding: 1rem; font-size: 0.875rem; line-height: 1.8; resize: none; }
