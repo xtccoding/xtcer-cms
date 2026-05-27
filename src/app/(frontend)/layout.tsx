@@ -1,5 +1,5 @@
 import React from 'react'
-import './styles.css'
+import './styles.css' // eslint-disable-line @typescript-eslint/no-unused-vars
 
 export const metadata = {
   description: 'A blank template using Payload in a Next.js app.',
