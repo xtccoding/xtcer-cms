@@ -1,5 +1,15 @@
 ---
 import Layout from '../../layouts/Layout.astro'
+import { supabase } from '../../lib/supabase'
+
+const ADMIN_PASSWORD = import.meta.env.ADMIN_PASSWORD || 'xtcer2024'
+
+const cookie = Astro.cookies.get('admin_auth')
+const isAuthenticated = cookie?.value === ADMIN_PASSWORD
+
+if (!isAuthenticated) {
+  return Astro.redirect('/admin/login')
+}
 ---
 
 <Layout title="管理后台 - XTCer">
@@ -9,6 +19,7 @@ import Layout from '../../layouts/Layout.astro'
         <a href="/" class="logo">XTCer</a>
         <div class="nav-links">
           <a href="/">首页</a>
+          <a href="/admin/logout">退出</a>
         </div>
       </div>
     </nav>

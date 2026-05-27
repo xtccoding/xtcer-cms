@@ -1,0 +1,167 @@
+---
+import Layout from '../layouts/Layout.astro'
+---
+
+<Layout title="服务条款 - XTCer">
+  <main>
+    <nav>
+      <div class="nav-content">
+        <a href="/" class="logo">XTCer</a>
+        <div class="nav-links">
+          <a href="/">首页</a>
+          <a href="/about">关于我们</a>
+          <a href="/privacy">隐私政策</a>
+          <a href="/contact">联系我们</a>
+        </div>
+      </div>
+    </nav>
+
+    <article class="page">
+      <h1>服务条款</h1>
+      <p class="update">最后更新：2026年5月28日</p>
+
+      <section>
+        <h2>1. 服务说明</h2>
+        <p>XTCer 是一个内容管理和发布平台。通过访问和使用本网站，您同意遵守以下条款。</p>
+      </section>
+
+      <section>
+        <h2>2. 用户责任</h2>
+        <p>使用本网站时，您同意：</p>
+        <ul>
+          <li>不发布违法、有害、威胁、侮辱、诽谤或其他不当内容</li>
+          <li>不侵犯他人知识产权</li>
+          <li>不试图攻击或破坏网站安全</li>
+          <li>不使用自动化工具大量获取网站内容</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>3. 内容所有权</h2>
+        <p>用户发布的内容版权归原作者所有。我们保留对违规内容进行删除的权利。</p>
+      </section>
+
+      <section>
+        <h2>4. 知识产权</h2>
+        <p>本网站的设计、代码、商标等知识产权归 XTCer 所有。未经授权，不得复制或使用。</p>
+      </section>
+
+      <section>
+        <h2>5. 免责声明</h2>
+        <p>本网站按"现状"提供，我们不对以下情况负责：</p>
+        <ul>
+          <li>服务中断或延迟</li>
+          <li>内容的准确性和完整性</li>
+          <li>第三方网站的内容</li>
+          <li>因使用本网站造成的任何损失</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>6. 广告</h2>
+        <p>本网站包含第三方广告。点击广告即表示您离开本网站，我们不对第三方网站的内容负责。</p>
+      </section>
+
+      <section>
+        <h2>7. 条款修改</h2>
+        <p>我们保留随时修改这些条款的权利。修改后的条款将在本页面发布，继续使用网站即表示您同意修改后的条款。</p>
+      </section>
+
+      <section>
+        <h2>8. 适用法律</h2>
+        <p>本条款受中华人民共和国法律管辖。任何争议应提交至有管辖权的法院解决。</p>
+      </section>
+
+      <section>
+        <h2>9. 联系方式</h2>
+        <p>如果您对本服务条款有任何疑问，请通过 <a href="/contact">联系我们</a> 页面与我们取得联系。</p>
+      </section>
+    </article>
+  </main>
+</Layout>
+
+<style>
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: rgba(10, 10, 10, 0.8);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
+  }
+
+  .nav-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .logo {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 1.5rem;
+  }
+
+  .nav-links a {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+  }
+
+  .page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 6rem 2rem 4rem;
+  }
+
+  h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .update {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    margin-bottom: 3rem;
+  }
+
+  section {
+    margin-bottom: 2rem;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    color: var(--text);
+  }
+
+  p {
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    line-height: 1.8;
+  }
+
+  ul {
+    margin: 1rem 0;
+    padding-left: 1.5rem;
+    color: var(--text-muted);
+  }
+
+  li {
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+  }
+
+  a {
+    color: var(--primary);
+  }
+</style>

@@ -1,0 +1,188 @@
+---
+import Layout from '../layouts/Layout.astro'
+---
+
+<Layout title="隐私政策 - XTCer">
+  <main>
+    <nav>
+      <div class="nav-content">
+        <a href="/" class="logo">XTCer</a>
+        <div class="nav-links">
+          <a href="/">首页</a>
+          <a href="/about">关于我们</a>
+          <a href="/contact">联系我们</a>
+        </div>
+      </div>
+    </nav>
+
+    <article class="page">
+      <h1>隐私政策</h1>
+      <p class="update">最后更新：2026年5月28日</p>
+
+      <section>
+        <h2>1. 信息收集</h2>
+        <p>XTCer（以下简称"我们"）重视您的隐私。本隐私政策说明我们如何收集、使用和保护您的个人信息。</p>
+        <p>当您访问我们的网站时，我们可能自动收集以下信息：</p>
+        <ul>
+          <li>设备信息（浏览器类型、操作系统）</li>
+          <li>访问日期和时间</li>
+          <li>访问的页面</li>
+          <li>IP 地址</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>2. Cookie 使用</h2>
+        <p>我们使用 Cookie 来：</p>
+        <ul>
+          <li>记住您的登录状态</li>
+          <li>分析网站流量</li>
+          <li>提供个性化广告（通过 Google AdSense）</li>
+        </ul>
+        <p>您可以通过浏览器设置禁用 Cookie，但这可能影响网站功能。</p>
+      </section>
+
+      <section>
+        <h2>3. 广告服务</h2>
+        <p>我们使用 Google AdSense 展示广告。Google 会使用 Cookie 来展示相关广告：</p>
+        <ul>
+          <li>Google 使用 DoubleClick Cookie 展示广告</li>
+          <li>您可以在 <a href="https://www.google.com/settings/ads" target="_blank" rel="noopener">Google 广告设置</a> 中管理广告偏好</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>4. 信息使用</h2>
+        <p>我们收集的信息用于：</p>
+        <ul>
+          <li>改善网站体验</li>
+          <li>分析网站流量</li>
+          <li>提供相关广告内容</li>
+          <li>确保网站安全</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>5. 信息共享</h2>
+        <p>我们不会出售您的个人信息。我们可能在以下情况下共享信息：</p>
+        <ul>
+          <li>法律要求</li>
+          <li>保护我们的权利</li>
+          <li>与服务提供商合作（如 Google Analytics）</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>6. 数据安全</h2>
+        <p>我们采取合理措施保护您的个人信息，但请理解互联网传输不可能完全安全。</p>
+      </section>
+
+      <section>
+        <h2>7. 第三方链接</h2>
+        <p>本网站可能包含第三方网站链接。我们不对这些网站的隐私政策负责。</p>
+      </section>
+
+      <section>
+        <h2>8. 儿童隐私</h2>
+        <p>本网站不针对 13 岁以下儿童。我们不会故意收集儿童的个人信息。</p>
+      </section>
+
+      <section>
+        <h2>9. 政策更新</h2>
+        <p>我们可能不时更新本隐私政策。更新后的政策将在本页面发布。</p>
+      </section>
+
+      <section>
+        <h2>10. 联系我们</h2>
+        <p>如果您对本隐私政策有任何疑问，请通过以下方式联系我们：</p>
+        <p>邮箱：privacy@xtcer.com</p>
+      </section>
+    </article>
+  </main>
+</Layout>
+
+<style>
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: rgba(10, 10, 10, 0.8);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
+  }
+
+  .nav-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .logo {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 1.5rem;
+  }
+
+  .nav-links a {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+  }
+
+  .page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 6rem 2rem 4rem;
+  }
+
+  h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .update {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    margin-bottom: 3rem;
+  }
+
+  section {
+    margin-bottom: 2rem;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    color: var(--text);
+  }
+
+  p {
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    line-height: 1.8;
+  }
+
+  ul {
+    margin: 1rem 0;
+    padding-left: 1.5rem;
+    color: var(--text-muted);
+  }
+
+  li {
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+  }
+
+  a {
+    color: var(--primary);
+  }
+</style>

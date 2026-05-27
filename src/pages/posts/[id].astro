@@ -1,0 +1,160 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { supabase } from '../../lib/supabase'
+
+const { id } = Astro.params
+
+const { data: post } = await supabase
+  .from('posts')
+  .select('*')
+  .eq('id', id)
+  .single()
+
+if (!post) {
+  return Astro.redirect('/')
+}
+---
+
+<Layout title={`${post.title} - XTCer`}>
+  <main>
+    <nav>
+      <div class="nav-content">
+        <a href="/" class="logo">XTCer</a>
+        <div class="nav-links">
+          <a href="/">首页</a>
+        </div>
+      </div>
+    </nav>
+
+    <article class="post">
+      <header>
+        <a href="/" class="back">← 返回</a>
+        <h1>{post.title}</h1>
+        <time>{new Date(post.created_at).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</time>
+      </header>
+      <div class="content" set:html={post.content}>
+      </div>
+    </article>
+  </main>
+</Layout>
+
+<style>
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: rgba(10, 10, 10, 0.8);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
+  }
+
+  .nav-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .logo {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .nav-links a {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+  }
+
+  .post {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 6rem 2rem 4rem;
+  }
+
+  .back {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    display: inline-block;
+    margin-bottom: 2rem;
+  }
+
+  .back:hover {
+    color: var(--text);
+  }
+
+  header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    line-height: 1.2;
+  }
+
+  header time {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+  }
+
+  .content {
+    margin-top: 2rem;
+    font-size: 1.125rem;
+    line-height: 1.8;
+    color: var(--text-muted);
+  }
+
+  .content :global(h2) {
+    font-size: 1.5rem;
+    color: var(--text);
+    margin: 2rem 0 1rem;
+  }
+
+  .content :global(h3) {
+    font-size: 1.25rem;
+    color: var(--text);
+    margin: 1.5rem 0 0.75rem;
+  }
+
+  .content :global(p) {
+    margin-bottom: 1rem;
+  }
+
+  .content :global(a) {
+    color: var(--primary);
+  }
+
+  .content :global(code) {
+    background: var(--surface);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+
+  .content :global(pre) {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+
+  .content :global(ul), .content :global(ol) {
+    margin: 1rem 0;
+    padding-left: 1.5rem;
+  }
+
+  .content :global(li) {
+    margin-bottom: 0.5rem;
+  }
+
+  .content :global(blockquote) {
+    border-left: 3px solid var(--primary);
+    padding-left: 1rem;
+    margin: 1rem 0;
+    color: var(--text-muted);
+  }
+</style>
