@@ -6,6 +6,13 @@ const { data: posts } = await supabase
   .from('posts')
   .select('*')
   .order('created_at', { ascending: false })
+
+const { data: links } = await supabase
+  .from('links')
+  .select('*')
+  .order('sort_order', { ascending: true })
+
+const linkCategories = [...new Set(links?.map(l => l.category) || [])]
 ---
 
 <Layout title="XTCer">
@@ -28,13 +35,40 @@ const { data: posts } = await supabase
       </div>
     </section>
 
-    <section class="posts-section">
-      <div class="container-wide">
-        <div class="section-header">
-          <h2>最新文章</h2>
-          <span class="count">{posts?.length || 0} 篇</span>
+    {links && links.length > 0 && (
+      <section class="links-section">
+        <div class="container-wide">
+          <div class="section-header">
+            <h2>常用导航</h2>
+            <span class="count">{links.length} 个</span>
+          </div>
+          {linkCategories.map(cat => (
+            <div class="link-category">
+              <h3 class="cat-label">{cat}</h3>
+              <div class="links-grid">
+                {links.filter(l => l.category === cat).map(link => (
+                  <a href={link.url} target="_blank" rel="noopener" class="link-card glass-card">
+                    <span class="link-icon">{link.icon || '🔗'}</span>
+                    <div>
+                      <h4>{link.title}</h4>
+                      {link.description && <p>{link.description}</p>}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
-        {posts && posts.length > 0 ? (
+      </section>
+    )}
+
+    {posts && posts.length > 0 && (
+      <section class="posts-section">
+        <div class="container-wide">
+          <div class="section-header">
+            <h2>最新文章</h2>
+            <span class="count">{posts.length} 篇</span>
+          </div>
           <div class="posts-grid">
             {posts.map((post, i) => (
               <a href={`/posts/${post.id}`} class={`post-card glass-card ${i === 0 ? 'featured' : ''}`}>
@@ -44,18 +78,15 @@ const { data: posts } = await supabase
                 </div>
                 <div class="post-footer">
                   <time>{new Date(post.created_at).toLocaleDateString('zh-CN')}</time>
+                  <span>·</span>
                   <span>{Math.ceil((post.content?.replace(/<[^>]*>/g, '').length || 0) / 400)} 分钟</span>
                 </div>
               </a>
             ))}
           </div>
-        ) : (
-          <div class="empty glass-card">
-            <p>暂无内容</p>
-          </div>
-        )}
-      </div>
-    </section>
+        </div>
+      </section>
+    )}
   </main>
 
   <footer class="footer">
@@ -74,15 +105,12 @@ const { data: posts } = await supabase
 </Layout>
 
 <style>
-  .hero {
-    padding: 6rem 0 4rem;
-    text-align: center;
-  }
+  .hero { padding: 6rem 0 3rem; text-align: center; }
   .hero-badge {
     display: inline-block; padding: 0.25rem 0.75rem;
     background: rgba(41,151,255,0.08); border: 1px solid rgba(41,151,255,0.15);
     border-radius: 999px; font-size: 0.75rem; color: var(--primary);
-    margin-bottom: 1.5rem; font-weight: 500; letter-spacing: 0.02em;
+    margin-bottom: 1.5rem; font-weight: 500;
   }
   .hero h1 {
     font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 800;
@@ -90,67 +118,44 @@ const { data: posts } = await supabase
     background: linear-gradient(135deg, #fff 20%, rgba(255,255,255,0.4) 100%);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   }
-  .hero-desc {
-    font-size: 1.125rem; color: var(--text-muted); letter-spacing: 0.01em;
-  }
+  .hero-desc { font-size: 1.125rem; color: var(--text-muted); }
 
-  .posts-section { padding: 0 0 4rem; }
-  .section-header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 1.5rem;
-  }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
   .section-header h2 { font-size: 1.25rem; font-weight: 600; }
   .count { font-size: 0.8125rem; color: var(--text-muted); }
 
-  .posts-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-  }
-  .post-card {
-    display: flex; flex-direction: column; justify-content: space-between;
-    padding: 1.5rem; cursor: pointer;
-  }
-  .post-card.featured {
-    grid-column: 1 / -1;
-  }
+  .links-section { padding: 0 0 3rem; }
+  .link-category { margin-bottom: 1.5rem; }
+  .cat-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; font-weight: 500; }
+  .links-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.5rem; }
+  .link-card { display: flex; align-items: center; gap: 0.75rem; padding: 0.875rem 1rem; cursor: pointer; }
+  .link-card:hover { color: var(--text); }
+  .link-icon { font-size: 1.25rem; flex-shrink: 0; }
+  .link-card h4 { font-size: 0.8125rem; font-weight: 600; margin-bottom: 0.125rem; }
+  .link-card p { font-size: 0.6875rem; color: var(--text-muted); }
+
+  .posts-section { padding: 0 0 4rem; }
+  .posts-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+  .post-card { display: flex; flex-direction: column; justify-content: space-between; padding: 1.25rem 1.5rem; cursor: pointer; }
+  .post-card.featured { grid-column: 1 / -1; }
   .post-card:hover { color: var(--text); transform: translateY(-2px); }
-  .post-card h3 {
-    font-size: 1rem; font-weight: 600; line-height: 1.4; margin-bottom: 0.5rem;
-  }
+  .post-card h3 { font-size: 1rem; font-weight: 600; line-height: 1.4; margin-bottom: 0.5rem; }
   .post-card.featured h3 { font-size: 1.375rem; }
-  .excerpt {
-    color: var(--text-secondary); font-size: 0.8125rem; line-height: 1.65;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-  }
+  .excerpt { color: var(--text-secondary); font-size: 0.8125rem; line-height: 1.65; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .post-card.featured .excerpt { -webkit-line-clamp: 3; }
-  .post-footer {
-    display: flex; gap: 0.75rem; margin-top: 1rem;
-    font-size: 0.75rem; color: var(--text-muted);
-  }
+  .post-footer { display: flex; gap: 0.5rem; margin-top: 1rem; font-size: 0.75rem; color: var(--text-muted); }
 
-  .empty { text-align: center; padding: 6rem 2rem; }
-  .empty p { color: var(--text-muted); }
-
-  .footer {
-    border-top: 1px solid var(--border); padding: 2rem 0;
-    margin-top: 2rem;
-  }
-  .footer-inner {
-    display: flex; justify-content: space-between; align-items: center;
-    font-size: 0.75rem; color: var(--text-muted);
-  }
+  .footer { border-top: 1px solid var(--border); padding: 2rem 0; margin-top: 2rem; }
+  .footer-inner { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted); }
   .footer-links { display: flex; gap: 1.5rem; }
   .footer-links a { color: var(--text-muted); }
   .footer-links a:hover { color: var(--text); }
 
-  @media (max-width: 1024px) {
-    .posts-grid { grid-template-columns: repeat(2, 1fr); }
-  }
+  @media (max-width: 1024px) { .posts-grid { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 640px) {
-    .hero { padding: 4rem 0 3rem; }
+    .hero { padding: 4rem 0 2rem; }
     .posts-grid { grid-template-columns: 1fr; }
     .post-card.featured { grid-column: auto; }
-    .footer-inner { flex-direction: column; gap: 1rem; text-align: center; }
+    .footer-inner { flex-direction: column; gap: 1rem; }
   }
 </style>

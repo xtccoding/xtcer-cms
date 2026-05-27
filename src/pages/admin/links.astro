@@ -1,0 +1,155 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import Sidebar from '../../components/Sidebar.astro'
+import { supabase } from '../../lib/supabase'
+
+const ADMIN_PASSWORD = import.meta.env.ADMIN_PASSWORD || 'xtcer2024'
+const cookie = Astro.cookies.get('admin_auth')
+if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
+
+const { data: links } = await supabase.from('links').select('*').order('sort_order', { ascending: true })
+const categories = [...new Set(links?.map(l => l.category) || [])]
+---
+
+<Layout title="导航管理 - XTCer">
+  <div class="admin-layout">
+    <Sidebar active="links" />
+    <div class="admin-main">
+      <header class="admin-header">
+        <div>
+          <h1>导航管理</h1>
+          <p class="admin-subtitle">{links?.length || 0} 个链接，{categories.length} 个分类</p>
+        </div>
+        <button class="btn btn-primary" id="add-link-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14m-7-7h14"/></svg>
+          添加链接
+        </button>
+      </header>
+
+      <div id="link-form" class="link-form glass-card" style="display:none">
+        <h3 id="form-title">添加链接</h3>
+        <input type="hidden" id="link-id" />
+        <div class="form-grid">
+          <div><label class="label">标题 *</label><input type="text" id="link-title" class="input" placeholder="Google" /></div>
+          <div><label class="label">URL *</label><input type="text" id="link-url" class="input" placeholder="https://google.com" /></div>
+          <div><label class="label">描述</label><input type="text" id="link-desc" class="input" placeholder="搜索引擎" /></div>
+          <div><label class="label">分类</label><input type="text" id="link-cat" class="input" placeholder="工具" value="默认" /></div>
+          <div><label class="label">图标 (emoji)</label><input type="text" id="link-icon" class="input" placeholder="🔍" /></div>
+        </div>
+        <div style="display:flex;gap:0.5rem;margin-top:1rem">
+          <button class="btn btn-primary btn-sm" id="save-link">保存</button>
+          <button class="btn btn-ghost btn-sm" id="cancel-link">取消</button>
+        </div>
+      </div>
+
+      {categories.length > 0 ? categories.map(cat => (
+        <section class="cat-section">
+          <h2 class="cat-title">{cat}</h2>
+          <div class="links-list">
+            {links?.filter(l => l.category === cat).map(link => (
+              <div class="link-item glass-card" data-id={link.id}>
+                <div class="link-info">
+                  <span class="link-icon">{link.icon || '🔗'}</span>
+                  <div>
+                    <h3>{link.title}</h3>
+                    <a href={link.url} target="_blank" rel="noopener">{link.url}</a>
+                    {link.description && <p>{link.description}</p>}
+                  </div>
+                </div>
+                <div class="link-actions">
+                  <button class="btn btn-ghost btn-sm edit-link" data-id={link.id} data-title={link.title} data-url={link.url} data-desc={link.description} data-cat={link.category} data-icon={link.icon}>编辑</button>
+                  <button class="btn btn-danger btn-sm del-link" data-id={link.id}>删除</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )) : (
+        <div class="empty glass-card">
+          <p>还没有导航链接</p>
+          <button class="btn btn-primary" onclick="document.getElementById('add-link-btn').click()">添加第一个</button>
+        </div>
+      )}
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('link-form')!
+    const formTitle = document.getElementById('form-title')!
+    const linkId = document.getElementById('link-id') as HTMLInputElement
+    const linkTitle = document.getElementById('link-title') as HTMLInputElement
+    const linkUrl = document.getElementById('link-url') as HTMLInputElement
+    const linkDesc = document.getElementById('link-desc') as HTMLInputElement
+    const linkCat = document.getElementById('link-cat') as HTMLInputElement
+    const linkIcon = document.getElementById('link-icon') as HTMLInputElement
+
+    document.getElementById('add-link-btn')?.addEventListener('click', () => {
+      formTitle.textContent = '添加链接'
+      linkId.value = ''; linkTitle.value = ''; linkUrl.value = ''; linkDesc.value = ''; linkCat.value = '默认'; linkIcon.value = ''
+      form.style.display = 'block'
+      linkTitle.focus()
+    })
+
+    document.getElementById('cancel-link')?.addEventListener('click', () => { form.style.display = 'none' })
+
+    document.querySelectorAll('.edit-link').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const d = (btn as HTMLElement).dataset
+        formTitle.textContent = '编辑链接'
+        linkId.value = d.id!; linkTitle.value = d.title!; linkUrl.value = d.url!; linkDesc.value = d.desc || ''; linkCat.value = d.cat || '默认'; linkIcon.value = d.icon || ''
+        form.style.display = 'block'; linkTitle.focus()
+      })
+    })
+
+    document.getElementById('save-link')?.addEventListener('click', async () => {
+      const id = linkId.value
+      const body = { title: linkTitle.value.trim(), url: linkUrl.value.trim(), description: linkDesc.value.trim(), category: linkCat.value.trim() || '默认', icon: linkIcon.value.trim() }
+      if (!body.title || !body.url) return
+      const method = id ? 'PUT' : 'POST'
+      const url = id ? `/api/links/${id}` : '/api/links'
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      if (res.ok) location.reload()
+    })
+
+    document.querySelectorAll('.del-link').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('确定删除？')) return
+        const id = (btn as HTMLElement).dataset.id
+        await fetch(`/api/links/${id}`, { method: 'DELETE' })
+        btn.closest('.link-item')?.remove()
+      })
+    })
+  </script>
+</Layout>
+
+<style>
+  .admin-layout { display: flex; min-height: 100vh; }
+  .admin-main { flex: 1; margin-left: 200px; padding: 1.5rem; }
+  .admin-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; }
+  .admin-header h1 { font-size: 1.5rem; font-weight: 700; }
+  .admin-subtitle { color: var(--text-muted); font-size: 0.8125rem; margin-top: 0.125rem; }
+
+  .link-form { padding: 1.5rem; margin-bottom: 1.5rem; }
+  .link-form h3 { margin-bottom: 1rem; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; }
+
+  .cat-section { margin-bottom: 1.5rem; }
+  .cat-title { font-size: 0.875rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .links-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.5rem; }
+  .link-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; }
+  .link-info { display: flex; gap: 0.75rem; align-items: flex-start; flex: 1; min-width: 0; }
+  .link-icon { font-size: 1.25rem; flex-shrink: 0; }
+  .link-info h3 { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.125rem; }
+  .link-info a { font-size: 0.75rem; color: var(--text-muted); word-break: break-all; }
+  .link-info p { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; }
+  .link-actions { display: flex; gap: 0.25rem; flex-shrink: 0; }
+
+  .empty { text-align: center; padding: 3rem; }
+  .empty p { color: var(--text-muted); margin-bottom: 1rem; }
+
+  @media (max-width: 768px) {
+    .admin-main { margin-left: 0; }
+    .links-list { grid-template-columns: 1fr; }
+    .link-item { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+  }
+</style>
