@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro'
 import Sidebar from '../../components/Sidebar.astro'
 import { supabase } from '../../lib/supabase'
+import { marked } from 'marked'
 
 const ADMIN_PASSWORD = import.meta.env.ADMIN_PASSWORD || 'xtcer2024'
 const cookie = Astro.cookies.get('admin_auth')
@@ -38,11 +39,11 @@ const { data: posts } = await supabase
           <div class="post-row glass-card" data-id={post.id} data-title={post.title.toLowerCase()}>
             <div class="post-row-body">
               <h3>{post.title}</h3>
-              <p>{post.content?.replace(/<[^>]*>/g, '').substring(0, 100)}</p>
+              <p>{(post.content ? String(marked.parse(post.content)) : '').replace(/<[^>]*>/g, '').replace(/\n+/g, ' ').trim().substring(0, 100) || '暂无内容'}</p>
               <div class="post-row-meta">
                 <time>{new Date(post.created_at).toLocaleDateString('zh-CN')}</time>
                 <span>·</span>
-                <span>{Math.ceil((post.content?.replace(/<[^>]*>/g, '').length || 0) / 400)} 分钟阅读</span>
+                <span>{Math.ceil(((post.content ? String(marked.parse(post.content)).replace(/<[^>]*>/g, '').length : 0)) / 400)} 分钟阅读</span>
               </div>
             </div>
             <div class="post-row-actions">
