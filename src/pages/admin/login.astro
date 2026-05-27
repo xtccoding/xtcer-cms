@@ -3,75 +3,51 @@ import Layout from '../../layouts/Layout.astro'
 
 const ADMIN_PASSWORD = import.meta.env.ADMIN_PASSWORD || 'xtcer2024'
 const cookie = Astro.cookies.get('admin_auth')
-if (cookie?.value === ADMIN_PASSWORD) {
-  return Astro.redirect('/admin')
-}
+if (cookie?.value === ADMIN_PASSWORD) return Astro.redirect('/admin')
 
 let error = ''
-
 if (Astro.request.method === 'POST') {
   const formData = await Astro.request.formData()
   const password = formData.get('password')
-
   if (password === ADMIN_PASSWORD) {
-    Astro.cookies.set('admin_auth', ADMIN_PASSWORD, {
-      path: '/', httpOnly: true, secure: true, sameSite: 'lax', maxAge: 60 * 60 * 24 * 7,
-    })
+    Astro.cookies.set('admin_auth', ADMIN_PASSWORD, { path: '/', httpOnly: true, secure: true, sameSite: 'lax', maxAge: 60*60*24*7 })
     return Astro.redirect('/admin')
-  } else {
-    error = '密码错误'
-  }
+  } else { error = '密码错误' }
 }
 ---
 
 <Layout title="登录 - XTCer">
-  <main>
-    <div class="login-container">
-      <div class="login-card glass-card">
-        <div class="login-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--primary)">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
-          </svg>
-        </div>
-        <h1>管理后台</h1>
-        <p>请输入密码登录</p>
-
-        {error && <div class="error">{error}</div>}
-
-        <form method="POST">
-          <input type="password" name="password" class="input" placeholder="输入密码" required autofocus />
-          <button type="submit" class="btn btn-primary login-btn">登录</button>
-        </form>
-
-        <a href="/" class="back">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-          返回首页
-        </a>
+  <div class="login-page">
+    <div class="login-card glass-card">
+      <div class="login-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+        </svg>
       </div>
+      <h1>管理后台</h1>
+      <p>输入密码登录</p>
+      {error && <div class="error">{error}</div>}
+      <form method="POST">
+        <input type="password" name="password" class="input" placeholder="密码" required autofocus />
+        <button type="submit" class="btn btn-primary login-btn">登录</button>
+      </form>
+      <a href="/" class="back-link">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        返回首页
+      </a>
     </div>
-  </main>
+  </div>
 </Layout>
 
 <style>
-  .login-container {
-    min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem;
-  }
-  .login-card {
-    width: 100%; max-width: 380px; text-align: center; padding: 2.5rem;
-  }
-  .login-icon { margin-bottom: 1.5rem; }
-  h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
-  p { color: var(--text-muted); margin-bottom: 2rem; font-size: 0.875rem; }
-  .error {
-    background: rgba(255,69,58,0.1); border: 1px solid rgba(255,69,58,0.2);
-    color: var(--red); padding: 0.75rem; border-radius: var(--radius-sm);
-    margin-bottom: 1rem; font-size: 0.875rem;
-  }
-  form { display: flex; flex-direction: column; gap: 0.75rem; }
-  .login-btn { width: 100%; padding: 0.75rem; font-size: 0.9375rem; justify-content: center; }
-  .back {
-    display: inline-flex; align-items: center; gap: 0.375rem;
-    margin-top: 1.5rem; color: var(--text-muted); font-size: 0.8125rem;
-  }
-  .back:hover { color: var(--text); }
+  .login-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+  .login-card { width: 100%; max-width: 360px; text-align: center; padding: 2.5rem; }
+  .login-icon { margin-bottom: 1.25rem; }
+  h1 { font-size: 1.375rem; font-weight: 700; margin-bottom: 0.375rem; }
+  p { color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 1.5rem; }
+  .error { background: rgba(255,69,58,0.08); border: 1px solid rgba(255,69,58,0.15); color: var(--red); padding: 0.625rem; border-radius: var(--radius-sm); margin-bottom: 0.75rem; font-size: 0.8125rem; }
+  form { display: flex; flex-direction: column; gap: 0.625rem; }
+  .login-btn { width: 100%; padding: 0.625rem; justify-content: center; }
+  .back-link { display: inline-flex; align-items: center; gap: 0.25rem; margin-top: 1.25rem; color: var(--text-muted); font-size: 0.75rem; }
+  .back-link:hover { color: var(--text); }
 </style>
