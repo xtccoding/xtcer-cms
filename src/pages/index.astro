@@ -15,8 +15,7 @@ const { data: posts } = await supabase
       <div class="nav-content">
         <a href="/" class="logo">XTCer</a>
         <div class="nav-links">
-          <a href="/admin">管理后台</a>
-          <a href="https://supabase.com/dashboard" target="_blank">Supabase</a>
+          <a href="/about">关于</a>
         </div>
       </div>
     </nav>
@@ -46,7 +45,6 @@ const { data: posts } = await supabase
       ) : (
         <div class="empty">
           <p>还没有内容</p>
-          <a href="/admin">去管理后台创建第一篇内容</a>
         </div>
       )}
     </section>
