@@ -168,3 +168,6 @@ src/
 - Supabase 免费版 500MB 数据库 + 1GB 存储
 - AI 写作助手使用免费模型，可能不稳定（已做模型切换容错）
 - 无文件上传功能（Supabase Storage 可扩展）
+
+## 已修复问题
+- **2026-05-28**: 管理页面文章预览未正确渲染 Markdown，导致纯文本语法标记显示或内容为空。修复方式：先 `marked.parse()` 转 HTML 再剥离标签提取纯文本（`dashboard.astro`）
