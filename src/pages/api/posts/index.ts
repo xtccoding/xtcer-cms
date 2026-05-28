@@ -1,5 +1,14 @@
 import { supabase } from '../../../lib/supabase'
 
+function isAuthenticated(cookies: any, request: Request, env: any): boolean {
+  const cookieAuth = cookies.get('admin_auth')
+  if (cookieAuth) return true
+  const feedKey = request.headers.get('X-Feed-Key')
+  const validKey = env?.FEED_API_KEY || import.meta.env.FEED_API_KEY
+  if (feedKey && feedKey === validKey) return true
+  return false
+}
+
 export async function GET({ cookies }: { cookies: any }) {
   const auth = cookies.get('admin_auth')
   if (!auth) {
@@ -20,9 +29,8 @@ export async function GET({ cookies }: { cookies: any }) {
   })
 }
 
-export async function POST({ request, cookies }: { request: Request; cookies: any }) {
-  const auth = cookies.get('admin_auth')
-  if (!auth) {
+export async function POST({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
+  if (!isAuthenticated(cookies, request, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
