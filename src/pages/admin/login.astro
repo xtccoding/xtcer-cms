@@ -1,7 +1,8 @@
 ---
 import Layout from '../../layouts/Layout.astro'
 
-const ADMIN_PASSWORD = import.meta.env.ADMIN_PASSWORD || 'xtcer2024'
+const runtimeEnv = (Astro.locals as any)?.runtime?.env
+const ADMIN_PASSWORD = runtimeEnv?.ADMIN_PASSWORD || import.meta.env.ADMIN_PASSWORD || 'xtcer2024'
 const cookie = Astro.cookies.get('admin_auth')
 if (cookie?.value === ADMIN_PASSWORD) return Astro.redirect('/admin')
 
