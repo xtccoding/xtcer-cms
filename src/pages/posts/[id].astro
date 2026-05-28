@@ -151,7 +151,13 @@ const hasToc = tocItems.length > 0
     position: sticky; top: 80px; align-self: flex-start;
     width: 220px; flex-shrink: 0; margin-right: 2rem;
     max-height: calc(100vh - 100px); overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
   }
+  .toc-sidebar::-webkit-scrollbar { width: 4px; }
+  .toc-sidebar::-webkit-scrollbar-track { background: transparent; }
+  .toc-sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+  .toc-sidebar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
   .toc-inner {
     padding: 1rem; background: var(--surface);
     border: 1px solid var(--glass-border); border-radius: var(--radius);
