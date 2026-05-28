@@ -1,8 +1,28 @@
 # XTCer CMS
 
-> 轻量级内容管理系统 — Astro + Supabase + Cloudflare Pages
+> 🚀 **[Live Demo](https://xtcer.cn)** — 技术文章 · 云服务优惠 · AI 情报 · 安全漏洞实时推送
 
-一个极简、快速、全功能的 CMS，支持文章管理、云服务优惠目录、多源情报流、AI 写作助手，部署在 Cloudflare Pages 免费套餐上。
+一个基于 **Astro + Supabase + Cloudflare Pages** 的轻量级 CMS，零成本部署，极速加载。
+
+![Astro](https://img.shields.io/badge/Astro-SSR-FF5D01?logo=astro)
+![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase)
+![Cloudflare](https://img.shields.io/badge/Cloudflare-Pages-F38020?logo=cloudflare)
+![License](https://img.shields.io/badge/License-MIT-blue)
+
+---
+
+## Demo
+
+**🔗 [https://xtcer.cn](https://xtcer.cn)**
+
+| 页面 | 链接 | 说明 |
+|------|------|------|
+| 首页 | [xtcer.cn](https://xtcer.cn) | 文章 + 导航 + 最新情报 |
+| 文章 | [xtcer.cn/posts/...](https://xtcer.cn) | Markdown + 目录 + 评论 |
+| 优惠 | [xtcer.cn/deals](https://xtcer.cn/deals) | 云服务产品目录 |
+| 情报 | [xtcer.cn/feeds](https://xtcer.cn/feeds) | 8 类实时情报流 |
+| RSS | [xtcer.cn/rss.xml](https://xtcer.cn/rss.xml) | 订阅源 |
+| 管理后台 | [xtcer.cn/admin](https://xtcer.cn/admin) | 密码保护 |
 
 ---
 
@@ -10,31 +30,33 @@
 
 | 模块 | 功能 | 状态 |
 |------|------|------|
-| 📝 文章 | Markdown 编辑器 + 预览 + AI 助手 + 目录 + 评论 | ✅ |
+| 📝 文章 | Markdown 编辑器 + 预览 + AI 助手 + 目录 + 评论 + 浏览量 | ✅ |
 | 🔗 导航 | 分组管理常用链接 | ✅ |
 | 💰 优惠 | 云服务产品目录，外部 cron 推送 | ✅ |
 | 📡 情报 | 8 类情报流，3 层防重，多 bot 推送 | ✅ |
 | 👁 访客 | 自动记录 + 统计 + IP 黑名单 | ✅ |
-| 🔍 搜索 | 全局搜索（文章 + 情报 + 优惠） | ✅ |
-| 📊 SEO | sitemap.xml + OG meta + RSS | ✅ |
+| 🔍 搜索 | 全局搜索（Cmd+K / Ctrl+K） | ✅ |
+| 📊 SEO | sitemap.xml + OG meta + RSS + Schema.org | ✅ |
 | 💬 评论 | Giscus（基于 GitHub Discussions） | ✅ |
 | 🤖 AI | Cerebras 免费模型（润色/扩展/摘要/翻译） | ✅ |
+| 🌗 主题 | Light / Dark 切换，localStorage 持久化 | ✅ |
+| 📱 响应式 | 移动端完美适配 | ✅ |
 
 ---
 
 ## 技术栈
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    XTCer CMS                         │
-├──────────────┬──────────────┬───────────────────────┤
-│   Astro SSR  │   Supabase   │  Cloudflare Pages     │
-│   (前端框架)  │  (数据库/API) │   (部署/CDN/Workers)  │
-├──────────────┼──────────────┼───────────────────────┤
-│   marked     │  PostgreSQL  │  边缘计算              │
-│   Giscus     │  Row Level   │  自动 HTTPS            │
-│   Cerebras   │  Security    │  环境变量              │
-└──────────────┴──────────────┴───────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                       XTCer CMS                             │
+├────────────────┬────────────────┬───────────────────────────┤
+│   Astro SSR    │   Supabase     │   Cloudflare Pages        │
+│   (前端框架)    │  (PostgreSQL)  │   (部署 / CDN / Workers)  │
+├────────────────┼────────────────┼───────────────────────────┤
+│   marked       │  Row Level     │   边缘计算 (Edge Runtime)  │
+│   Giscus       │  Security      │   自动 HTTPS              │
+│   Cerebras AI  │  JSONB 扩展     │   环境变量                │
+└────────────────┴────────────────┴───────────────────────────┘
 ```
 
 ---
@@ -46,7 +68,7 @@ src/
 ├── components/
 │   └── Sidebar.astro              # 管理后台侧边栏
 ├── layouts/
-│   └── Layout.astro               # 全局布局 + 搜索弹窗 + SEO meta
+│   └── Layout.astro               # 全局布局 + 搜索弹窗 + 主题切换 + SEO
 ├── lib/
 │   ├── supabase.ts                # Supabase 客户端
 │   └── database.types.ts          # TypeScript 类型定义
@@ -55,10 +77,10 @@ src/
 │   ├── index.astro                # 首页（文章 + 导航 + 情报）
 │   ├── deals.astro                # 云服务优惠列表
 │   ├── feeds.astro                # 情报流（8 分类 Tab）
-│   ├── posts/[id].astro           # 文章详情（Markdown + TOC + 评论）
+│   ├── posts/[id].astro           # 文章详情（Markdown + TOC + 评论 + 更多文章）
 │   ├── about / contact / privacy / tos
 │   ├── admin/
-│   │   ├── index.astro            # 设置页（架构概览 + 建表 SQL）
+│   │   ├── index.astro            # 设置页（架构概览 + 全量建表 SQL）
 │   │   ├── login.astro            # 登录
 │   │   ├── dashboard.astro        # 文章管理
 │   │   ├── new.astro              # 新建文章（AI 助手）
@@ -95,8 +117,6 @@ npm install
 
 ### 2. 配置环境变量
 
-复制 `.env.example` 并填写：
-
 ```bash
 cp .env.example .env
 ```
@@ -112,16 +132,14 @@ FEED_API_KEY=your-feed-api-key
 
 在 Supabase SQL Editor 中执行建表 SQL（完整 SQL 在管理后台 `/admin` 设置页可一键复制）。
 
-包含 6 张表：
-
 | 表名 | 用途 | 特殊约束 |
 |------|------|----------|
-| `posts` | 文章 | — |
+| `posts` | 文章 | `views` 浏览量计数 |
 | `links` | 导航链接 | — |
 | `visitors` | 访客记录 | — |
 | `blacklist` | IP 黑名单 | `ip UNIQUE` |
 | `deals` | 云服务优惠 | `UNIQUE(provider, product)` |
-| `feeds` | 情报流 | `UNIQUE(feed_type, title)` |
+| `feeds` | 情报流 | `UNIQUE(feed_type, title)` + `url_hash` |
 
 所有表启用 RLS，策略为全开放（写入安全靠 API 层认证）。
 
@@ -135,11 +153,11 @@ npm run dev
 
 ### 5. 部署
 
-推送到 GitHub，Cloudflare Pages 自动构建部署。
-
 ```bash
 git push origin main
 ```
+
+Cloudflare Pages 自动构建部署。
 
 ---
 
@@ -150,18 +168,15 @@ git push origin main
 | `PUBLIC_SUPABASE_URL` | ✅ | Supabase 项目 URL |
 | `PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase 匿名 Key |
 | `ADMIN_PASSWORD` | ✅ | 管理后台密码（无硬编码回退） |
-| `FEED_API_KEY` | ✅ | 外部推送认证 Key（Hermes + Junier 共用） |
+| `FEED_API_KEY` | ✅ | 外部推送认证 Key |
 
-> 环境变量在 Cloudflare Pages → Settings → Environment variables 中配置。
-> 变量在构建时通过 `import.meta.env` 注入，运行时通过 `locals.runtime.env` 读取。
+> 在 Cloudflare Pages → Settings → Environment variables 中配置。
 
 ---
 
 ## API 文档
 
 ### 认证方式
-
-所有写入 API 支持两种认证：
 
 | 方式 | 用于 | 说明 |
 |------|------|------|
@@ -175,30 +190,25 @@ git push origin main
 | `/api/posts` | GET | Cookie | 文章列表 |
 | `/api/posts` | POST | Cookie / Key | 创建文章 |
 | `/api/posts/[id]` | GET | 公开 | 文章详情 |
-| `/api/posts/[id]` | PUT | Cookie / Key | 更新文章 |
-| `/api/posts/[id]` | DELETE | Cookie / Key | 删除文章 |
+| `/api/posts/[id]` | PUT / DELETE | Cookie / Key | 更新 / 删除 |
 | `/api/posts/views` | POST | 公开 | 浏览量 +1 |
-| `/api/deals` | GET | 公开 | 优惠列表（支持 category/region 筛选） |
-| `/api/deals` | POST | Cookie / Key | 创建优惠 |
-| `/api/deals` | PUT | Cookie / Key | 更新优惠 |
-| `/api/deals` | DELETE | Cookie / Key | 删除优惠 |
+| `/api/deals` | GET | 公开 | 优惠列表（category / region 筛选） |
+| `/api/deals` | POST / PUT / DELETE | Cookie / Key | CRUD |
 | `/api/deals/batch` | POST | Cookie / Key | 批量 upsert |
-| `/api/feeds` | GET | 公开 | 情报列表（支持 type/priority 筛选） |
-| `/api/feeds` | POST | Cookie / Key | 创建情报 |
-| `/api/feeds` | PUT | Cookie / Key | 更新情报 |
-| `/api/feeds` | DELETE | Cookie / Key | 删除情报 |
+| `/api/feeds` | GET | 公开 | 情报列表（type / priority 筛选） |
+| `/api/feeds` | POST / PUT / DELETE | Cookie / Key | CRUD |
 | `/api/feeds/batch` | POST | Cookie / Key | 批量 upsert（3 层防重） |
-| `/api/links` | GET/POST | Cookie | 导航链接 |
-| `/api/links/[id]` | PUT/DELETE | Cookie | 导航链接 |
+| `/api/links` | GET / POST | Cookie | 导航链接 |
+| `/api/links/[id]` | PUT / DELETE | Cookie | 导航链接 |
 | `/api/visitors` | GET | Cookie | 访客统计 |
-| `/api/visitors/track` | POST | 公开 | 记录访客（中间件调用） |
-| `/api/blacklist` | GET/POST/DELETE | Cookie | 黑名单 |
+| `/api/visitors/track` | POST | 公开 | 记录访客 |
+| `/api/blacklist` | GET / POST / DELETE | Cookie | 黑名单 |
 | `/api/search` | GET | 公开 | 全文搜索 |
 | `/api/ai` | POST | Cookie | AI 写作助手 |
 
 ### 批量推送示例
 
-**推送优惠（deals）：**
+**推送优惠：**
 
 ```bash
 curl -X POST https://xtcer.cn/api/deals/batch \
@@ -211,16 +221,13 @@ curl -X POST https://xtcer.cn/api/deals/batch \
       "price": "¥29/年",
       "price_cny": 29,
       "config": "2核2G / 40G",
-      "bandwidth": "1-3M不限流量",
       "category": "compute",
-      "region": "cn",
-      "type": "promotion",
-      "target": "new_user"
+      "region": "cn"
     }]
   }'
 ```
 
-**推送情报（feeds）：**
+**推送情报：**
 
 ```bash
 curl -X POST https://xtcer.cn/api/feeds/batch \
@@ -257,16 +264,16 @@ curl -X POST https://xtcer.cn/api/posts \
 
 ### 8 大情报分类
 
-| 分类 | feed_type | 说明 |
-|------|-----------|------|
-| 🔒 安全 | `security` | CVE、漏洞、攻击事件 |
-| 🐙 GitHub | `github_trending` | 开源热门项目 |
-| 🤖 AI | `ai_monetization` | AI API 额度/价差 |
-| 💰 加密 | `crypto_alpha` | DeFi/空投/新链 |
-| 💸 捡漏 | `deal_hunt` | 云服务/域名/工具优惠 |
-| 📰 行业 | `industry_move` | 大厂动态/收购/政策 |
-| 🛠 工具 | `devtool_launch` | 新 CLI/插件/平台 |
-| 🎓 学习 | `learn_alpha` | 免费课程/资源 |
+| 分类 | feed_type | 说明 | 频率 |
+|------|-----------|------|------|
+| 🔒 安全 | `security` | CVE、漏洞、攻击事件 | 每天 2 次 |
+| 🐙 GitHub | `github_trending` | 开源热门项目 | 每天 1 次 |
+| 🤖 AI | `ai_monetization` | AI API 额度 / 价差 | 每天 1 次 |
+| 💰 加密 | `crypto_alpha` | DeFi / 空投 / 新链 | 每天 2 次 |
+| 💸 捡漏 | `deal_hunt` | 云服务 / 域名 / 工具优惠 | 每天 1 次 |
+| 📰 行业 | `industry_move` | 大厂动态 / 收购 / 政策 | 每周 2 次 |
+| 🛠 工具 | `devtool_launch` | 新 CLI / 插件 / 平台 | 每周 1 次 |
+| 🎓 学习 | `learn_alpha` | 免费课程 / 资源 | 每周 1 次 |
 
 ### 3 层防重机制
 
@@ -301,7 +308,7 @@ Hermes (Bot 1)                    Junier (Bot 2)
 | 路径 | 说明 |
 |------|------|
 | `/` | 首页（文章 + 导航 + 最新情报） |
-| `/posts/[id]` | 文章详情（Markdown + TOC + Giscus 评论） |
+| `/posts/[id]` | 文章详情（Markdown + TOC + 评论 + 更多文章悬浮框） |
 | `/deals` | 云服务优惠（分类 Tab + 卡片） |
 | `/feeds` | 情报流（8 分类 Tab + 优先级标记） |
 | `/about` | 关于我们 |
@@ -315,7 +322,7 @@ Hermes (Bot 1)                    Junier (Bot 2)
 
 | 路径 | 说明 |
 |------|------|
-| `/admin` | 设置页（架构概览 + 建表 SQL） |
+| `/admin` | 设置页（架构概览 + 全量建表 SQL） |
 | `/admin/login` | 登录 |
 | `/admin/dashboard` | 文章管理 |
 | `/admin/new` | 新建文章（AI 助手） |
@@ -329,11 +336,12 @@ Hermes (Bot 1)                    Junier (Bot 2)
 
 ## 设计风格
 
-- 暗色主题（黑色背景 + 白色文字）
-- 苹果毛玻璃特效（`backdrop-filter: blur`）
-- 渐变背景 + 网格纹理
-- 响应式：3 列（大屏）→ 2 列（平板）→ 1 列（手机）
-- 细线半透明滚动条
+- 🌗 Light / Dark 主题切换（localStorage 持久化，系统跟随）
+- 🪟 苹果毛玻璃特效（`backdrop-filter: blur`）
+- 🎨 渐变背景 + 网格纹理
+- 📱 响应式：3 列（大屏）→ 2 列（平板）→ 1 列（手机）
+- 📜 细线半透明滚动条
+- ⌨️ 全局搜索快捷键（Cmd+K / Ctrl+K）
 
 ---
 
@@ -350,6 +358,19 @@ Hermes (Bot 1)                    Junier (Bot 2)
 | 翻译 | 中英互译 |
 
 模型按顺序尝试：`gpt-oss-120b` → `zai-glm-4.7` → `qwen-3-235b` → `llama3.1-8b`
+
+---
+
+## SEO 优化
+
+- ✅ sitemap.xml（自动更新，包含所有文章）
+- ✅ robots.txt（允许所有爬虫）
+- ✅ Open Graph meta 标签
+- ✅ Schema.org Article 结构化数据
+- ✅ canonical URL
+- ✅ RSS 订阅
+- ✅ 语义化 HTML
+- ✅ Lighthouse 满分架构
 
 ---
 
