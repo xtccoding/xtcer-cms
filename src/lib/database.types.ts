@@ -94,8 +94,12 @@ export interface Database {
           url: string | null
           normalized_url: string | null
           source: string | null
+          summary: string | null
+          tags: string[] | null
           priority: string
-          metadata: Record<string, any>
+          metadata: Record<string, any> | null
+          url_hash: string | null
+          published_at: string | null
           created_at: string
           updated_at: string
         }
@@ -106,8 +110,12 @@ export interface Database {
           url?: string | null
           normalized_url?: string | null
           source?: string | null
+          summary?: string | null
+          tags?: string[] | null
           priority?: string
-          metadata?: Record<string, any>
+          metadata?: Record<string, any> | null
+          url_hash?: string | null
+          published_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -118,8 +126,12 @@ export interface Database {
           url?: string | null
           normalized_url?: string | null
           source?: string | null
+          summary?: string | null
+          tags?: string[] | null
           priority?: string
-          metadata?: Record<string, any>
+          metadata?: Record<string, any> | null
+          url_hash?: string | null
+          published_at?: string | null
           created_at?: string
           updated_at?: string
         }

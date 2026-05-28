@@ -53,6 +53,10 @@ const typeLabels: Record<string, string> = {
             <h3 class="feed-title">
               {feed.url ? <a href={feed.url} target="_blank" rel="noopener">{feed.title}</a> : feed.title}
             </h3>
+            {feed.summary && <p class="feed-summary">{feed.summary}</p>}
+            {feed.tags && feed.tags.length > 0 && (
+              <div class="feed-tags">{feed.tags.map((t: string) => <span class="tag">{t}</span>)}</div>
+            )}
             {feed.source && <span class="feed-source">来源: {feed.source}</span>}
             <div class="feed-actions">
               <button class="btn btn-danger btn-sm del-feed" data-id={feed.id}>删除</button>

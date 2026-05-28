@@ -9,11 +9,17 @@ function isAuthenticated(cookies: any, request: Request): boolean {
 }
 
 function normalizeUrl(url: string): string {
-  return url
-    .replace(/\/$/, '')
-    .replace(/#\w+$/, '')
-    .replace(/\?.*$/, '')
-    .toLowerCase()
+  return url.replace(/\/$/, '').replace(/#\w+$/, '').replace(/\?.*$/, '').toLowerCase()
+}
+
+function urlHash(url: string): string {
+  let hash = 0
+  const normalized = normalizeUrl(url)
+  for (let i = 0; i < normalized.length; i++) {
+    hash = ((hash << 5) - hash) + normalized.charCodeAt(i)
+    hash |= 0
+  }
+  return Math.abs(hash).toString(36)
 }
 
 function extractKey(text: string): string {
@@ -31,27 +37,42 @@ export async function POST({ request, cookies }: { request: Request; cookies: an
   if (!isAuthenticated(cookies, request)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const body = await request.json()
-  const { feeds } = body
-  if (!Array.isArray(feeds) || feeds.length === 0) {
-    return new Response(JSON.stringify({ error: 'feeds array required' }), { status: 400 })
+
+  // Support both formats:
+  // Hermes: { type: "ai_monetization", items: [...] }
+  // Legacy: { feeds: [...] }
+  let feedType: string | null = null
+  let items: any[] = []
+
+  if (body.type && Array.isArray(body.items)) {
+    feedType = body.type
+    items = body.items
+  } else if (Array.isArray(body.feeds)) {
+    items = body.feeds
+  } else {
+    return new Response(JSON.stringify({ error: 'Expected { type, items } or { feeds }' }), { status: 400 })
   }
 
   const oneDayAgo = new Date(Date.now() - 86400000).toISOString()
-  const results = { inserted: 0, updated: 0, skipped: 0 }
+  const results = { inserted: 0, updated: 0, skipped: 0, errors: [] as string[] }
 
-  for (const item of feeds) {
-    const { feed_type, title, url: feedUrl, source, priority, metadata } = item
+  for (const item of items) {
+    const feed_type = feedType || item.feed_type
+    const { title, url: feedUrl, source, summary, tags, priority, metadata, published_at } = item
     if (!feed_type || !title) { results.skipped++; continue }
 
+    const now = new Date().toISOString()
     const insertData: any = {
-      feed_type, title, source,
+      feed_type, title, source, summary, tags,
       priority: priority || 'normal',
       metadata: metadata || {},
-      updated_at: new Date().toISOString(),
+      published_at: published_at || now,
+      updated_at: now,
     }
     if (feedUrl) {
       insertData.url = feedUrl
       insertData.normalized_url = normalizeUrl(feedUrl)
+      insertData.url_hash = urlHash(feedUrl)
     }
 
     // Layer 1: UNIQUE(feed_type, title) upsert
@@ -65,19 +86,17 @@ export async function POST({ request, cookies }: { request: Request; cookies: an
       continue
     }
 
-    // Layer 2: URL normalized dedup
-    if (insertData.normalized_url) {
+    // Layer 2: url_hash dedup
+    if (insertData.url_hash) {
       const { data: existing } = await supabase
         .from('feeds')
         .select('id')
         .eq('feed_type', feed_type)
-        .eq('normalized_url', insertData.normalized_url)
+        .eq('url_hash', insertData.url_hash)
         .limit(1)
 
       if (existing && existing.length > 0) {
-        await supabase.from('feeds').update({
-          ...insertData, updated_at: new Date().toISOString()
-        }).eq('id', existing[0].id)
+        await supabase.from('feeds').update({ ...insertData, updated_at: now }).eq('id', existing[0].id)
         results.updated++
         continue
       }
@@ -96,9 +115,9 @@ export async function POST({ request, cookies }: { request: Request; cookies: an
       for (const r of recent) {
         if (similarity(r.title, title) > 0.6) {
           await supabase.from('feeds').update({
-            source: source ? `${source}` : r.source,
-            metadata: { ...(r as any).metadata, ...metadata },
-            updated_at: new Date().toISOString(),
+            summary: summary || (r as any).summary,
+            tags: tags || (r as any).tags,
+            updated_at: now,
           }).eq('id', r.id)
           results.updated++
           merged = true
@@ -109,7 +128,7 @@ export async function POST({ request, cookies }: { request: Request; cookies: an
 
     if (!merged) {
       const { error: insertErr } = await supabase.from('feeds').insert(insertData)
-      if (insertErr) results.skipped++
+      if (insertErr) { results.skipped++; results.errors.push(insertErr.message) }
       else results.inserted++
     }
   }

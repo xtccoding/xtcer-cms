@@ -58,6 +58,10 @@ const tabs = [
             <h3 class="feed-title">
               {feed.url ? <a href={feed.url} target="_blank" rel="noopener">{feed.title}</a> : feed.title}
             </h3>
+            {feed.summary && <p class="feed-summary">{feed.summary}</p>}
+            {feed.tags && feed.tags.length > 0 && (
+              <div class="feed-tags">{feed.tags.map((t: string) => <span class="tag">{t}</span>)}</div>
+            )}
             {feed.source && <span class="feed-source">{feed.source}</span>}
             {feed.metadata && Object.keys(feed.metadata).length > 0 && (
               <div class="feed-meta">
