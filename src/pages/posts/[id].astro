@@ -12,12 +12,24 @@ const { data: post } = await supabase
 
 if (!post) return Astro.redirect('/')
 
-const htmlContent = marked.parse(post.content || '')
+const tocItems: { level: number; text: string; slug: string }[] = []
+
+const renderer = new marked.Renderer()
+renderer.heading = function ({ text, depth }: { text: string; depth: number }) {
+  const slug = text.replace(/<[^>]*>/g, '').replace(/[^\w\u4e00-\u9fff]+/g, '-').replace(/^-|-$/g, '').toLowerCase()
+  if (depth === 2 || depth === 3) {
+    tocItems.push({ level: depth, text: text.replace(/<[^>]*>/g, ''), slug })
+  }
+  return `<h${depth} id="${slug}">${text}</h${depth}>`
+}
+
+const htmlContent = marked.parse(post.content || '', { renderer })
 const plainText = (post.content || '').replace(/[#*_`~\[\]>|]/g, '').replace(/\n+/g, ' ').trim()
 const wordCount = plainText.length
 const readTime = Math.max(1, Math.ceil(wordCount / 400))
 const description = plainText.substring(0, 160)
 const views = post.views || 0
+const hasToc = tocItems.length > 0
 ---
 
 <Layout title={`${post.title} - XTCer`} description={description}>
@@ -28,7 +40,20 @@ const views = post.views || 0
   </nav>
 
   <main class="article-page">
-    <article class="article container">
+    {hasToc && (
+      <aside class="toc-sidebar">
+        <div class="toc-inner">
+          <div class="toc-title">目录</div>
+          <nav class="toc-nav">
+            {tocItems.map(item => (
+              <a href={`#${item.slug}`} class={`toc-link toc-h${item.level}`}>{item.text}</a>
+            ))}
+          </nav>
+        </div>
+      </aside>
+    )}
+
+    <article class:list={['article', 'container', { 'has-toc': hasToc }]}>
       <header class="article-header">
         <a href="/" class="back-link">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
@@ -92,11 +117,58 @@ const views = post.views || 0
     script.setAttribute('crossorigin', 'anonymous')
     script.async = true
     document.querySelector('.giscus')?.appendChild(script)
+
+    const tocLinks = document.querySelectorAll('.toc-link')
+    if (tocLinks.length > 0) {
+      const headings = Array.from(tocLinks).map(a => document.getElementById(a.getAttribute('href')!.slice(1))).filter(Boolean) as HTMLElement[]
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            tocLinks.forEach(a => a.classList.remove('active'))
+            const active = document.querySelector(`.toc-link[href="#${entry.target.id}"]`)
+            active?.classList.add('active')
+            active?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+          }
+        })
+      }, { rootMargin: '-80px 0px -70% 0px' })
+      headings.forEach(h => observer.observe(h))
+
+      tocLinks.forEach(a => {
+        a.addEventListener('click', e => {
+          e.preventDefault()
+          const target = document.getElementById(a.getAttribute('href')!.slice(1))
+          target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        })
+      })
+    }
   </script>
 </Layout>
 
 <style>
-  .article-page { padding: 2rem 0 4rem; }
+  .article-page { padding: 2rem 0 4rem; display: flex; justify-content: center; }
+
+  .toc-sidebar {
+    position: sticky; top: 80px; align-self: flex-start;
+    width: 220px; flex-shrink: 0; margin-right: 2rem;
+    max-height: calc(100vh - 100px); overflow-y: auto;
+  }
+  .toc-inner {
+    padding: 1rem; background: var(--surface);
+    border: 1px solid var(--glass-border); border-radius: var(--radius);
+  }
+  .toc-title {
+    font-size: 0.75rem; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;
+  }
+  .toc-nav { display: flex; flex-direction: column; gap: 0.125rem; }
+  .toc-link {
+    display: block; padding: 0.3rem 0.5rem; border-radius: var(--radius-sm);
+    font-size: 0.75rem; color: var(--text-muted); line-height: 1.5;
+    transition: all 0.15s; border-left: 2px solid transparent;
+  }
+  .toc-link:hover { color: var(--text); background: var(--surface-hover); }
+  .toc-link.active { color: var(--primary); border-left-color: var(--primary); background: rgba(41,151,255,0.06); }
+  .toc-h3 { padding-left: 1.25rem; }
 
   .article-header {
     margin-bottom: 3rem; padding-bottom: 2rem;
@@ -118,12 +190,12 @@ const views = post.views || 0
   .article-content {
     max-width: 720px; font-size: 1.0625rem; line-height: 1.85; color: var(--text-secondary);
   }
-  .article-content :global(h1) { font-size: 1.75rem; color: var(--text); margin: 2rem 0 0.75rem; }
   .article-content :global(h2) {
     font-size: 1.5rem; color: var(--text); margin: 2.5rem 0 1rem; letter-spacing: -0.01em;
+    scroll-margin-top: 80px;
   }
-  .article-content :global(h3) { font-size: 1.25rem; color: var(--text); margin: 2rem 0 0.75rem; }
-  .article-content :global(h4) { font-size: 1.125rem; color: var(--text); margin: 1.5rem 0 0.5rem; }
+  .article-content :global(h3) { font-size: 1.25rem; color: var(--text); margin: 2rem 0 0.75rem; scroll-margin-top: 80px; }
+  .article-content :global(h4) { font-size: 1.125rem; color: var(--text); margin: 1.5rem 0 0.5rem; scroll-margin-top: 80px; }
   .article-content :global(p) { margin-bottom: 1.25rem; }
   .article-content :global(strong) { color: var(--text); font-weight: 600; }
   .article-content :global(em) { font-style: italic; }
@@ -162,6 +234,9 @@ const views = post.views || 0
   .footer-links a { color: var(--text-muted); }
   .footer-links a:hover { color: var(--text); }
 
+  @media (max-width: 1100px) {
+    .toc-sidebar { display: none; }
+  }
   @media (max-width: 640px) {
     .article-page { padding: 1rem 0 3rem; }
     .article-meta { flex-wrap: wrap; }
