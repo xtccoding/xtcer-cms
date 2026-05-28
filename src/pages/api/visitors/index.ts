@@ -16,7 +16,7 @@ export async function GET({ cookies, url }: { cookies: any; url: URL }) {
 
   const { data: allVisits } = await supabase
     .from('visitors')
-    .select('ip, created_at')
+    .select('ip, path, created_at')
     .gte('created_at', since)
 
   const uniqueIps = new Set(allVisits?.map(v => v.ip) || [])
