@@ -3,10 +3,11 @@ interface Props {
   title: string
   description?: string
   ogImage?: string
+  schema?: Record<string, any>
 }
 
-const { title, description = 'XTCer - 轻量级内容管理', ogImage } = Astro.props
-const canonicalURL = new URL(Astro.url.pathname, 'https://xtcer-enp.pages.dev')
+const { title, description = 'XTCer - 轻量级内容管理', ogImage, schema } = Astro.props
+const canonicalURL = new URL(Astro.url.pathname, 'https://xtcer.cn')
 ---
 
 <!doctype html>
@@ -28,6 +29,7 @@ const canonicalURL = new URL(Astro.url.pathname, 'https://xtcer-enp.pages.dev')
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <title>{title}</title>
+    {schema && <script type="application/ld+json" set:html={JSON.stringify(schema)} />}
   </head>
   <body>
     <div class="bg-gradient"></div>

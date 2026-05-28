@@ -37,9 +37,22 @@ const readTime = Math.max(1, Math.ceil(wordCount / 400))
 const description = plainText.substring(0, 160)
 const views = post.views || 0
 const hasToc = tocItems.length > 0
+
+const schema = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": post.title,
+  "description": description,
+  "datePublished": new Date(post.created_at).toISOString(),
+  "dateModified": new Date(post.created_at).toISOString(),
+  "author": { "@type": "Organization", "name": "XTCer" },
+  "publisher": { "@type": "Organization", "name": "XTCer" },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": `https://xtcer.cn/posts/${post.id}` },
+  "wordCount": wordCount,
+}
 ---
 
-<Layout title={`${post.title} - XTCer`} description={description}>
+<Layout title={`${post.title} - XTCer`} description={description} schema={schema}>
   <nav class="nav">
       <div class="nav-inner">
         <a href="/" class="nav-logo">XTCer</a>
