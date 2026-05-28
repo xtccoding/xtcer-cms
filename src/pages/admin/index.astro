@@ -9,7 +9,14 @@ if (!ADMIN_PASSWORD) return new Response('ADMIN_PASSWORD not configured', { stat
 const cookie = Astro.cookies.get('admin_auth')
 if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
 
-const { data: posts } = await supabase.from('posts').select('id')
+const [postsRes, linksRes, dealsRes, feedsRes, visitorsRes, blacklistRes] = await Promise.all([
+  supabase.from('posts').select('id', { count: 'exact', head: true }),
+  supabase.from('links').select('id', { count: 'exact', head: true }),
+  supabase.from('deals').select('id', { count: 'exact', head: true }),
+  supabase.from('feeds').select('id', { count: 'exact', head: true }),
+  supabase.from('visitors').select('id', { count: 'exact', head: true }),
+  supabase.from('blacklist').select('id', { count: 'exact', head: true }),
+])
 ---
 
 <Layout title="设置 - XTCer">
@@ -17,52 +24,208 @@ const { data: posts } = await supabase.from('posts').select('id')
     <Sidebar active="settings" />
     <div class="admin-main">
       <header class="admin-header">
-        <div><h1>设置</h1><p class="admin-subtitle">系统配置和状态</p></div>
+        <div><h1>设置</h1><p class="admin-subtitle">系统配置和架构概览</p></div>
       </header>
 
-      <div class="status-grid">
-        <div class={`status-card glass-card ${posts && posts.length > 0 ? 'ok' : 'warn'}`}>
-          <div class="status-icon">
-            {posts && posts.length > 0 ? (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-            ) : (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            )}
-          </div>
-          <div><h3>数据库</h3><p>{posts && posts.length > 0 ? `${posts.length} 篇文章` : '需要创建 posts 表'}</p></div>
-        </div>
-        <div class="status-card glass-card ok">
-          <div class="status-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
-          <div><h3>Supabase</h3><p>已连接</p></div>
-        </div>
-        <div class="status-card glass-card ok">
-          <div class="status-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
-          <div><h3>Cloudflare</h3><p>已部署</p></div>
-        </div>
-      </div>
-
       <section class="setup-section glass-card">
-        <h2>管理密码</h2>
-        <p>通过 Cloudflare Pages 环境变量 <code>ADMIN_PASSWORD</code> 设置。</p>
+        <h2>项目架构</h2>
+        <div class="arch-grid">
+          <div class="arch-item">
+            <span class="arch-icon">📝</span>
+            <div><h3>文章 Posts</h3><p>Markdown 编辑器 + AI 助手 + 目录 + 评论</p></div>
+            <span class="arch-count">{postsRes.count ?? 0}</span>
+          </div>
+          <div class="arch-item">
+            <span class="arch-icon">🔗</span>
+            <div><h3>导航 Links</h3><p>常用链接分组管理</p></div>
+            <span class="arch-count">{linksRes.count ?? 0}</span>
+          </div>
+          <div class="arch-item">
+            <span class="arch-icon">💰</span>
+            <div><h3>优惠 Deals</h3><p>云服务产品目录，外部 cron 推送</p></div>
+            <span class="arch-count">{dealsRes.count ?? 0}</span>
+          </div>
+          <div class="arch-item">
+            <span class="arch-icon">📡</span>
+            <div><h3>情报 Feeds</h3><p>8 类情报流，3 层防重，Hermes + Junier 推送</p></div>
+            <span class="arch-count">{feedsRes.count ?? 0}</span>
+          </div>
+          <div class="arch-item">
+            <span class="arch-icon">👁</span>
+            <div><h3>访客 Visitors</h3><p>中间件自动记录，支持 IP 黑名单</p></div>
+            <span class="arch-count">{visitorsRes.count ?? 0}</span>
+          </div>
+          <div class="arch-item">
+            <span class="arch-icon">🚫</span>
+            <div><h3>黑名单 Blacklist</h3><p>IP 封禁管理</p></div>
+            <span class="arch-count">{blacklistRes.count ?? 0}</span>
+          </div>
+        </div>
       </section>
 
       <section class="setup-section glass-card">
-        <h2>数据库表</h2>
-        <p>如果还没有 posts 表，在 Supabase SQL 编辑器运行：</p>
+        <h2>技术栈</h2>
+        <div class="tech-list">
+          <span class="tech-tag">Astro (SSR)</span>
+          <span class="tech-tag">Supabase (PostgreSQL)</span>
+          <span class="tech-tag">Cloudflare Pages</span>
+          <span class="tech-tag">Cerebras AI</span>
+          <span class="tech-tag">Giscus (GitHub Discussions)</span>
+          <span class="tech-tag">marked (Markdown)</span>
+        </div>
+      </section>
+
+      <section class="setup-section glass-card">
+        <h2>路由总览</h2>
+        <table class="route-table">
+          <thead><tr><th>路径</th><th>说明</th><th>认证</th></tr></thead>
+          <tbody>
+            <tr><td><code>/</code></td><td>首页（文章 + 导航 + 情报）</td><td>公开</td></tr>
+            <tr><td><code>/posts/[id]</code></td><td>文章详情（Markdown + TOC + 评论）</td><td>公开</td></tr>
+            <tr><td><code>/deals</code></td><td>云服务优惠列表</td><td>公开</td></tr>
+            <tr><td><code>/feeds</code></td><td>情报流（8 分类 Tab）</td><td>公开</td></tr>
+            <tr><td><code>/rss.xml</code></td><td>RSS 订阅</td><td>公开</td></tr>
+            <tr><td><code>/sitemap.xml</code></td><td>SEO 站点地图</td><td>公开</td></tr>
+            <tr><td><code>/admin/*</code></td><td>管理后台</td><td>Cookie</td></tr>
+            <tr><td><code>/api/posts</code></td><td>文章 CRUD</td><td>Cookie / X-Feed-Key</td></tr>
+            <tr><td><code>/api/deals</code></td><td>优惠 CRUD</td><td>Cookie / X-Feed-Key</td></tr>
+            <tr><td><code>/api/deals/batch</code></td><td>批量 upsert（provider+product 去重）</td><td>Cookie / X-Feed-Key</td></tr>
+            <tr><td><code>/api/feeds</code></td><td>情报 CRUD</td><td>Cookie / X-Feed-Key</td></tr>
+            <tr><td><code>/api/feeds/batch</code></td><td>批量 upsert（3 层防重）</td><td>Cookie / X-Feed-Key</td></tr>
+            <tr><td><code>/api/search</code></td><td>全文搜索（posts + feeds + deals）</td><td>公开</td></tr>
+            <tr><td><code>/api/ai</code></td><td>AI 写作助手</td><td>Cookie</td></tr>
+            <tr><td><code>/api/visitors</code></td><td>访客统计</td><td>Cookie</td></tr>
+            <tr><td><code>/api/blacklist</code></td><td>黑名单管理</td><td>Cookie</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="setup-section glass-card">
+        <h2>环境变量</h2>
+        <table class="route-table">
+          <thead><tr><th>变量</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td><code>PUBLIC_SUPABASE_URL</code></td><td>Supabase 项目 URL</td></tr>
+            <tr><td><code>PUBLIC_SUPABASE_ANON_KEY</code></td><td>Supabase 匿名 Key</td></tr>
+            <tr><td><code>ADMIN_PASSWORD</code></td><td>管理后台密码（必须配置）</td></tr>
+            <tr><td><code>FEED_API_KEY</code></td><td>外部推送认证 Key（Hermes + Junier 共用）</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="setup-section glass-card">
+        <h2>数据库建表 SQL</h2>
+        <p>首次部署时在 Supabase SQL Editor 一次性执行：</p>
         <div class="code-block">
-          <div class="code-header"><span>SQL</span><button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('sql-code').textContent);this.textContent='已复制';setTimeout(()=>this.textContent='复制',2000)">复制</button></div>
-          <pre><code id="sql-code">CREATE TABLE posts (
+          <div class="code-header"><span>SQL — 全量建表</span><button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('sql-all').textContent);this.textContent='已复制';setTimeout(()=>this.textContent='复制',2000)">复制</button></div>
+          <pre><code id="sql-all">-- ==================== posts ====================
+CREATE TABLE IF NOT EXISTS posts (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   title TEXT NOT NULL,
   content TEXT,
+  views INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
 ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public can read" ON posts FOR SELECT USING (true);
-CREATE POLICY "Anyone can insert" ON posts FOR INSERT WITH CHECK (true);
-CREATE POLICY "Anyone can update" ON posts FOR UPDATE USING (true);
-CREATE POLICY "Anyone can delete" ON posts FOR DELETE USING (true);</code></pre>
+DROP POLICY IF EXISTS allow_all_posts ON posts;
+CREATE POLICY allow_all_posts ON posts FOR ALL USING (true) WITH CHECK (true);
+
+-- ==================== links ====================
+CREATE TABLE IF NOT EXISTS links (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL,
+  url TEXT NOT NULL,
+  description TEXT,
+  icon TEXT,
+  category TEXT DEFAULT '默认',
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE links ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS allow_all_links ON links;
+CREATE POLICY allow_all_links ON links FOR ALL USING (true) WITH CHECK (true);
+
+-- ==================== visitors ====================
+CREATE TABLE IF NOT EXISTS visitors (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  ip TEXT,
+  path TEXT,
+  user_agent TEXT,
+  referer TEXT,
+  country TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE visitors ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS allow_all_visitors ON visitors;
+CREATE POLICY allow_all_visitors ON visitors FOR ALL USING (true) WITH CHECK (true);
+
+-- ==================== blacklist ====================
+CREATE TABLE IF NOT EXISTS blacklist (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  ip TEXT UNIQUE NOT NULL,
+  reason TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE blacklist ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS allow_all_blacklist ON blacklist;
+CREATE POLICY allow_all_blacklist ON blacklist FOR ALL USING (true) WITH CHECK (true);
+
+-- ==================== deals ====================
+CREATE TABLE IF NOT EXISTS deals (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  provider TEXT NOT NULL,
+  product TEXT NOT NULL,
+  price TEXT NOT NULL,
+  price_usd NUMERIC,
+  price_cny NUMERIC,
+  config TEXT,
+  bandwidth TEXT,
+  type TEXT DEFAULT 'promotion',
+  target TEXT DEFAULT 'all_user',
+  renewal_price TEXT,
+  url TEXT,
+  notes TEXT,
+  category TEXT NOT NULL,
+  region TEXT DEFAULT 'global',
+  expiry TEXT,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(provider, product)
+);
+CREATE INDEX IF NOT EXISTS idx_deals_category ON deals(category);
+CREATE INDEX IF NOT EXISTS idx_deals_is_active ON deals(is_active);
+CREATE INDEX IF NOT EXISTS idx_deals_price_cny ON deals(price_cny);
+ALTER TABLE deals ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS allow_all_deals ON deals;
+CREATE POLICY allow_all_deals ON deals FOR ALL USING (true) WITH CHECK (true);
+
+-- ==================== feeds ====================
+CREATE TABLE IF NOT EXISTS feeds (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  feed_type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  url TEXT,
+  normalized_url TEXT,
+  source TEXT,
+  summary TEXT,
+  tags TEXT[],
+  priority TEXT DEFAULT 'normal',
+  metadata JSONB,
+  url_hash TEXT,
+  published_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(feed_type, title)
+);
+CREATE INDEX IF NOT EXISTS idx_feeds_type ON feeds(feed_type);
+CREATE INDEX IF NOT EXISTS idx_feeds_published ON feeds(published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_feeds_priority ON feeds(priority);
+CREATE INDEX IF NOT EXISTS idx_feeds_url_hash ON feeds(url_hash);
+CREATE INDEX IF NOT EXISTS idx_feeds_created ON feeds(created_at);
+ALTER TABLE feeds ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS allow_all_feeds ON feeds;
+CREATE POLICY allow_all_feeds ON feeds FOR ALL USING (true) WITH CHECK (true);</code></pre>
         </div>
         <div style="margin-top:1rem">
           <a href="https://supabase.com/dashboard/project/ltwwyznurskgsphujarm/sql" target="_blank" class="btn btn-primary">
@@ -77,32 +240,42 @@ CREATE POLICY "Anyone can delete" ON posts FOR DELETE USING (true);</code></pre>
 
 <style>
   .admin-layout { display: flex; min-height: 100vh; }
-  .admin-main { flex: 1; margin-left: 200px; padding: 1.5rem; max-width: 800px; }
+  .admin-main { flex: 1; margin-left: 200px; padding: 1.5rem; max-width: 860px; }
   .admin-header { margin-bottom: 2rem; }
   .admin-header h1 { font-size: 1.5rem; font-weight: 700; }
   .admin-subtitle { color: var(--text-muted); font-size: 0.8125rem; margin-top: 0.125rem; }
 
-  .status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; }
-  .status-card { display: flex; align-items: center; gap: 0.875rem; padding: 1rem 1.25rem; }
-  .status-card.ok { border-color: rgba(48,209,88,0.15); }
-  .status-card.warn { border-color: rgba(255,159,10,0.15); }
-  .status-icon { flex-shrink: 0; }
-  .status-card h3 { font-size: 0.8125rem; font-weight: 600; margin-bottom: 0.125rem; }
-  .status-card p { font-size: 0.75rem; color: var(--text-muted); }
-
   .setup-section { padding: 1.5rem; margin-bottom: 1rem; }
-  .setup-section h2 { font-size: 1rem; margin-bottom: 0.5rem; }
+  .setup-section h2 { font-size: 1rem; margin-bottom: 0.75rem; }
   .setup-section p { color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 0.75rem; line-height: 1.7; }
   .setup-section code { background: rgba(255,255,255,0.06); padding: 0.125rem 0.375rem; border-radius: 3px; font-size: 0.8125rem; font-family: 'SF Mono', monospace; }
+
+  .arch-grid { display: flex; flex-direction: column; gap: 0.5rem; }
+  .arch-item { display: flex; align-items: center; gap: 0.875rem; padding: 0.75rem 1rem; border-radius: var(--radius-sm); background: rgba(255,255,255,0.02); border: 1px solid var(--border); }
+  .arch-icon { font-size: 1.25rem; flex-shrink: 0; }
+  .arch-item h3 { font-size: 0.8125rem; font-weight: 600; margin-bottom: 0.125rem; }
+  .arch-item p { font-size: 0.6875rem; color: var(--text-muted); }
+  .arch-count { margin-left: auto; font-size: 1rem; font-weight: 700; color: var(--primary); font-variant-numeric: tabular-nums; }
+
+  .tech-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .tech-tag { padding: 0.25rem 0.625rem; border-radius: 999px; font-size: 0.6875rem; background: rgba(41,151,255,0.08); color: var(--primary); border: 1px solid rgba(41,151,255,0.15); }
+
+  .route-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+  .route-table th { text-align: left; padding: 0.5rem 0.75rem; font-size: 0.6875rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
+  .route-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .route-table code { font-size: 0.75rem; }
 
   .code-block { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
   .code-header { display: flex; justify-content: space-between; align-items: center; padding: 0.375rem 0.75rem; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border); font-size: 0.6875rem; color: var(--text-muted); }
   .copy-btn { background: none; border: none; color: var(--primary); cursor: pointer; font-size: 0.6875rem; }
-  .code-block pre { padding: 0.875rem; margin: 0; background: rgba(0,0,0,0.3); overflow-x: auto; }
+  .code-block pre { padding: 0.875rem; margin: 0; background: rgba(0,0,0,0.3); overflow-x: auto; max-height: 400px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent; }
+  .code-block pre::-webkit-scrollbar { width: 4px; }
+  .code-block pre::-webkit-scrollbar-track { background: transparent; }
+  .code-block pre::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
   .code-block code { font-family: 'SF Mono', monospace; font-size: 0.75rem; line-height: 1.7; color: var(--text-secondary); background: none; padding: 0; }
 
   @media (max-width: 768px) {
     .admin-main { margin-left: 0; }
-    .status-grid { grid-template-columns: 1fr; }
+    .route-table { font-size: 0.75rem; }
   }
 </style>
