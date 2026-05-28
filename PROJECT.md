@@ -6,6 +6,7 @@
 - **部署地址**: https://xtcer-enp.pages.dev
 - **技术栈**: Astro + Supabase + Cloudflare Pages
 - **管理后台密码**: 环境变量 `ADMIN_PASSWORD`，默认 `xtcer2024`
+- **外部推送 Key**: 环境变量 `FEED_API_KEY`（deals/feeds 的 X-Feed-Key 认证，Hermes + Junier 共用）
 
 ## Supabase 配置
 - **项目 ID**: ltwwyznurskgsphujarm
@@ -74,6 +75,8 @@ CREATE TABLE blacklist (
 | `/contact` | 联系我们 |
 | `/privacy` | 隐私政策 |
 | `/tos` | 服务条款 |
+| `/deals` | 云服务优惠列表（分类 Tab + 卡片展示） |
+| `/feeds` | 情报流（8分类 Tab + 优先级标记） |
 
 ### 管理后台
 | 路径 | 说明 |
@@ -86,6 +89,12 @@ CREATE TABLE blacklist (
 | `/admin/edit/[id]` | 编辑文章（Markdown 编辑器 + AI 助手） |
 | `/admin/links` | 导航链接管理 |
 | `/admin/visitors` | 访客统计 + IP 黑名单管理 |
+| `/admin/deals` | 云服务优惠管理（启停/删除/筛选） |
+
+### 公开页面（新增）
+| 路径 | 说明 |
+|------|------|
+| `/deals` | 云服务优惠列表（分类 Tab + 卡片展示） |
 
 ### API 路由
 | 路径 | 方法 | 说明 |
@@ -98,6 +107,10 @@ CREATE TABLE blacklist (
 | `/api/visitors/track` | POST | 记录访客（中间件自动调用） |
 | `/api/blacklist` | GET/POST/DELETE | 黑名单管理 |
 | `/api/ai` | POST | AI 写作助手 |
+| `/api/deals` | GET/POST/PUT/DELETE | 优惠信息（GET 公开，其余需认证） |
+| `/api/deals/batch` | POST | 批量 upsert（按 provider+product 去重） |
+| `/api/feeds` | GET/POST/PUT/DELETE | 情报流（GET 公开，其余需认证） |
+| `/api/feeds/batch` | POST | 批量 upsert（3层防重：UNIQUE+URL归一化+标题模糊） |
 
 ## AI 写作助手
 - **服务商**: Cerebras

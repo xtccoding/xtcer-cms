@@ -1,0 +1,150 @@
+---
+import Layout from '../layouts/Layout.astro'
+import { supabase } from '../lib/supabase'
+
+const { data: feeds } = await supabase
+  .from('feeds')
+  .select('*')
+  .order('created_at', { ascending: false })
+  .limit(500)
+
+const tabs = [
+  { key: '', label: '全部' },
+  { key: 'security', label: '安全' },
+  { key: 'github_trending', label: 'GitHub' },
+  { key: 'ai_monetization', label: 'AI' },
+  { key: 'crypto_alpha', label: '加密' },
+  { key: 'deal_hunt', label: '捡漏' },
+  { key: 'industry_move', label: '行业' },
+  { key: 'devtool_launch', label: '工具' },
+  { key: 'learn_alpha', label: '学习' },
+]
+---
+
+<Layout title="情报流 - XTCer" description="Alpha Feed - 安全、AI、加密、工具等实时情报">
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">XTCer</a>
+      <div class="nav-links">
+        <a href="/" class="nav-link">首页</a>
+        <a href="/deals" class="nav-link">优惠</a>
+        <a href="/feeds" class="nav-link" style="color:var(--text)">情报</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="feeds-page">
+    <div class="container-wide">
+      <header class="page-header">
+        <h1>情报流</h1>
+        <p class="page-desc">安全漏洞 · AI动态 · 加密 · 工具 · 行业情报</p>
+      </header>
+
+      <div class="tabs">
+        {tabs.map(tab => (
+          <button class:list={['tab', { active: tab.key === '' }]} data-type={tab.key}>{tab.label}</button>
+        ))}
+      </div>
+
+      <div class="feeds-grid" id="feeds-grid">
+        {feeds && feeds.map(feed => (
+          <div class="feed-card glass-card" data-type={feed.feed_type}>
+            <div class="feed-top">
+              <span class="feed-type">{tabs.find(t => t.key === feed.feed_type)?.label || feed.feed_type}</span>
+              <span class={`feed-priority ${feed.priority === 'critical' ? 'critical' : 'normal'}`}>
+                {feed.priority === 'critical' ? '🔴' : '🟢'}
+              </span>
+            </div>
+            <h3 class="feed-title">
+              {feed.url ? <a href={feed.url} target="_blank" rel="noopener">{feed.title}</a> : feed.title}
+            </h3>
+            {feed.source && <span class="feed-source">{feed.source}</span>}
+            {feed.metadata && Object.keys(feed.metadata).length > 0 && (
+              <div class="feed-meta">
+                {Object.entries(feed.metadata).slice(0, 4).map(([k, v]) => (
+                  <span class="meta-tag">{k}: {String(v)}</span>
+                ))}
+              </div>
+            )}
+            <time class="feed-time">{new Date(feed.created_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</time>
+          </div>
+        ))}
+      </div>
+
+      {(!feeds || feeds.length === 0) && (
+        <div class="empty"><p>暂无情报，敬请期待</p></div>
+      )}
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container-wide">
+      <div class="footer-inner">
+        <span>© 2026 XTCer</span>
+        <div class="footer-links">
+          <a href="/privacy">隐私政策</a>
+          <a href="/tos">服务条款</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+        tab.classList.add('active')
+        const type = (tab as HTMLElement).dataset.type
+        document.querySelectorAll('.feed-card').forEach(card => {
+          const el = card as HTMLElement
+          el.style.display = (!type || el.dataset.type === type) ? '' : 'none'
+        })
+      })
+    })
+  </script>
+</Layout>
+
+<style>
+  .feeds-page { padding: 2rem 0 4rem; }
+  .page-header { margin-bottom: 2rem; }
+  .page-header h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.5rem; }
+  .page-desc { color: var(--text-muted); font-size: 0.9375rem; }
+
+  .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; overflow-x: auto; padding-bottom: 0.25rem; -webkit-overflow-scrolling: touch; }
+  .tab { padding: 0.5rem 1rem; border: 1px solid var(--glass-border); border-radius: 999px; background: var(--surface); color: var(--text-muted); font-size: 0.8125rem; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+  .tab:hover { color: var(--text); border-color: var(--glass-border-hover); }
+  .tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+  .feeds-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.75rem; }
+
+  .feed-card { padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; transition: transform 0.2s; }
+  .feed-card:hover { transform: translateY(-2px); }
+
+  .feed-top { display: flex; justify-content: space-between; align-items: center; }
+  .feed-type { padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.6875rem; font-weight: 500; background: rgba(41,151,255,0.08); color: var(--primary); border: 1px solid rgba(41,151,255,0.15); }
+  .feed-priority { font-size: 0.75rem; }
+  .feed-priority.critical { animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  .feed-title { font-size: 0.9375rem; font-weight: 600; line-height: 1.4; }
+  .feed-title a { color: var(--text); }
+  .feed-title a:hover { color: var(--primary); }
+
+  .feed-source { font-size: 0.6875rem; color: var(--text-muted); }
+
+  .feed-meta { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+  .meta-tag { padding: 0.125rem 0.375rem; border-radius: var(--radius-sm); font-size: 0.625rem; color: var(--text-secondary); background: rgba(255,255,255,0.04); border: 1px solid var(--border); }
+
+  .feed-time { font-size: 0.625rem; color: var(--text-muted); margin-top: auto; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+
+  .empty { text-align: center; padding: 4rem; }
+  .empty p { color: var(--text-muted); }
+
+  .footer { border-top: 1px solid var(--border); padding: 2rem 0; margin-top: 2rem; }
+  .footer-inner { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted); }
+  .footer-links { display: flex; gap: 1.5rem; }
+  .footer-links a { color: var(--text-muted); }
+  .footer-links a:hover { color: var(--text); }
+
+  @media (max-width: 640px) { .feeds-grid { grid-template-columns: 1fr; } .footer-inner { flex-direction: column; gap: 1rem; } }
+</style>

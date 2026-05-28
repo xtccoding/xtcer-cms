@@ -1,0 +1,200 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import Sidebar from '../../components/Sidebar.astro'
+import { supabase } from '../../lib/supabase'
+
+const ADMIN_PASSWORD = import.meta.env.ADMIN_PASSWORD || 'xtcer2024'
+const cookie = Astro.cookies.get('admin_auth')
+if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
+
+const { data: deals } = await supabase.from('deals').select('*').order('created_at', { ascending: false })
+const categories = [...new Set(deals?.map(d => d.category) || [])]
+---
+
+<Layout title="优惠管理 - XTCer">
+  <div class="admin-layout">
+    <Sidebar active="deals" />
+    <div class="admin-main">
+      <header class="admin-header">
+        <div>
+          <h1>优惠管理</h1>
+          <p class="admin-subtitle">{deals?.length || 0} 条记录，{categories.length} 个分类</p>
+        </div>
+      </header>
+
+      <div class="filter-bar">
+        <select id="filter-cat" class="input filter-select">
+          <option value="">全部分类</option>
+          {categories.map(c => <option value={c}>{c}</option>)}
+        </select>
+        <select id="filter-status" class="input filter-select">
+          <option value="">全部状态</option>
+          <option value="active">已启用</option>
+          <option value="inactive">已禁用</option>
+        </select>
+        <span class="filter-count" id="filter-count">{deals?.length || 0} 条</span>
+      </div>
+
+      <div class="deals-table glass-card">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>厂商</th>
+              <th>产品</th>
+              <th>价格</th>
+              <th>配置</th>
+              <th>分类</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="deals-body">
+            {deals && deals.map(deal => (
+              <tr data-id={deal.id} data-cat={deal.category} data-active={deal.is_active ? '1' : '0'}>
+                <td class="col-provider">{deal.provider}</td>
+                <td class="col-product">
+                  {deal.url ? <a href={deal.url} target="_blank" rel="noopener">{deal.product}</a> : deal.product}
+                </td>
+                <td class="col-price">
+                  <span class="price-main">{deal.price}</span>
+                  {deal.price_cny && <span class="price-cny">¥{deal.price_cny}</span>}
+                </td>
+                <td class="col-config">{deal.config || '-'}</td>
+                <td><span class="badge">{deal.category}</span></td>
+                <td>
+                  <button class={`toggle-btn ${deal.is_active ? 'on' : 'off'}`} data-id={deal.id} data-active={deal.is_active}>
+                    {deal.is_active ? '启用' : '禁用'}
+                  </button>
+                </td>
+                <td>
+                  <button class="btn btn-danger btn-sm btn-icon del-deal" data-id={deal.id} title="删除">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {(!deals || deals.length === 0) && (
+          <div class="empty"><p>暂无优惠数据，等待外部推送或手动添加</p></div>
+        )}
+      </div>
+    </div>
+  </div>
+
+  <div id="delete-modal" class="modal" style="display:none">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content glass-card">
+      <h3>确认删除</h3>
+      <p>确定要删除此条优惠记录吗？</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="cancel-delete">取消</button>
+        <button class="btn btn-danger" id="confirm-delete">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let deleteId = ''
+
+    document.getElementById('filter-cat')?.addEventListener('change', filterRows)
+    document.getElementById('filter-status')?.addEventListener('change', filterRows)
+
+    function filterRows() {
+      const cat = (document.getElementById('filter-cat') as HTMLSelectElement).value
+      const status = (document.getElementById('filter-status') as HTMLSelectElement).value
+      let count = 0
+      document.querySelectorAll('#deals-body tr').forEach(row => {
+        const el = row as HTMLElement
+        const matchCat = !cat || el.dataset.cat === cat
+        const matchStatus = !status || (status === 'active' ? el.dataset.active === '1' : el.dataset.active === '0')
+        el.style.display = (matchCat && matchStatus) ? '' : 'none'
+        if (matchCat && matchStatus) count++
+      })
+      document.getElementById('filter-count')!.textContent = count + ' 条'
+    }
+
+    document.querySelectorAll('.toggle-active').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = (btn as HTMLElement).dataset.id
+        const active = (btn as HTMLElement).dataset.active === '1'
+        const res = await fetch('/api/deals', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, is_active: !active }),
+        })
+        if (res.ok) location.reload()
+      })
+    })
+
+    document.querySelectorAll('.del-deal').forEach(btn => {
+      btn.addEventListener('click', () => {
+        deleteId = (btn as HTMLElement).dataset.id || ''
+        document.getElementById('delete-modal')!.style.display = 'flex'
+      })
+    })
+
+    document.getElementById('cancel-delete')?.addEventListener('click', () => { document.getElementById('delete-modal')!.style.display = 'none' })
+    document.querySelector('.modal-backdrop')?.addEventListener('click', () => { document.getElementById('delete-modal')!.style.display = 'none' })
+    document.getElementById('confirm-delete')?.addEventListener('click', async () => {
+      if (!deleteId) return
+      const res = await fetch('/api/deals', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: deleteId }),
+      })
+      if (res.ok) {
+        document.querySelector(`[data-id="${deleteId}"]`)?.remove()
+        document.getElementById('delete-modal')!.style.display = 'none'
+        deleteId = ''
+      }
+    })
+  </script>
+</Layout>
+
+<style>
+  .admin-layout { display: flex; min-height: 100vh; }
+  .admin-main { flex: 1; margin-left: 200px; padding: 1.5rem; }
+  .admin-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; }
+  .admin-header h1 { font-size: 1.5rem; font-weight: 700; }
+  .admin-subtitle { color: var(--text-muted); font-size: 0.8125rem; margin-top: 0.125rem; }
+
+  .filter-bar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+  .filter-select { width: auto; min-width: 140px; padding: 0.5rem 0.75rem; font-size: 0.8125rem; }
+  .filter-count { font-size: 0.75rem; color: var(--text-muted); margin-left: auto; }
+
+  .deals-table { overflow-x: auto; }
+  .table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+  .table th { text-align: left; padding: 0.75rem 1rem; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
+  .table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .table tr:last-child td { border-bottom: none; }
+  .col-provider { font-weight: 600; color: var(--text); white-space: nowrap; }
+  .col-product { max-width: 200px; }
+  .col-product a { color: var(--primary); }
+  .col-price { font-weight: 600; color: var(--green); white-space: nowrap; }
+
+  .toggle-active {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    padding: 0.25rem 0.625rem; border-radius: 999px; border: none; cursor: pointer;
+    font-size: 0.6875rem; font-weight: 500; transition: all 0.15s;
+  }
+  .toggle-active.on { background: rgba(48,209,88,0.12); color: var(--green); }
+  .toggle-active.off { background: rgba(255,69,58,0.1); color: var(--red); }
+
+  .empty { text-align: center; padding: 3rem; }
+  .empty p { color: var(--text-muted); }
+
+  .modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
+  .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); }
+  .modal-content { position: relative; z-index: 1; width: 100%; max-width: 400px; padding: 2rem; }
+  .modal-content h3 { font-size: 1.125rem; margin-bottom: 0.75rem; }
+  .modal-content p { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
+
+  @media (max-width: 768px) {
+    .admin-main { margin-left: 0; }
+    .filter-bar { flex-wrap: wrap; }
+    .table { font-size: 0.75rem; }
+    .table th, .table td { padding: 0.5rem; }
+  }
+</style>

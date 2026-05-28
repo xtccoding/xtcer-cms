@@ -1,0 +1,192 @@
+---
+import Layout from '../layouts/Layout.astro'
+import { supabase } from '../lib/supabase'
+
+const { data: deals } = await supabase
+  .from('deals')
+  .select('*')
+  .eq('is_active', true)
+  .order('price_cny', { ascending: true, nullsFirst: false })
+
+const allCategories = [...new Set(deals?.map(d => d.category) || [])]
+const categoryMap: Record<string, string> = {
+  'compute': '计算',
+  'ai': 'AI Token',
+  'storage': '存储',
+  'tray': '托盘',
+  'hosting': '托管',
+  'other': '其他',
+}
+const categoryOrder = ['compute', 'ai', 'storage', 'tray', 'hosting', 'other']
+const sortedCategories = categoryOrder.filter(c => allCategories.includes(c))
+const remaining = allCategories.filter(c => !categoryOrder.includes(c))
+const categories = [...sortedCategories, ...remaining]
+---
+
+<Layout title="云服务优惠 - XTCer" description="精选云服务器、AI Token、存储等优惠信息，按价格排序">
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">XTCer</a>
+      <div class="nav-links">
+        <a href="/" class="nav-link">首页</a>
+        <a href="/deals" class="nav-link" style="color:var(--text)">优惠</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="deals-page">
+    <div class="container-wide">
+      <header class="page-header">
+        <h1>云服务优惠</h1>
+        <p class="page-desc">精选服务器、AI、存储等优惠信息 · 按价格排序</p>
+      </header>
+
+      <div class="tabs">
+        <button class="tab active" data-cat="">全部</button>
+        {categories.map(cat => (
+          <button class="tab" data-cat={cat}>{categoryMap[cat] || cat}</button>
+        ))}
+      </div>
+
+      <div class="deals-grid" id="deals-grid">
+        {deals && deals.map(deal => (
+          <div class="deal-card glass-card" data-cat={deal.category}>
+            <div class="deal-header">
+              <span class="deal-provider">{deal.provider}</span>
+              <span class="deal-badge">{categoryMap[deal.category] || deal.category}</span>
+            </div>
+            <h3 class="deal-product">
+              {deal.url ? <a href={deal.url} target="_blank" rel="noopener">{deal.product}</a> : deal.product}
+            </h3>
+            <div class="deal-price">
+              <span class="price-value">{deal.price}</span>
+              {deal.price_cny && <span class="price-cny">≈ ¥{deal.price_cny}/月</span>}
+            </div>
+            <div class="deal-specs">
+              {deal.config && <span class="spec">🖥 {deal.config}</span>}
+              {deal.bandwidth && <span class="spec">📡 {deal.bandwidth}</span>}
+              {deal.region && <span class="spec">🌍 {deal.region}</span>}
+            </div>
+            {deal.notes && <p class="deal-notes">{deal.notes}</p>}
+            <div class="deal-footer">
+              {deal.type && <span class="deal-type">{deal.type}</span>}
+              {deal.expiry && <span class="deal-expiry">截止: {deal.expiry}</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {(!deals || deals.length === 0) && (
+        <div class="empty">
+          <p>暂无优惠信息，敬请期待</p>
+        </div>
+      )}
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container-wide">
+      <div class="footer-inner">
+        <span>© 2026 XTCer</span>
+        <div class="footer-links">
+          <a href="/privacy">隐私政策</a>
+          <a href="/tos">服务条款</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+        tab.classList.add('active')
+        const cat = (tab as HTMLElement).dataset.cat
+        document.querySelectorAll('.deal-card').forEach(card => {
+          const el = card as HTMLElement
+          el.style.display = (!cat || el.dataset.cat === cat) ? '' : 'none'
+        })
+      })
+    })
+  </script>
+</Layout>
+
+<style>
+  .deals-page { padding: 2rem 0 4rem; }
+
+  .page-header { margin-bottom: 2rem; }
+  .page-header h1 {
+    font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 700;
+    letter-spacing: -0.02em; margin-bottom: 0.5rem;
+  }
+  .page-desc { color: var(--text-muted); font-size: 0.9375rem; }
+
+  .tabs {
+    display: flex; gap: 0.5rem; margin-bottom: 1.5rem;
+    overflow-x: auto; padding-bottom: 0.25rem;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tab {
+    padding: 0.5rem 1rem; border: 1px solid var(--glass-border); border-radius: 999px;
+    background: var(--surface); color: var(--text-muted); font-size: 0.8125rem;
+    cursor: pointer; white-space: nowrap; transition: all 0.15s;
+  }
+  .tab:hover { color: var(--text); border-color: var(--glass-border-hover); }
+  .tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+  .deals-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .deal-card {
+    padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 0.625rem;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .deal-card:hover { transform: translateY(-2px); }
+
+  .deal-header { display: flex; justify-content: space-between; align-items: center; }
+  .deal-provider { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .deal-badge {
+    padding: 0.125rem 0.5rem; border-radius: 999px;
+    font-size: 0.6875rem; font-weight: 500;
+    background: rgba(41,151,255,0.08); color: var(--primary);
+    border: 1px solid rgba(41,151,255,0.15);
+  }
+
+  .deal-product { font-size: 1rem; font-weight: 600; line-height: 1.4; }
+  .deal-product a { color: var(--text); }
+  .deal-product a:hover { color: var(--primary); }
+
+  .deal-price { display: flex; align-items: baseline; gap: 0.5rem; }
+  .price-value { font-size: 1.25rem; font-weight: 700; color: var(--green); }
+  .price-cny { font-size: 0.75rem; color: var(--text-muted); }
+
+  .deal-specs { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .spec { font-size: 0.75rem; color: var(--text-secondary); }
+
+  .deal-notes {
+    font-size: 0.75rem; color: var(--text-muted); line-height: 1.5;
+    padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.02);
+    border-radius: var(--radius-sm); border-left: 2px solid var(--primary);
+  }
+
+  .deal-footer { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+  .deal-type { font-size: 0.6875rem; color: var(--text-muted); }
+  .deal-expiry { font-size: 0.6875rem; color: var(--orange); }
+
+  .empty { text-align: center; padding: 4rem; }
+  .empty p { color: var(--text-muted); font-size: 1rem; }
+
+  .footer { border-top: 1px solid var(--border); padding: 2rem 0; margin-top: 2rem; }
+  .footer-inner { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted); }
+  .footer-links { display: flex; gap: 1.5rem; }
+  .footer-links a { color: var(--text-muted); }
+  .footer-links a:hover { color: var(--text); }
+
+  @media (max-width: 640px) {
+    .deals-grid { grid-template-columns: 1fr; }
+    .footer-inner { flex-direction: column; gap: 1rem; }
+  }
+</style>
