@@ -5,7 +5,7 @@
 - **仓库**: https://github.com/xtccoding/xtcer-cms
 - **部署地址**: https://xtcer-enp.pages.dev
 - **技术栈**: Astro + Supabase + Cloudflare Pages
-- **管理后台密码**: 环境变量 `ADMIN_PASSWORD`，默认 `xtcer2024`
+- **管理后台密码**: 环境变量 `ADMIN_PASSWORD`（无硬编码回退，必须配置）
 - **外部推送 Key**: 环境变量 `FEED_API_KEY`（deals/feeds 的 X-Feed-Key 认证，Hermes + Junier 共用）
 
 ## Supabase 配置
