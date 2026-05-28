@@ -4,7 +4,7 @@ function isAuthenticated(cookies: any, request: Request): boolean {
   const cookieAuth = cookies.get('admin_auth')
   if (cookieAuth) return true
   const feedKey = request.headers.get('X-Feed-Key')
-  if (feedKey && feedKey === import.meta.env.FEED_API_KEY) return true
+  if (feedKey && feedKey === process.env.FEED_API_KEY) return true
   return false
 }
 
