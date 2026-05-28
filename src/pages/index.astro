@@ -12,7 +12,19 @@ const { data: links } = await supabase
   .select('*')
   .order('sort_order', { ascending: true })
 
+const { data: recentFeeds } = await supabase
+  .from('feeds')
+  .select('*')
+  .order('created_at', { ascending: false })
+  .limit(12)
+
 const linkCategories = [...new Set(links?.map(l => l.category) || [])]
+
+const typeLabels: Record<string, string> = {
+  security: '安全', github_trending: 'GitHub', ai_monetization: 'AI',
+  crypto_alpha: '加密', deal_hunt: '捡漏', industry_move: '行业',
+  devtool_launch: '工具', learn_alpha: '学习',
+}
 
 function stripMarkdown(text: string) {
   return (text || '')
@@ -66,6 +78,30 @@ function stripMarkdown(text: string) {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+    )}
+
+    {recentFeeds && recentFeeds.length > 0 && (
+      <section class="feeds-section">
+        <div class="container-wide">
+          <div class="section-header">
+            <h2>情报流</h2>
+            <a href="/feeds" class="see-all">查看全部 →</a>
+          </div>
+          <div class="feeds-list">
+            {recentFeeds.map(feed => (
+              <a href={feed.url || '#'} class="feed-row glass-card" target={feed.url ? '_blank' : undefined} rel="noopener">
+                <span class={`feed-priority ${feed.priority === 'critical' ? 'critical' : 'normal'}`}>
+                  {feed.priority === 'critical' ? '🔴' : '🟢'}
+                </span>
+                <span class="feed-type-badge">{typeLabels[feed.feed_type] || feed.feed_type}</span>
+                <span class="feed-title">{feed.title}</span>
+                {feed.summary && <span class="feed-summary">{feed.summary}</span>}
+                <time class="feed-time">{new Date(feed.published_at || feed.created_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}</time>
+              </a>
+            ))}
+          </div>
         </div>
       </section>
     )}
@@ -145,6 +181,30 @@ function stripMarkdown(text: string) {
   .link-card p { font-size: 0.6875rem; color: var(--text-muted); }
 
   .posts-section { padding: 0 0 4rem; }
+
+  .feeds-section { padding: 0 0 3rem; }
+  .see-all { font-size: 0.8125rem; color: var(--text-muted); }
+  .see-all:hover { color: var(--text); }
+  .feeds-list { display: flex; flex-direction: column; gap: 0.375rem; }
+  .feed-row {
+    display: flex; align-items: center; gap: 0.625rem;
+    padding: 0.625rem 1rem; cursor: pointer;
+    text-decoration: none; color: var(--text-secondary);
+  }
+  .feed-row:hover { color: var(--text); }
+  .feed-priority { font-size: 0.625rem; flex-shrink: 0; }
+  .feed-priority.critical { animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .feed-type-badge {
+    padding: 0.0625rem 0.375rem; border-radius: 999px;
+    font-size: 0.625rem; font-weight: 500; flex-shrink: 0;
+    background: rgba(41,151,255,0.08); color: var(--primary);
+    border: 1px solid rgba(41,151,255,0.12);
+  }
+  .feed-title { font-size: 0.8125rem; font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .feed-summary { font-size: 0.6875rem; color: var(--text-muted); max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 2; }
+  .feed-time { font-size: 0.625rem; color: var(--text-muted); flex-shrink: 0; margin-left: auto; }
+
   .posts-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
   .post-card { display: flex; flex-direction: column; justify-content: space-between; padding: 1.25rem 1.5rem; cursor: pointer; }
   .post-card:hover { color: var(--text); transform: translateY(-2px); }
