@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 export async function GET({ url }: { url: URL }) {
   const q = url.searchParams.get('q')?.trim()
   if (!q || q.length < 2) {
-    return new Response(JSON.stringify({ results: [] }), { headers: { 'Content-Type': 'application/json' } })
+    return new Response(JSON.stringify({ results: [] }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
   }
 
   const pattern = `%${q}%`
@@ -42,5 +42,5 @@ export async function GET({ url }: { url: URL }) {
     })),
   ]
 
-  return new Response(JSON.stringify({ results }), { headers: { 'Content-Type': 'application/json' } })
+  return new Response(JSON.stringify({ results }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }

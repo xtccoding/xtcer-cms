@@ -134,5 +134,5 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
     }
   }
 
-  return new Response(JSON.stringify(results), { headers: { 'Content-Type': 'application/json' } })
+  return new Response(JSON.stringify(results), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }

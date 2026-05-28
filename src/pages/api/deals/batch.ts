@@ -34,5 +34,5 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
     if (!error && data) results.push(...data)
   }
 
-  return new Response(JSON.stringify({ inserted: results.length, deals: results }), { headers: { 'Content-Type': 'application/json' } })
+  return new Response(JSON.stringify({ inserted: results.length, deals: results }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }

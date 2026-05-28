@@ -24,7 +24,7 @@ export async function GET({ url }: { url: URL }) {
 
   const { data, error } = await query
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  return new Response(JSON.stringify(data || []), { headers: { 'Content-Type': 'application/json' } })
+  return new Response(JSON.stringify(data || []), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }
 
 export async function POST({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
@@ -42,7 +42,7 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
     .select().single()
 
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } })
+  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }
 
 export async function PUT({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
@@ -61,7 +61,7 @@ export async function PUT({ request, cookies, locals }: { request: Request; cook
     .select().single()
 
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } })
+  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }
 
 export async function DELETE({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {

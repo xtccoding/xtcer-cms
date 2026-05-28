@@ -43,7 +43,7 @@ export async function GET({ url }: { url: URL }) {
 
   const { data, error } = await query
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  return new Response(JSON.stringify(data || []), { headers: { 'Content-Type': 'application/json' } })
+  return new Response(JSON.stringify(data || []), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }
 
 export async function POST({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
@@ -68,7 +68,7 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
 
   const { data, error } = await supabase.from('feeds').upsert(insertData, { onConflict: 'feed_type,title' }).select().single()
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } })
+  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }
 
 export async function PUT({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
@@ -86,7 +86,7 @@ export async function PUT({ request, cookies, locals }: { request: Request; cook
 
   const { data, error } = await supabase.from('feeds').update(updates).eq('id', id).select().single()
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } })
+  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }
 
 export async function DELETE({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {

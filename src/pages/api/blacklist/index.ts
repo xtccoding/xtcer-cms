@@ -5,7 +5,7 @@ export async function GET({ cookies }: { cookies: any }) {
   if (!auth) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const { data } = await supabase.from('blacklist').select('*').order('created_at', { ascending: false })
-  return new Response(JSON.stringify(data || []), { headers: { 'Content-Type': 'application/json' } })
+  return new Response(JSON.stringify(data || []), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }
 
 export async function POST({ request, cookies }: { request: Request; cookies: any }) {
@@ -22,7 +22,7 @@ export async function POST({ request, cookies }: { request: Request; cookies: an
     .select().single()
 
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } })
+  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }
 
 export async function DELETE({ url, cookies }: { url: URL; cookies: any }) {

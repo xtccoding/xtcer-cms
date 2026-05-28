@@ -22,7 +22,7 @@ export async function GET({ params }: { params: { id: string } }) {
   }
 
   return new Response(JSON.stringify(data), {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
   })
 }
 
@@ -47,7 +47,7 @@ export async function PUT({ params, request, cookies, locals }: { params: { id: 
   }
 
   return new Response(JSON.stringify(data), {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
   })
 }
 

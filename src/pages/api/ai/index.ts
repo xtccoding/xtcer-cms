@@ -7,7 +7,7 @@ async function callCerebras(model: string, prompt: string, content: string) {
   const res = await fetch('https://api.cerebras.ai/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json; charset=utf-8',
       'Authorization': `Bearer ${CEREBRAS_KEY}`,
     },
     body: JSON.stringify({
@@ -57,7 +57,7 @@ export async function POST({ request, cookies }: { request: Request; cookies: an
     try {
       const result = await callCerebras(model, prompt, content || title || '')
       if (result) {
-        return new Response(JSON.stringify({ result, model }), { headers: { 'Content-Type': 'application/json' } })
+        return new Response(JSON.stringify({ result, model }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
       }
     } catch (e) {
       continue

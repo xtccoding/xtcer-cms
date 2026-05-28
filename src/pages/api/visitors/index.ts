@@ -42,5 +42,5 @@ export async function GET({ cookies, url }: { cookies: any; url: URL }) {
     recent: visits?.slice(0, 50) || [],
     topPages,
     hourlyCounts,
-  }), { headers: { 'Content-Type': 'application/json' } })
+  }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }

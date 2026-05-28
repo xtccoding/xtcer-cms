@@ -12,7 +12,7 @@ export async function PUT({ params, request, cookies }: { params: { id: string }
     .select().single()
 
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } })
+  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }
 
 export async function DELETE({ params, cookies }: { params: { id: string }; cookies: any }) {

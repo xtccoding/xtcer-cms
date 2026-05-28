@@ -25,7 +25,7 @@ export async function GET({ cookies }: { cookies: any }) {
   }
 
   return new Response(JSON.stringify(data), {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
   })
 }
 
@@ -52,6 +52,6 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
   }
 
   return new Response(JSON.stringify(data), {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
   })
 }
