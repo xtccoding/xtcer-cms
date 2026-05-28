@@ -1,10 +1,11 @@
 import { supabase } from '../../../lib/supabase'
 
-function isAuthenticated(cookies: any, request: Request): boolean {
+function isAuthenticated(cookies: any, request: Request, env: any): boolean {
   const cookieAuth = cookies.get('admin_auth')
   if (cookieAuth) return true
   const feedKey = request.headers.get('X-Feed-Key')
-  if (feedKey && feedKey === import.meta.env.FEED_API_KEY) return true
+  const validKey = env?.FEED_API_KEY || import.meta.env.FEED_API_KEY
+  if (feedKey && feedKey === validKey) return true
   return false
 }
 
@@ -26,8 +27,8 @@ export async function GET({ url }: { url: URL }) {
   return new Response(JSON.stringify(data || []), { headers: { 'Content-Type': 'application/json' } })
 }
 
-export async function POST({ request, cookies }: { request: Request; cookies: any }) {
-  if (!isAuthenticated(cookies, request)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+export async function POST({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
+  if (!isAuthenticated(cookies, request, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const body = await request.json()
   const { provider, product, price, price_usd, price_cny, config, bandwidth, type, target, renewal_price, url, notes, category, region, expiry } = body
@@ -44,8 +45,8 @@ export async function POST({ request, cookies }: { request: Request; cookies: an
   return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } })
 }
 
-export async function PUT({ request, cookies }: { request: Request; cookies: any }) {
-  if (!isAuthenticated(cookies, request)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+export async function PUT({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
+  if (!isAuthenticated(cookies, request, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const body = await request.json()
   const { id, ...updates } = body
@@ -63,8 +64,8 @@ export async function PUT({ request, cookies }: { request: Request; cookies: any
   return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } })
 }
 
-export async function DELETE({ request, cookies }: { request: Request; cookies: any }) {
-  if (!isAuthenticated(cookies, request)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+export async function DELETE({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
+  if (!isAuthenticated(cookies, request, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const body = await request.json()
   const { id } = body
