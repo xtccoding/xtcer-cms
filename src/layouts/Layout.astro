@@ -1,9 +1,12 @@
 ---
 interface Props {
   title: string
+  description?: string
+  ogImage?: string
 }
 
-const { title } = Astro.props
+const { title, description = 'XTCer - 轻量级内容管理', ogImage } = Astro.props
+const canonicalURL = new URL(Astro.url.pathname, 'https://xtcer-enp.pages.dev')
 ---
 
 <!doctype html>
@@ -12,7 +15,17 @@ const { title } = Astro.props
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="description" content="XTCer - 轻量级内容管理" />
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalURL} />
+    <link rel="alternate" type="application/rss+xml" title="XTCer RSS" href="/rss.xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalURL} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
     <title>{title}</title>
   </head>
   <body>

@@ -16,9 +16,11 @@ const htmlContent = marked.parse(post.content || '')
 const plainText = (post.content || '').replace(/[#*_`~\[\]>|]/g, '').replace(/\n+/g, ' ').trim()
 const wordCount = plainText.length
 const readTime = Math.max(1, Math.ceil(wordCount / 400))
+const description = plainText.substring(0, 160)
+const views = post.views || 0
 ---
 
-<Layout title={`${post.title} - XTCer`}>
+<Layout title={`${post.title} - XTCer`} description={description}>
   <nav class="nav">
       <div class="nav-inner">
         <a href="/" class="nav-logo">XTCer</a>
@@ -39,9 +41,16 @@ const readTime = Math.max(1, Math.ceil(wordCount / 400))
           <span>{readTime} 分钟阅读</span>
           <span>·</span>
           <span>{wordCount} 字</span>
+          <span>·</span>
+          <span id="view-count">{views} 次浏览</span>
         </div>
       </header>
       <div class="article-content markdown-body" set:html={htmlContent}></div>
+
+      <section class="comments-section">
+        <h2>评论</h2>
+        <div class="giscus"></div>
+      </section>
     </article>
   </main>
 
@@ -56,6 +65,34 @@ const readTime = Math.max(1, Math.ceil(wordCount / 400))
       </div>
     </div>
   </footer>
+
+  <script>
+    const postId = window.location.pathname.split('/').pop()
+    fetch('/api/posts/views', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: postId }),
+    }).then(r => r.json()).then(data => {
+      if (data.views) document.getElementById('view-count')!.textContent = data.views + ' 次浏览'
+    }).catch(() => {})
+
+    const script = document.createElement('script')
+    script.src = 'https://giscus.app/client.js'
+    script.setAttribute('data-repo', 'xtccoding/xtcer-cms')
+    script.setAttribute('data-repo-id', '')
+    script.setAttribute('data-category', 'Announcements')
+    script.setAttribute('data-category-id', '')
+    script.setAttribute('data-mapping', 'pathname')
+    script.setAttribute('data-strict', '0')
+    script.setAttribute('data-reactions-enabled', '1')
+    script.setAttribute('data-emit-metadata', '0')
+    script.setAttribute('data-input-position', 'top')
+    script.setAttribute('data-theme', 'dark')
+    script.setAttribute('data-lang', 'zh-CN')
+    script.setAttribute('crossorigin', 'anonymous')
+    script.async = true
+    document.querySelector('.giscus')?.appendChild(script)
+  </script>
 </Layout>
 
 <style>
@@ -112,6 +149,12 @@ const readTime = Math.max(1, Math.ceil(wordCount / 400))
   .article-content :global(th), .article-content :global(td) { padding: 0.625rem 0.875rem; border: 1px solid var(--border); text-align: left; }
   .article-content :global(th) { background: rgba(255,255,255,0.03); font-weight: 600; color: var(--text); }
   .article-content :global(td) { color: var(--text-secondary); }
+
+  .comments-section {
+    max-width: 720px; margin-top: 3rem; padding-top: 2rem;
+    border-top: 1px solid var(--border);
+  }
+  .comments-section h2 { font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem; }
 
   .footer { border-top: 1px solid var(--border); padding: 2rem 0; }
   .footer-inner { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted); }

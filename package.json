@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@astrojs/cloudflare": "^12.2.3",
+    "@astrojs/rss": "^4.0.18",
     "@supabase/supabase-js": "^2.49.4",
     "astro": "^5.7.10",
     "marked": "^18.0.4"

@@ -44,6 +44,8 @@ const { data: posts } = await supabase
                 <time>{new Date(post.created_at).toLocaleDateString('zh-CN')}</time>
                 <span>·</span>
                 <span>{Math.ceil(((post.content ? String(marked.parse(post.content)).replace(/<[^>]*>/g, '').length : 0)) / 400)} 分钟阅读</span>
+                <span>·</span>
+                <span>{post.views || 0} 次浏览</span>
               </div>
             </div>
             <div class="post-row-actions">
