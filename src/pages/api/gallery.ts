@@ -1,4 +1,3 @@
-import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { supabase } from '../../lib/supabase'
 
 function isAuthenticated(cookies: any, request: Request, env: any): boolean {
@@ -62,8 +61,9 @@ export async function DELETE({ request, cookies, locals }: { request: Request; c
   if (!key && !id) return new Response(JSON.stringify({ error: 'Missing key or id' }), { status: 400 })
 
   try {
-    // Delete from R2
+    // Delete from R2 if credentials available
     if (accountId && accessKeyId && secretAccessKey && key) {
+      const { S3Client, DeleteObjectCommand } = await import('@aws-sdk/client-s3')
       const s3 = new S3Client({
         region: 'auto',
         endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
