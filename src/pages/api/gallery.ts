@@ -1,9 +1,16 @@
 import { supabase } from '../../lib/supabase'
 
-export async function GET({ cookies, locals, url }: { cookies: any; locals: any; url: URL }) {
-  // Check auth
-  const auth = cookies?.get?.('admin_auth')?.value
-  if (!auth) {
+function isAuthenticated(cookies: any, request: Request, env: any): boolean {
+  const cookieAuth = cookies?.get?.('admin_auth')?.value
+  if (cookieAuth) return true
+  const feedKey = request?.headers?.get?.('X-Feed-Key')
+  const validKey = env?.FEED_API_KEY || import.meta.env.FEED_API_KEY
+  if (feedKey && feedKey === validKey) return true
+  return false
+}
+
+export async function GET({ cookies, request, locals, url }: { cookies: any; request: Request; locals: any; url: URL }) {
+  if (!isAuthenticated(cookies, request, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
