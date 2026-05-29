@@ -142,6 +142,38 @@ export interface Database {
           updated_at?: string
         }
       }
+      assets: {
+        Row: {
+          id: string
+          key: string
+          url: string
+          filename: string | null
+          content_type: string | null
+          size: number | null
+          content_hash: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          url: string
+          filename?: string | null
+          content_type?: string | null
+          size?: number | null
+          content_hash?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          url?: string
+          filename?: string | null
+          content_type?: string | null
+          size?: number | null
+          content_hash?: string | null
+          created_at?: string
+        }
+      }
     }
   }
 }
