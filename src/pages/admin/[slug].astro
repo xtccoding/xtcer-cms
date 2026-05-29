@@ -7,6 +7,11 @@ const ADMIN_PASSWORD = runtimeEnv?.ADMIN_PASSWORD || import.meta.env.ADMIN_PASSW
 if (!ADMIN_PASSWORD) return new Response('ADMIN_PASSWORD not configured', { status: 500 })
 const cookie = Astro.cookies.get('admin_auth')
 if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
+
+// Dynamic gallery slug check
+const { slug } = Astro.params
+const gallerySlug = Astro.cookies.get('gallery_slug')?.value
+if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
 ---
 
 <Layout title="图床管理 - XTCer">

@@ -11,8 +11,10 @@ let error = ''
 if (Astro.request.method === 'POST') {
   const formData = await Astro.request.formData()
   const password = formData.get('password')
-  if (password === ADMIN_PASSWORD) {
+    if (password === ADMIN_PASSWORD) {
+    const gallerySlug = crypto.randomUUID().replace(/-/g, '').substring(0, 12)
     Astro.cookies.set('admin_auth', ADMIN_PASSWORD, { path: '/', httpOnly: true, secure: true, sameSite: 'lax', maxAge: 60*60*24*7 })
+    Astro.cookies.set('gallery_slug', gallerySlug, { path: '/', httpOnly: true, secure: true, sameSite: 'lax', maxAge: 60*60*24*7 })
     return Astro.redirect('/admin')
   } else { error = '密码错误' }
 }
