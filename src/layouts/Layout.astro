@@ -6,8 +6,10 @@ interface Props {
   schema?: Record<string, any>
 }
 
-const { title, description = 'XTCer - 技术文章、云服务优惠、AI情报与安全漏洞实时推送，Astro + Supabase 构建的极速内容平台', ogImage, schema } = Astro.props
+const { title, description: rawDescription = 'XTCer - 技术文章、云服务优惠、AI情报与安全漏洞实时推送', ogImage, schema } = Astro.props
 const canonicalURL = new URL(Astro.url.pathname, 'https://xtcer.cn')
+const description = rawDescription.length > 150 ? rawDescription.substring(0, 147) + '...' : rawDescription
+const ogImageUrl = ogImage || new URL('/og-image.svg', 'https://xtcer.cn').href
 ---
 
 <!doctype html>
@@ -24,7 +26,7 @@ const canonicalURL = new URL(Astro.url.pathname, 'https://xtcer.cn')
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalURL} />
-    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta property="og:image" content={ogImageUrl} />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />

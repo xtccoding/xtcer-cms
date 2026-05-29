@@ -9,8 +9,8 @@ export async function GET() {
 
   return rss({
     title: 'XTCer',
-    description: 'XTCer - 轻量级内容管理',
-    site: 'https://xtcer-enp.pages.dev',
+    description: 'XTCer - 技术文章、云服务优惠、AI情报与安全漏洞实时推送',
+    site: 'https://xtcer.cn',
     items: (posts || []).map(post => ({
       title: post.title,
       pubDate: new Date(post.created_at),
