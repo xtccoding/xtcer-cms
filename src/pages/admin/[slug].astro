@@ -118,7 +118,6 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
       const grid = document.getElementById('gallery-grid')!
       grid.innerHTML = allFiles.map((f, i) => {
         const name = f.filename || f.key?.split('/').pop() || ''
-        const date = f.created_at ? new Date(f.created_at).toLocaleDateString('zh-CN') : ''
         return `<div class="gallery-item" data-index="${i}">
           <img src="${f.url}" alt="${name}" loading="lazy" data-index="${i}" />
           <div class="gallery-bar">
@@ -135,6 +134,39 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
           </div>
         </div>`
       }).join('') || '<div class="empty-state">暂无图片</div>'
+
+      // Masonry layout after images load
+      const items = grid.querySelectorAll('.gallery-item')
+      const colCount = window.innerWidth < 640 ? 2 : 4
+      const gap = 8
+      const containerWidth = grid.clientWidth
+      const colWidth = (containerWidth - gap * (colCount - 1)) / colCount
+      const colHeights = new Array(colCount).fill(0)
+
+      items.forEach((item) => {
+        const el = item as HTMLElement
+        const img = el.querySelector('img')!
+
+        const positionItem = () => {
+          // Find shortest column
+          const minHeight = Math.min(...colHeights)
+          const colIndex = colHeights.indexOf(minHeight)
+
+          el.style.width = colWidth + 'px'
+          el.style.left = (colIndex * (colWidth + gap)) + 'px'
+          el.style.top = minHeight + 'px'
+
+          colHeights[colIndex] = minHeight + el.offsetHeight + gap
+          grid.style.height = Math.max(...colHeights) + 'px'
+        }
+
+        if (img.complete) {
+          positionItem()
+        } else {
+          img.addEventListener('load', positionItem)
+          img.addEventListener('error', positionItem)
+        }
+      })
     }
 
     function renderPagination() {
@@ -344,15 +376,12 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
   .upload-link { color: var(--primary); cursor: pointer; }
   .upload-link:hover { text-decoration: underline; }
 
-  .gallery-stats { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem; }
-
   .gallery-grid {
-    columns: 4 160px;
-    column-gap: 0.5rem;
+    position: relative;
+    width: 100%;
   }
   .gallery-item {
-    break-inside: avoid;
-    margin-bottom: 0.5rem;
+    position: absolute;
     border-radius: var(--radius-sm);
     overflow: hidden;
     background: var(--surface);
@@ -446,8 +475,6 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
     .admin-main { margin-left: 0; padding: 0.75rem; }
     .admin-header { flex-direction: column; gap: 0.75rem; }
     .header-actions { width: 100%; }
-    .gallery-grid { columns: 2; column-gap: 0.375rem; }
-    .gallery-item { margin-bottom: 0.375rem; }
     .upload-zone { padding: 1.5rem; }
     .lightbox-nav { width: 36px; height: 36px; }
     .lightbox-prev { left: 0.5rem; }
