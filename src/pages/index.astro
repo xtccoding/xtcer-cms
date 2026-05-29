@@ -125,7 +125,7 @@ function stripMarkdown(text: string) {
               <a href={`/posts/${post.id}`} class="post-card glass-card">
                 <div class="post-body">
                   <h3>{post.title}</h3>
-                  <p class="excerpt">{stripMarkdown(post.content || '').substring(0, 120)}</p>
+                  <p class="excerpt">{post.summary || stripMarkdown(post.content || '').substring(0, 120)}</p>
                 </div>
                 <div class="post-footer">
                   <time>{new Date(post.created_at).toLocaleDateString('zh-CN')}</time>

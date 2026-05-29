@@ -41,7 +41,7 @@ const { data: posts } = await supabase
           <div class="post-row glass-card" data-id={post.id} data-title={post.title.toLowerCase()}>
             <div class="post-row-body">
               <h3>{post.title}</h3>
-              <p>{(post.content ? String(marked.parse(post.content)) : '').replace(/<[^>]*>/g, '').replace(/\n+/g, ' ').trim().substring(0, 100) || '暂无内容'}</p>
+              <p>{post.summary || (post.content ? String(marked.parse(post.content)) : '').replace(/<[^>]*>/g, '').replace(/\n+/g, ' ').trim().substring(0, 100) || '暂无内容'}</p>
               <div class="post-row-meta">
                 <time>{new Date(post.created_at).toLocaleDateString('zh-CN')}</time>
                 <span>·</span>

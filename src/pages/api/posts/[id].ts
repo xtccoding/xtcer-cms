@@ -33,11 +33,16 @@ export async function PUT({ params, request, cookies, locals }: { params: { id: 
 
   const { id } = params
   const body = await request.json()
-  const { title, content } = body
+  const { title, content, summary } = body
+
+  const updateData: any = {}
+  if (title !== undefined) updateData.title = title
+  if (content !== undefined) updateData.content = content
+  if (summary !== undefined) updateData.summary = summary
 
   const { data, error } = await supabase
     .from('posts')
-    .update({ title, content })
+    .update(updateData)
     .eq('id', id)
     .select()
     .single()

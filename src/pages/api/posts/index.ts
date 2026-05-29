@@ -35,7 +35,7 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
   }
 
   const body = await request.json()
-  const { title, content } = body
+  const { title, content, summary } = body
 
   if (!title) {
     return new Response(JSON.stringify({ error: 'Title is required' }), { status: 400 })
@@ -43,7 +43,7 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
 
   const { data, error } = await supabase
     .from('posts')
-    .insert({ title, content: content || '' })
+    .insert({ title, content: content || '', summary: summary || '' })
     .select()
     .single()
 

@@ -77,6 +77,7 @@ if (!post) return Astro.redirect('/admin/dashboard')
 
       <div class="editor-body">
         <input type="text" id="post-title" class="input title-input" value={post.title} />
+        <input type="text" id="post-summary" class="input summary-input" placeholder="摘要（可选，100-160字，用于首页展示和SEO）" value={post.summary || ''} />
         <textarea id="post-content" class="input editor">{post.content}</textarea>
         <div id="preview" class="preview markdown-body" style="display:none"></div>
       </div>
@@ -86,6 +87,7 @@ if (!post) return Astro.redirect('/admin/dashboard')
   <script>
     import { marked } from 'marked'
     const titleInput = document.getElementById('post-title') as HTMLInputElement
+    const summaryInput = document.getElementById('post-summary') as HTMLInputElement
     const contentInput = document.getElementById('post-content') as HTMLTextAreaElement
     const preview = document.getElementById('preview')!
     const toggleBtn = document.getElementById('toggle-preview')!
@@ -174,7 +176,7 @@ if (!post) return Astro.redirect('/admin/dashboard')
       const title = titleInput.value.trim()
       if (!title) { titleInput.focus(); return }
       saveBtn.textContent = '保存中...'
-      const res = await fetch(`/api/posts/${postId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, content: contentInput.value.trim() }) })
+      const res = await fetch(`/api/posts/${postId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, summary: summaryInput.value.trim(), content: contentInput.value.trim() }) })
       if (res.ok) { saved = true; saveStatus.textContent = '已保存'; setTimeout(() => { saveStatus.textContent = '' }, 3000) }
       else { alert('保存失败') }
       saveBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>保存'
@@ -231,6 +233,7 @@ if (!post) return Astro.redirect('/admin/dashboard')
 
   .editor-body { display: flex; flex-direction: column; gap: 0.75rem; }
   .title-input { font-size: 1.375rem; font-weight: 600; padding: 0.875rem 1rem; background: var(--surface); }
+  .summary-input { font-size: 0.875rem; padding: 0.625rem 1rem; background: var(--surface); color: var(--text-secondary); }
   .editor { width: 100%; min-height: 65vh; padding: 1rem; font-size: 0.875rem; line-height: 1.8; resize: none; }
   .preview { width: 100%; min-height: 65vh; padding: 1.5rem; background: var(--surface); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); overflow-y: auto; }
   .preview :global(h1) { font-size: 1.75rem; margin-bottom: 0.75rem; color: var(--text); }

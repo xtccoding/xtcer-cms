@@ -5,19 +5,25 @@ export interface Database {
         Row: {
           id: string
           title: string
+          summary: string | null
           content: string | null
+          views: number
           created_at: string
         }
         Insert: {
           id?: string
           title: string
+          summary?: string | null
           content?: string | null
+          views?: number
           created_at?: string
         }
         Update: {
           id?: string
           title?: string
+          summary?: string | null
           content?: string | null
+          views?: number
           created_at?: string
         }
       }
