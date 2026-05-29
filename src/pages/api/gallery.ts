@@ -22,38 +22,42 @@ export async function GET({ cookies, locals, url }: { cookies: any; locals: any;
   const publicUrl = env.R2_PUBLIC_URL || import.meta.env.R2_PUBLIC_URL || 'https://img.xtcer.cn'
 
   if (!accountId || !accessKeyId || !secretAccessKey) {
-    return new Response(JSON.stringify({ error: 'R2 not configured' }), { status: 500 })
+    return new Response(JSON.stringify({ error: 'R2 not configured', missing: { accountId: !accountId, accessKeyId: !accessKeyId, secretAccessKey: !secretAccessKey } }), { status: 500 })
   }
 
-  const prefix = url.searchParams.get('prefix') || 'uploads/'
-  const continuationToken = url.searchParams.get('token') || undefined
-  const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200)
+  try {
+    const prefix = url.searchParams.get('prefix') || 'uploads/'
+    const continuationToken = url.searchParams.get('token') || undefined
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200)
 
-  const s3 = new S3Client({
-    region: 'auto',
-    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-    credentials: { accessKeyId, secretAccessKey },
-  })
+    const s3 = new S3Client({
+      region: 'auto',
+      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+      credentials: { accessKeyId, secretAccessKey },
+    })
 
-  const { Contents, IsTruncated, NextContinuationToken } = await s3.send(new ListObjectsV2Command({
-    Bucket: bucketName,
-    Prefix: prefix,
-    MaxKeys: limit,
-    ContinuationToken: continuationToken,
-  }))
+    const { Contents, IsTruncated, NextContinuationToken } = await s3.send(new ListObjectsV2Command({
+      Bucket: bucketName,
+      Prefix: prefix,
+      MaxKeys: limit,
+      ContinuationToken: continuationToken,
+    }))
 
-  const files = (Contents || []).map(obj => ({
-    key: obj.Key,
-    url: `${publicUrl}/${obj.Key}`,
-    size: obj.Size,
-    lastModified: obj.LastModified,
-  }))
+    const files = (Contents || []).map(obj => ({
+      key: obj.Key,
+      url: `${publicUrl}/${obj.Key}`,
+      size: obj.Size,
+      lastModified: obj.LastModified,
+    }))
 
-  return new Response(JSON.stringify({
-    files,
-    hasMore: IsTruncated,
-    nextToken: NextContinuationToken,
-  }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+    return new Response(JSON.stringify({
+      files,
+      hasMore: IsTruncated,
+      nextToken: NextContinuationToken,
+    }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message || 'R2 query failed' }), { status: 500 })
+  }
 }
 
 export async function DELETE({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
