@@ -366,6 +366,9 @@ const ogImageUrl = ogImage || new URL('/og-image.svg', 'https://xtcer.cn').href
 
   @media (max-width: 768px) {
     :root { --nav-height: 52px; }
+    .container, .container-wide { padding: 0 1.25rem; }
+  }
+  @media (max-width: 375px) {
     .container, .container-wide { padding: 0 1rem; }
   }
 </style>

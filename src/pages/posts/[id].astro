@@ -360,7 +360,18 @@ const schema = {
   }
   @media (max-width: 640px) {
     .article-page { padding: 1rem 0 3rem; }
-    .article-meta { flex-wrap: wrap; }
+    .article-header h1 { font-size: 1.5rem; }
+    .article-content { font-size: 1rem; line-height: 1.8; }
+    .article-content :global(h2) { font-size: 1.25rem; margin: 1.75rem 0 0.75rem; }
+    .article-content :global(h3) { font-size: 1.125rem; margin: 1.5rem 0 0.5rem; }
+    .article-content :global(pre) { padding: 1rem; font-size: 0.75rem; }
+    .article-content :global(table) { font-size: 0.75rem; }
+    .article-content :global(th), .article-content :global(td) { padding: 0.5rem; }
+    .article-meta { flex-wrap: wrap; gap: 0.25rem 0.5rem; }
+    .comments-section { margin-top: 2rem; padding-top: 1.5rem; }
     .footer-inner { flex-direction: column; gap: 1rem; }
+    .other-articles { right: 0.75rem; bottom: 0.75rem; }
+    .other-panel { width: calc(100vw - 1.5rem); max-height: 50vh; }
+    .toggle-text { display: none; }
   }
 </style>
