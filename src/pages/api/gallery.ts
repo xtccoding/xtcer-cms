@@ -2,9 +2,9 @@ import { supabase } from '../../lib/supabase'
 
 export async function GET({ cookies, locals, url }: { cookies: any; locals: any; url: URL }) {
   // Check auth
-  const auth = cookies?.get?.('admin_auth')
+  const auth = cookies?.get?.('admin_auth')?.value
   if (!auth) {
-    return new Response(JSON.stringify({ error: 'Unauthorized', hasCookies: !!cookies }), { status: 401 })
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
   try {
