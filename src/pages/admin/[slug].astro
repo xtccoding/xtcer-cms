@@ -119,7 +119,9 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
       grid.innerHTML = allFiles.map((f, i) => {
         const name = f.filename || f.key?.split('/').pop() || ''
         return `<div class="gallery-item" data-index="${i}">
-          <img src="${f.url}" alt="${name}" loading="lazy" data-index="${i}" />
+          <div class="gallery-thumb" data-index="${i}">
+            <img src="${f.url}" alt="${name}" loading="lazy" />
+          </div>
           <div class="gallery-bar">
             <span class="gallery-name" title="${name}">${name}</span>
             <div class="gallery-btns">
@@ -134,39 +136,6 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
           </div>
         </div>`
       }).join('') || '<div class="empty-state">暂无图片</div>'
-
-      // Masonry layout after images load
-      const items = grid.querySelectorAll('.gallery-item')
-      const colCount = window.innerWidth < 640 ? 2 : 4
-      const gap = 8
-      const containerWidth = grid.clientWidth
-      const colWidth = (containerWidth - gap * (colCount - 1)) / colCount
-      const colHeights = new Array(colCount).fill(0)
-
-      items.forEach((item) => {
-        const el = item as HTMLElement
-        const img = el.querySelector('img')!
-
-        const positionItem = () => {
-          // Find shortest column
-          const minHeight = Math.min(...colHeights)
-          const colIndex = colHeights.indexOf(minHeight)
-
-          el.style.width = colWidth + 'px'
-          el.style.left = (colIndex * (colWidth + gap)) + 'px'
-          el.style.top = minHeight + 'px'
-
-          colHeights[colIndex] = minHeight + el.offsetHeight + gap
-          grid.style.height = Math.max(...colHeights) + 'px'
-        }
-
-        if (img.complete) {
-          positionItem()
-        } else {
-          img.addEventListener('load', positionItem)
-          img.addEventListener('error', positionItem)
-        }
-      })
     }
 
     function renderPagination() {
@@ -320,9 +289,9 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
     // Click image to open lightbox
     document.addEventListener('click', (e) => {
       const target = e.target as HTMLElement
-      const img = target.closest('.gallery-item img') as HTMLImageElement
-      if (img) {
-        const index = parseInt(img.dataset.index || '0')
+      const thumb = target.closest('.gallery-thumb') as HTMLElement
+      if (thumb) {
+        const index = parseInt(thumb.dataset.index || '0')
         openLightbox(index)
         return
       }
@@ -376,12 +345,14 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
   .upload-link { color: var(--primary); cursor: pointer; }
   .upload-link:hover { text-decoration: underline; }
 
+  .gallery-stats { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem; }
+
   .gallery-grid {
-    position: relative;
-    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.5rem;
   }
   .gallery-item {
-    position: absolute;
     border-radius: var(--radius-sm);
     overflow: hidden;
     background: var(--surface);
@@ -390,8 +361,16 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
     transition: border-color 0.2s;
   }
   .gallery-item:hover { border-color: var(--glass-border-hover); }
-  .gallery-item img {
+  .gallery-thumb {
     width: 100%;
+    aspect-ratio: 1;
+    overflow: hidden;
+    background: rgba(0,0,0,0.2);
+  }
+  .gallery-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
     display: block;
   }
   .gallery-bar {
@@ -414,8 +393,6 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
   .gallery-btns .btn { padding: 0.1875rem 0.25rem; }
 
   .empty-state { text-align: center; padding: 3rem; color: var(--text-muted); }
-
-  .empty-state { grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--text-muted); }
 
   .gallery-pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border); }
   .page-info { font-size: 0.75rem; color: var(--text-muted); }
