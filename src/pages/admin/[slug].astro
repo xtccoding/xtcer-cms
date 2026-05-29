@@ -357,24 +357,24 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 0.5rem;
-    width: 100%;
   }
   .gallery-item {
-    overflow: hidden; display: flex; flex-direction: column;
     border-radius: var(--radius-sm);
-    min-width: 0; max-width: 100%;
+    overflow: hidden;
   }
   .gallery-img-wrap {
-    width: 100%; height: 0; padding-bottom: 100%; overflow: hidden;
+    position: relative;
+    width: 100%;
+    padding-top: 100%;
     background: rgba(0,0,0,0.3);
-    cursor: pointer; position: relative;
-    flex-shrink: 0;
+    cursor: pointer;
+    overflow: hidden;
   }
   .gallery-img-wrap img {
-    position: absolute; top: 0; left: 0;
-    width: 100%; height: 100%; object-fit: cover;
-    transition: transform 0.2s;
-    display: block;
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
   }
   .gallery-img-overlay {
     position: absolute; inset: 0;
@@ -383,8 +383,7 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
     transition: opacity 0.2s;
   }
   .gallery-item:hover .gallery-img-overlay { opacity: 1; }
-  .gallery-item:hover .gallery-img-wrap img { transform: scale(1.05); }
-  .gallery-info { padding: 0.5rem 0.625rem; flex: 1; min-width: 0; }
+  .gallery-info { padding: 0.5rem 0.625rem; }
   .gallery-name { display: block; font-size: 0.625rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .gallery-meta { display: block; font-size: 0.5625rem; color: var(--text-muted); margin-top: 0.125rem; }
   .gallery-actions { display: flex; gap: 0.25rem; padding: 0 0.375rem 0.375rem; }
