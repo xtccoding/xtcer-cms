@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3'
 
 function isAuthenticated(cookies: any, request: Request, env: any): boolean {
   const cookieAuth = cookies.get('admin_auth')
@@ -7,6 +7,12 @@ function isAuthenticated(cookies: any, request: Request, env: any): boolean {
   const validKey = env?.FEED_API_KEY || import.meta.env.FEED_API_KEY
   if (feedKey && feedKey === validKey) return true
   return false
+}
+
+async function sha256(buffer: ArrayBuffer): Promise<string> {
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
 export async function POST({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
@@ -33,44 +39,62 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
       return new Response(JSON.stringify({ error: 'No file provided' }), { status: 400 })
     }
 
-    // Validate file type
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']
     if (!allowedTypes.includes(file.type)) {
       return new Response(JSON.stringify({ error: 'Invalid file type. Allowed: JPG, PNG, GIF, WebP, SVG' }), { status: 400 })
     }
 
-    // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       return new Response(JSON.stringify({ error: 'File too large. Max 10MB' }), { status: 400 })
     }
 
-    // Generate unique filename
-    const ext = file.name.split('.').pop() || 'jpg'
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-    const random = Math.random().toString(36).substring(2, 8)
-    const key = `uploads/${date}/${random}.${ext}`
+    const arrayBuffer = await file.arrayBuffer()
+    const uint8Array = new Uint8Array(arrayBuffer)
 
-    // Upload to R2
+    // Content hash for deduplication
+    const hash = await sha256(arrayBuffer)
+    const hashShort = hash.substring(0, 12)
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+    const key = `uploads/${hashShort}.${ext}`
+
     const s3 = new S3Client({
       region: 'auto',
       endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
       credentials: { accessKeyId, secretAccessKey },
     })
 
-    const arrayBuffer = await file.arrayBuffer()
-    const uint8Array = new Uint8Array(arrayBuffer)
+    // Check if file already exists (dedup)
+    let existed = false
+    try {
+      await s3.send(new HeadObjectCommand({ Bucket: bucketName, Key: key }))
+      existed = true
+    } catch {
+      // Not found, will upload
+    }
 
-    await s3.send(new PutObjectCommand({
-      Bucket: bucketName,
-      Key: key,
-      Body: uint8Array,
-      ContentType: file.type,
-      CacheControl: 'public, max-age=31536000',
-    }))
+    if (!existed) {
+      await s3.send(new PutObjectCommand({
+        Bucket: bucketName,
+        Key: key,
+        Body: uint8Array,
+        ContentType: file.type,
+        CacheControl: 'public, max-age=31536000',
+        Metadata: {
+          'original-name': encodeURIComponent(file.name),
+          'content-hash': hash,
+        },
+      }))
+    }
 
     const url = `${publicUrl}/${key}`
 
-    return new Response(JSON.stringify({ url, key, size: file.size }), {
+    return new Response(JSON.stringify({
+      url,
+      key,
+      size: file.size,
+      hash,
+      deduplicated: existed,
+    }), {
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
     })
   } catch (err: any) {

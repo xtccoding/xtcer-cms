@@ -43,6 +43,7 @@ const ogImageUrl = ogImage || new URL('/og-image.svg', 'https://xtcer.cn').href
   <body>
     <div class="bg-gradient"></div>
     <div class="bg-grid"></div>
+    <div id="toast-container"></div>
     <slot />
 
     <div id="search-modal" class="search-modal" style="display:none">
@@ -59,6 +60,21 @@ const ogImageUrl = ogImage || new URL('/og-image.svg', 'https://xtcer.cn').href
     </div>
 
     <script>
+      // Global toast notification
+      (window as any).showToast = function(message: string, type = 'success', duration = 3000) {
+        const container = document.getElementById('toast-container')!
+        const toast = document.createElement('div')
+        toast.className = `toast toast-${type}`
+        const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'
+        toast.innerHTML = `<span class="toast-icon">${icon}</span><span class="toast-msg">${message}</span>`
+        container.appendChild(toast)
+        requestAnimationFrame(() => toast.classList.add('toast-show'))
+        setTimeout(() => {
+          toast.classList.remove('toast-show')
+          setTimeout(() => toast.remove(), 300)
+        }, duration)
+      }
+
       const modal = document.getElementById('search-modal')!
       const input = document.getElementById('search-input') as HTMLInputElement
       const results = document.getElementById('search-results')!
@@ -363,6 +379,30 @@ const ogImageUrl = ogImage || new URL('/og-image.svg', 'https://xtcer.cn').href
   .search-item-title { font-size: 0.875rem; font-weight: 500; color: var(--text); margin-bottom: 0.125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .search-item-desc { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .search-empty { padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.8125rem; }
+
+  #toast-container {
+    position: fixed; top: 1rem; right: 1rem; z-index: 9999;
+    display: flex; flex-direction: column; gap: 0.5rem;
+    pointer-events: none;
+  }
+  .toast {
+    display: flex; align-items: center; gap: 0.625rem;
+    padding: 0.75rem 1.25rem; border-radius: var(--radius-sm);
+    background: rgba(30,30,30,0.95); backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    font-size: 0.8125rem; color: var(--text);
+    transform: translateX(120%); transition: transform 0.3s ease;
+    pointer-events: auto;
+  }
+  .toast-show { transform: translateX(0); }
+  .toast-icon { font-size: 1rem; flex-shrink: 0; }
+  .toast-success { border-color: rgba(48,209,88,0.3); }
+  .toast-success .toast-icon { color: var(--green); }
+  .toast-error { border-color: rgba(255,69,58,0.3); }
+  .toast-error .toast-icon { color: var(--red); }
+  .toast-info { border-color: rgba(41,151,255,0.3); }
+  .toast-info .toast-icon { color: var(--primary); }
 
   @media (max-width: 768px) {
     :root { --nav-height: 52px; }

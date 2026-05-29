@@ -1,0 +1,288 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import Sidebar from '../../components/Sidebar.astro'
+
+const runtimeEnv = (Astro.locals as any)?.runtime?.env
+const ADMIN_PASSWORD = runtimeEnv?.ADMIN_PASSWORD || import.meta.env.ADMIN_PASSWORD
+if (!ADMIN_PASSWORD) return new Response('ADMIN_PASSWORD not configured', { status: 500 })
+const cookie = Astro.cookies.get('admin_auth')
+if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
+---
+
+<Layout title="图床管理 - XTCer">
+  <div class="admin-layout">
+    <Sidebar active="gallery" />
+    <div class="admin-main">
+      <header class="admin-header">
+        <div>
+          <h1>图床管理</h1>
+          <p class="admin-subtitle">R2 图片存储 · 按内容 hash 去重</p>
+        </div>
+        <div class="header-actions">
+          <input type="file" id="upload-input" accept="image/*" multiple style="display:none" />
+          <button class="btn btn-primary btn-sm" id="upload-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            上传图片
+          </button>
+          <button class="btn btn-ghost btn-sm" id="refresh-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+            刷新
+          </button>
+        </div>
+      </header>
+
+      <div class="upload-zone" id="upload-zone">
+        <div class="upload-zone-inner">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <p>拖拽图片到这里上传，或 <span class="upload-link" id="upload-link">点击选择</span></p>
+          <small>支持 JPG / PNG / GIF / WebP / SVG · 最大 10MB · 自动按内容 hash 去重</small>
+        </div>
+      </div>
+
+      <div class="gallery-stats" id="gallery-stats"></div>
+
+      <div class="gallery-grid" id="gallery-grid"></div>
+
+      <div class="gallery-pagination" id="gallery-pagination"></div>
+    </div>
+  </div>
+
+  <div id="delete-modal" class="modal" style="display:none">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content glass-card">
+      <h3>确认删除</h3>
+      <p>删除后不可恢复，引用此图片的文章将显示裂图。</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="cancel-delete">取消</button>
+        <button class="btn btn-danger" id="confirm-delete">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let deleteKey = ''
+    let nextToken: string | null = null
+    let allFiles: any[] = []
+
+    async function loadImages(token?: string, append = false) {
+      const params = new URLSearchParams({ limit: '50' })
+      if (token) params.set('token', token)
+
+      const res = await fetch(`/api/gallery?${params}`)
+      const data = await res.json()
+
+      if (!append) allFiles = []
+      allFiles.push(...(data.files || []))
+
+      nextToken = data.hasMore ? data.nextToken : null
+      renderGallery()
+      renderPagination()
+
+      const statsEl = document.getElementById('gallery-stats')!
+      const totalSize = allFiles.reduce((sum, f) => sum + (f.size || 0), 0)
+      statsEl.textContent = `${allFiles.length} 张图片 · ${(totalSize / 1024 / 1024).toFixed(1)} MB`
+    }
+
+    function formatSize(bytes: number): string {
+      if (bytes < 1024) return bytes + ' B'
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+      return (bytes / 1024 / 1024).toFixed(1) + ' MB'
+    }
+
+    function renderGallery() {
+      const grid = document.getElementById('gallery-grid')!
+      grid.innerHTML = allFiles.map((f, i) => {
+        const name = f.key?.split('/').pop() || ''
+        const date = f.lastModified ? new Date(f.lastModified).toLocaleDateString('zh-CN') : ''
+        return `<div class="gallery-item glass-card" data-index="${i}">
+          <div class="gallery-img-wrap">
+            <img src="${f.url}" alt="${name}" loading="lazy" />
+          </div>
+          <div class="gallery-info">
+            <span class="gallery-name" title="${f.key}">${name}</span>
+            <span class="gallery-meta">${formatSize(f.size)} · ${date}</span>
+          </div>
+          <div class="gallery-actions">
+            <button class="btn btn-ghost btn-sm copy-url" data-url="${f.url}" title="复制链接">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+            <button class="btn btn-ghost btn-sm copy-md" data-url="${f.url}" data-name="${name}" title="复制 Markdown">
+              MD
+            </button>
+            <button class="btn btn-danger btn-sm del-img" data-key="${f.key}" title="删除">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            </button>
+          </div>
+        </div>`
+      }).join('') || '<div class="empty-state">暂无图片</div>'
+    }
+
+    function renderPagination() {
+      const el = document.getElementById('gallery-pagination')!
+      if (!nextToken) { el.innerHTML = ''; return }
+      el.innerHTML = `<button class="btn btn-ghost btn-sm" id="load-more">加载更多</button>`
+      document.getElementById('load-more')?.addEventListener('click', () => loadImages(nextToken!, true))
+    }
+
+    // Upload
+    const uploadInput = document.getElementById('upload-input') as HTMLInputElement
+    const uploadBtn = document.getElementById('upload-btn')!
+    const uploadLink = document.getElementById('upload-link')!
+    const uploadZone = document.getElementById('upload-zone')!
+
+    uploadBtn.addEventListener('click', () => uploadInput.click())
+    uploadLink.addEventListener('click', () => uploadInput.click())
+
+    uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragover') })
+    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'))
+    uploadZone.addEventListener('drop', (e) => {
+      e.preventDefault()
+      uploadZone.classList.remove('dragover')
+      const files = e.dataTransfer?.files
+      if (files?.length) uploadFiles(Array.from(files))
+    })
+
+    uploadInput.addEventListener('change', () => {
+      const files = uploadInput.files
+      if (files?.length) uploadFiles(Array.from(files))
+    })
+
+    async function uploadFiles(files: File[]) {
+      let success = 0, dedup = 0, failed = 0
+
+      for (const file of files) {
+        const formData = new FormData()
+        formData.append('file', file)
+
+        try {
+          const res = await fetch('/api/upload', { method: 'POST', body: formData })
+          const data = await res.json()
+          if (res.ok) {
+            success++
+            if (data.deduplicated) dedup++
+          } else {
+            failed++
+          }
+        } catch {
+          failed++
+        }
+      }
+
+      let msg = `上传完成：${success} 张成功`
+      if (dedup > 0) msg += `（${dedup} 张去重）`
+      if (failed > 0) msg += `，${failed} 张失败`
+      ;(window as any).showToast(msg, failed > 0 ? 'error' : 'success')
+
+      uploadInput.value = ''
+      loadImages()
+    }
+
+    // Copy URL
+    document.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement
+      const copyBtn = target.closest('.copy-url') as HTMLElement
+      const copyMd = target.closest('.copy-md') as HTMLElement
+
+      if (copyBtn) {
+        navigator.clipboard.writeText(copyBtn.dataset.url || '')
+        ;(window as any).showToast('链接已复制', 'success')
+      }
+      if (copyMd) {
+        const md = `![](${copyMd.dataset.url})`
+        navigator.clipboard.writeText(md)
+        ;(window as any).showToast('Markdown 已复制', 'success')
+      }
+
+      // Delete
+      const delBtn = target.closest('.del-img') as HTMLElement
+      if (delBtn) {
+        deleteKey = delBtn.dataset.key || ''
+        document.getElementById('delete-modal')!.style.display = 'flex'
+      }
+    })
+
+    document.getElementById('cancel-delete')?.addEventListener('click', () => { document.getElementById('delete-modal')!.style.display = 'none' })
+    document.querySelector('.modal-backdrop')?.addEventListener('click', () => { document.getElementById('delete-modal')!.style.display = 'none' })
+    document.getElementById('confirm-delete')?.addEventListener('click', async () => {
+      if (!deleteKey) return
+      const res = await fetch('/api/gallery', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: deleteKey }) })
+      if (res.ok) {
+        ;(window as any).showToast('已删除', 'success')
+        document.getElementById('delete-modal')!.style.display = 'none'
+        allFiles = allFiles.filter(f => f.key !== deleteKey)
+        renderGallery()
+      } else {
+        ;(window as any).showToast('删除失败', 'error')
+      }
+    })
+
+    document.getElementById('refresh-btn')?.addEventListener('click', () => loadImages())
+
+    loadImages()
+  </script>
+</Layout>
+
+<style>
+  .admin-layout { display: flex; min-height: 100vh; }
+  .admin-main { flex: 1; margin-left: 200px; padding: 1.25rem; }
+  .admin-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; }
+  .admin-header h1 { font-size: 1.375rem; font-weight: 700; }
+  .admin-subtitle { color: var(--text-muted); font-size: 0.75rem; margin-top: 0.125rem; }
+  .header-actions { display: flex; gap: 0.5rem; }
+
+  .upload-zone {
+    border: 2px dashed var(--glass-border); border-radius: var(--radius);
+    padding: 2rem; margin-bottom: 1.25rem; text-align: center;
+    transition: all 0.2s;
+  }
+  .upload-zone.dragover { border-color: var(--primary); background: rgba(41,151,255,0.04); }
+  .upload-zone-inner { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+  .upload-zone p { color: var(--text-muted); font-size: 0.8125rem; }
+  .upload-zone small { color: var(--text-muted); font-size: 0.6875rem; }
+  .upload-link { color: var(--primary); cursor: pointer; }
+  .upload-link:hover { text-decoration: underline; }
+
+  .gallery-stats { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem; }
+
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.75rem;
+  }
+  .gallery-item {
+    overflow: hidden; display: flex; flex-direction: column;
+  }
+  .gallery-img-wrap {
+    aspect-ratio: 1; overflow: hidden; background: rgba(0,0,0,0.2);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .gallery-img-wrap img {
+    width: 100%; height: 100%; object-fit: cover;
+    transition: transform 0.2s;
+  }
+  .gallery-item:hover .gallery-img-wrap img { transform: scale(1.05); }
+  .gallery-info { padding: 0.625rem 0.75rem; flex: 1; }
+  .gallery-name { display: block; font-size: 0.6875rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gallery-meta { display: block; font-size: 0.625rem; color: var(--text-muted); margin-top: 0.125rem; }
+  .gallery-actions { display: flex; gap: 0.25rem; padding: 0 0.5rem 0.5rem; }
+  .gallery-actions .btn { font-size: 0.625rem; padding: 0.25rem 0.375rem; }
+
+  .empty-state { grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--text-muted); }
+
+  .gallery-pagination { display: flex; justify-content: center; margin-top: 1.25rem; }
+
+  .modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
+  .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); }
+  .modal-content { position: relative; z-index: 1; width: 100%; max-width: 400px; padding: 2rem; }
+  .modal-content h3 { font-size: 1.125rem; margin-bottom: 0.75rem; }
+  .modal-content p { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
+
+  @media (max-width: 768px) {
+    .admin-main { margin-left: 0; padding: 0.75rem; }
+    .admin-header { flex-direction: column; gap: 0.75rem; }
+    .header-actions { width: 100%; }
+    .gallery-grid { grid-template-columns: repeat(2, 1fr); }
+    .upload-zone { padding: 1.5rem; }
+  }
+</style>
