@@ -1,17 +1,10 @@
 import { supabase } from '../../lib/supabase'
 
-function isAuthenticated(cookies: any, request: Request, env: any): boolean {
-  const cookieAuth = cookies.get('admin_auth')
-  if (cookieAuth) return true
-  const feedKey = request.headers.get('X-Feed-Key')
-  const validKey = env?.FEED_API_KEY || import.meta.env.FEED_API_KEY
-  if (feedKey && feedKey === validKey) return true
-  return false
-}
-
 export async function GET({ cookies, locals, url }: { cookies: any; locals: any; url: URL }) {
-  if (!isAuthenticated(cookies, new Request(''), locals?.runtime?.env)) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+  // Check auth
+  const auth = cookies?.get?.('admin_auth')
+  if (!auth) {
+    return new Response(JSON.stringify({ error: 'Unauthorized', hasCookies: !!cookies }), { status: 401 })
   }
 
   try {
