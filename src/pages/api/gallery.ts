@@ -15,30 +15,34 @@ export async function GET({ cookies, locals, url }: { cookies: any; locals: any;
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
-  const page = parseInt(url.searchParams.get('page') || '1')
-  const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200)
-  const offset = (page - 1) * limit
+  try {
+    const page = parseInt(url.searchParams.get('page') || '1')
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200)
+    const offset = (page - 1) * limit
 
-  const { data: files, count, error } = await supabase
-    .from('assets')
-    .select('*', { count: 'exact' })
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1)
+    const { data: files, count, error } = await supabase
+      .from('assets')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
 
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+    if (error) {
+      return new Response(JSON.stringify({ error: error.message, code: error.code }), { status: 500 })
+    }
+
+    const totalSize = (files || []).reduce((sum, f) => sum + (f.size || 0), 0)
+
+    return new Response(JSON.stringify({
+      files: files || [],
+      total: count || 0,
+      page,
+      limit,
+      totalPages: Math.ceil((count || 0) / limit),
+      totalSize,
+    }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message || 'Gallery query failed' }), { status: 500 })
   }
-
-  const totalSize = (files || []).reduce((sum, f) => sum + (f.size || 0), 0)
-
-  return new Response(JSON.stringify({
-    files: files || [],
-    total: count || 0,
-    page,
-    limit,
-    totalPages: Math.ceil((count || 0) / limit),
-    totalSize,
-  }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }
 
 export async function DELETE({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
