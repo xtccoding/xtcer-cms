@@ -34,6 +34,7 @@
 | 🔗 导航 | 分组管理常用链接 | ✅ |
 | 💰 优惠 | 云服务产品目录，外部 cron 推送 | ✅ |
 | 📡 情报 | 8 类情报流，3 层防重，多 bot 推送 | ✅ |
+| 🖼 图床 | R2 存储 + hash 去重 + 标签系统 + 搜索 + 灯箱 | ✅ |
 | 👁 访客 | 自动记录 + 统计 + IP 黑名单 | ✅ |
 | 🔍 搜索 | 全局搜索（Cmd+K / Ctrl+K） | ✅ |
 | 📊 SEO | sitemap.xml + OG meta + RSS + Schema.org | ✅ |
@@ -260,6 +261,37 @@ curl -X POST https://xtcer.cn/api/posts \
 
 ---
 
+## 图床系统（Gallery）
+
+### 功能
+
+| 功能 | 说明 |
+|------|------|
+| R2 存储 | Cloudflare R2 对象存储，全球 CDN |
+| Hash 去重 | SHA-256 内容 hash，相同文件只存一份 |
+| 标签系统 | 给图片打标签（如人物、场景、类型），支持筛选 |
+| 搜索 | 按文件名、hash、标签搜索 |
+| 日期筛选 | 按上传日期范围筛选 |
+| 灯箱查看 | 点击放大，左右切换，键盘导航 |
+| XSS 防护 | 文件名只存 hash，显示时 HTML 转义 |
+
+### 安全设计
+
+- 上传时文件名自动替换为 `hash.ext`，原始文件名不存储
+- 动态入口路径（每次登录生成随机 slug，防扫描）
+- 所有输出经 `escapeHtml()` 转义
+
+### 图床 API
+
+| 路径 | 方法 | 认证 | 说明 |
+|------|------|------|------|
+| `/api/upload` | POST | Cookie / Key | 上传图片（FormData） |
+| `/api/gallery` | GET | Cookie / Key | 列表（支持 q/tag/from/to 筛选） |
+| `/api/gallery` | PUT | Cookie / Key | 更新标签 |
+| `/api/gallery` | DELETE | Cookie / Key | 删除图片 |
+
+---
+
 ## 情报系统（Alpha Feed）
 
 ### 8 大情报分类
@@ -330,6 +362,7 @@ Hermes (Bot 1)                    Junier (Bot 2)
 | `/admin/deals` | 优惠管理 |
 | `/admin/feeds` | 情报管理 |
 | `/admin/links` | 导航管理 |
+| `/admin/[slug]` | 图床管理（随机入口，搜索/标签/灯箱） |
 | `/admin/visitors` | 访客统计 + 黑名单 |
 
 ---

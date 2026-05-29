@@ -46,6 +46,17 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
 
       <div class="gallery-stats" id="gallery-stats"></div>
 
+      <div class="gallery-toolbar glass-card">
+        <div class="search-row">
+          <input type="text" id="gallery-search" class="input" placeholder="搜索文件名、hash..." />
+          <input type="date" id="date-from" class="input date-input" title="开始日期" />
+          <input type="date" id="date-to" class="input date-input" title="结束日期" />
+          <button class="btn btn-ghost btn-sm" id="search-btn">搜索</button>
+          <button class="btn btn-ghost btn-sm" id="reset-btn" style="display:none">重置</button>
+        </div>
+        <div class="tags-row" id="tags-row"></div>
+      </div>
+
       <div class="gallery-grid" id="gallery-grid"></div>
 
       <div class="gallery-pagination" id="gallery-pagination"></div>
@@ -83,29 +94,62 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
     </div>
   </div>
 
+  <div id="tag-modal" class="modal" style="display:none">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content glass-card" style="max-width:420px">
+      <h3>编辑标签</h3>
+      <div id="tag-list" class="tag-edit-list" style="margin-bottom:0.75rem"></div>
+      <div style="display:flex;gap:0.5rem">
+        <input type="text" id="tag-input" class="input" placeholder="输入标签，回车添加" style="flex:1" />
+        <button class="btn btn-ghost btn-sm" id="tag-add">添加</button>
+      </div>
+      <div class="modal-actions" style="margin-top:1rem">
+        <button class="btn btn-ghost" id="tag-cancel">取消</button>
+        <button class="btn btn-primary" id="tag-save">保存</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let deleteId = ''
     let deleteKey = ''
     let currentPage = 1
     let totalPages = 1
     let allFiles: any[] = []
+    let allTags: string[] = []
     let lightboxIndex = -1
+    let currentSearch = ''
+    let currentTag = ''
+    let currentDateFrom = ''
+    let currentDateTo = ''
 
-    async function loadImages(page = 1, append = false) {
+    async function loadImages(page = 1) {
       const params = new URLSearchParams({ page: String(page), limit: '50' })
+      if (currentSearch) params.set('q', currentSearch)
+      if (currentTag) params.set('tag', currentTag)
+      if (currentDateFrom) params.set('from', currentDateFrom)
+      if (currentDateTo) params.set('to', currentDateTo)
+
       const res = await fetch(`/api/gallery?${params}`)
       const data = await res.json()
 
-      if (!append) allFiles = []
-      allFiles.push(...(data.files || []))
-
+      allFiles = data.files || []
+      allTags = data.allTags || []
       currentPage = data.page || 1
       totalPages = data.totalPages || 1
       renderGallery()
       renderPagination()
+      renderTags()
 
       const statsEl = document.getElementById('gallery-stats')!
       statsEl.textContent = `${data.total || allFiles.length} 张图片 · ${((data.totalSize || 0) / 1024 / 1024).toFixed(1)} MB`
+    }
+
+    function renderTags() {
+      const tagsRow = document.getElementById('tags-row')!
+      if (allTags.length === 0) { tagsRow.innerHTML = ''; return }
+      tagsRow.innerHTML = '<span class="tags-label">标签:</span>' +
+        allTags.map(t => `<button class="tag-btn ${t === currentTag ? 'active' : ''}" data-tag="${escapeHtml(t)}">${escapeHtml(t)}</button>`).join('')
     }
 
     function formatSize(bytes: number): string {
@@ -122,6 +166,7 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
       const grid = document.getElementById('gallery-grid')!
       grid.innerHTML = allFiles.map((f, i) => {
         const name = escapeHtml(f.filename || f.key?.split('/').pop() || '')
+        const tags = (f.tags || []).map((t: string) => `<span class="img-tag" data-tag="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('')
         return `<div class="gallery-item glass-card" data-index="${i}">
           <div class="gallery-img-wrap" data-index="${i}" style="position:relative;width:100%;padding-top:100%;overflow:hidden;background:rgba(0,0,0,0.3);cursor:pointer;border-radius:var(--radius-sm) var(--radius-sm) 0 0">
             <img src="${escapeHtml(f.url)}" alt="${name}" loading="lazy" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block" />
@@ -129,17 +174,21 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
             </div>
           </div>
-          <div style="padding:0.5rem 0.625rem">
+          <div style="padding:0.375rem 0.5rem">
             <span style="display:block;font-size:0.625rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${name}">${name}</span>
+            <div class="img-tags">${tags}</div>
             <span style="display:block;font-size:0.5625rem;color:var(--text-muted);margin-top:0.125rem">${formatSize(f.size)}</span>
           </div>
           <div style="display:flex;gap:0.25rem;padding:0 0.375rem 0.375rem">
-            <button class="btn btn-ghost btn-sm copy-url" data-url="${escapeHtml(f.url)}" title="复制链接" style="font-size:0.5625rem;padding:0.1875rem 0.3125rem">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            <button class="btn btn-ghost btn-sm tag-edit-btn" data-id="${f.id}" data-tags='${JSON.stringify(f.tags || [])}' title="编辑标签" style="font-size:0.5625rem;padding:0.1875rem 0.3125rem">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
             </button>
-            <button class="btn btn-ghost btn-sm copy-md" data-url="${escapeHtml(f.url)}" data-name="${name}" title="复制 Markdown" style="font-size:0.5625rem;padding:0.1875rem 0.3125rem">MD</button>
+            <button class="btn btn-ghost btn-sm copy-url" data-url="${escapeHtml(f.url)}" title="复制链接" style="font-size:0.5625rem;padding:0.1875rem 0.3125rem">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+            <button class="btn btn-ghost btn-sm copy-md" data-url="${escapeHtml(f.url)}" data-name="${name}" title="复制 MD" style="font-size:0.5625rem;padding:0.1875rem 0.3125rem">MD</button>
             <button class="btn btn-danger btn-sm del-img" data-id="${f.id}" data-key="${escapeHtml(f.key)}" title="删除" style="font-size:0.5625rem;padding:0.1875rem 0.3125rem">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
             </button>
           </div>
         </div>`
@@ -216,9 +265,58 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
       loadImages()
     }
 
-    // Copy URL
+    // Search and filter
+    const searchInput = document.getElementById('gallery-search') as HTMLInputElement
+    const dateFromInput = document.getElementById('date-from') as HTMLInputElement
+    const dateToInput = document.getElementById('date-to') as HTMLInputElement
+    const searchBtn = document.getElementById('search-btn')!
+    const resetBtn = document.getElementById('reset-btn')!
+
+    searchBtn.addEventListener('click', () => {
+      currentSearch = searchInput.value.trim()
+      currentDateFrom = dateFromInput.value
+      currentDateTo = dateToInput.value
+      if (currentSearch || currentTag || currentDateFrom || currentDateTo) resetBtn.style.display = ''
+      loadImages(1)
+    })
+
+    searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') searchBtn.click() })
+
+    resetBtn.addEventListener('click', () => {
+      searchInput.value = ''; dateFromInput.value = ''; dateToInput.value = ''
+      currentSearch = ''; currentTag = ''; currentDateFrom = ''; currentDateTo = ''
+      resetBtn.style.display = 'none'
+      loadImages(1)
+    })
+
+    // Tag filter click
     document.addEventListener('click', (e) => {
       const target = e.target as HTMLElement
+
+      const tagBtn = target.closest('.tag-btn') as HTMLElement
+      if (tagBtn) {
+        currentTag = currentTag === tagBtn.dataset.tag ? '' : (tagBtn.dataset.tag || '')
+        if (currentTag || currentSearch || currentDateFrom || currentDateTo) resetBtn.style.display = ''
+        loadImages(1)
+        return
+      }
+
+      const tagEditBtn = target.closest('.tag-edit-btn') as HTMLElement
+      if (tagEditBtn) {
+        const id = tagEditBtn.dataset.id
+        const tags = JSON.parse(tagEditBtn.dataset.tags || '[]')
+        openTagEditor(id!, tags)
+        return
+      }
+
+      const imgTag = target.closest('.img-tag') as HTMLElement
+      if (imgTag) {
+        currentTag = imgTag.dataset.tag || ''
+        if (currentTag) resetBtn.style.display = ''
+        loadImages(1)
+        return
+      }
+
       const copyBtn = target.closest('.copy-url') as HTMLElement
       const copyMd = target.closest('.copy-md') as HTMLElement
 
@@ -232,7 +330,6 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
         ;(window as any).showToast('Markdown 已复制', 'success')
       }
 
-      // Delete
       const delBtn = target.closest('.del-img') as HTMLElement
       if (delBtn) {
         deleteId = delBtn.dataset.id || ''
@@ -240,7 +337,6 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
         document.getElementById('delete-modal')!.style.display = 'flex'
       }
 
-      // Pagination
       const pageBtn = target.closest('.page-btn') as HTMLElement
       if (pageBtn) {
         const page = parseInt(pageBtn.dataset.page || '1')
@@ -329,6 +425,66 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
       if (e.key === 'ArrowRight') openLightbox(lightboxIndex + 1)
     })
 
+    // Tag editor
+    let editingTagId = ''
+    function openTagEditor(id: string, tags: string[]) {
+      editingTagId = id
+      const modal = document.getElementById('tag-modal')!
+      const input = document.getElementById('tag-input') as HTMLInputElement
+      const container = document.getElementById('tag-list')!
+      input.value = ''
+      renderTagList(container, tags)
+      modal.style.display = 'flex'
+      input.focus()
+    }
+
+    function renderTagList(container: HTMLElement, tags: string[]) {
+      container.innerHTML = tags.map(t =>
+        `<span class="edit-tag">${escapeHtml(t)} <button class="edit-tag-remove" data-tag="${escapeHtml(t)}">&times;</button></span>`
+      ).join('') || '<span style="font-size:0.75rem;color:var(--text-muted)">暂无标签</span>'
+    }
+
+    document.getElementById('tag-add')?.addEventListener('click', async () => {
+      const input = document.getElementById('tag-input') as HTMLInputElement
+      const tag = input.value.trim()
+      if (!tag) return
+      const container = document.getElementById('tag-list')!
+      const currentTags = Array.from(container.querySelectorAll('.edit-tag')).map(el => (el as HTMLElement).dataset.tag!)
+      if (!currentTags.includes(tag)) currentTags.push(tag)
+      renderTagList(container, currentTags)
+      input.value = ''
+      input.focus()
+    })
+
+    document.getElementById('tag-input')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); document.getElementById('tag-add')?.click() }
+    })
+
+    document.addEventListener('click', (e) => {
+      const removeBtn = (e.target as HTMLElement).closest('.edit-tag-remove') as HTMLElement
+      if (removeBtn) {
+        const tag = removeBtn.dataset.tag
+        const container = document.getElementById('tag-list')!
+        const currentTags = Array.from(container.querySelectorAll('.edit-tag')).map(el => (el as HTMLElement).dataset.tag!).filter(t => t !== tag)
+        renderTagList(container, currentTags)
+      }
+    })
+
+    document.getElementById('tag-save')?.addEventListener('click', async () => {
+      const container = document.getElementById('tag-list')!
+      const tags = Array.from(container.querySelectorAll('.edit-tag')).map(el => (el as HTMLElement).dataset.tag!)
+      const res = await fetch('/api/gallery', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editingTagId, tags }) })
+      if (res.ok) {
+        const file = allFiles.find(f => f.id === editingTagId)
+        if (file) file.tags = tags
+        renderGallery()
+        ;(window as any).showToast('标签已更新', 'success')
+      }
+      document.getElementById('tag-modal')!.style.display = 'none'
+    })
+
+    document.getElementById('tag-cancel')?.addEventListener('click', () => { document.getElementById('tag-modal')!.style.display = 'none' })
+
     loadImages()
   </script>
 </Layout>
@@ -353,7 +509,42 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
   .upload-link { color: var(--primary); cursor: pointer; }
   .upload-link:hover { text-decoration: underline; }
 
-  .gallery-stats { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem; }
+  .gallery-stats { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem; }
+
+  .gallery-toolbar { padding: 0.75rem 1rem; margin-bottom: 0.75rem; }
+  .search-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+  .search-row .input { flex: 1; min-width: 120px; font-size: 0.8125rem; padding: 0.375rem 0.625rem; }
+  .date-input { width: 140px !important; flex: 0 0 auto !important; }
+  .tags-row { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.5rem; align-items: center; }
+  .tags-label { font-size: 0.6875rem; color: var(--text-muted); }
+  .tag-btn {
+    padding: 0.125rem 0.5rem; border-radius: 999px; border: 1px solid var(--glass-border);
+    background: var(--surface); color: var(--text-muted); font-size: 0.6875rem;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .tag-btn:hover { color: var(--text); border-color: var(--glass-border-hover); }
+  .tag-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+  .img-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem; }
+  .img-tag {
+    padding: 0.0625rem 0.375rem; border-radius: 999px; cursor: pointer;
+    font-size: 0.5625rem; background: rgba(41,151,255,0.08); color: var(--primary);
+    border: 1px solid rgba(41,151,255,0.12); transition: all 0.15s;
+  }
+  .img-tag:hover { background: rgba(41,151,255,0.15); }
+
+  .tag-edit-list { display: flex; flex-wrap: wrap; gap: 0.375rem; min-height: 2rem; }
+  .edit-tag {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    padding: 0.25rem 0.5rem; border-radius: 999px;
+    font-size: 0.75rem; background: rgba(41,151,255,0.1); color: var(--primary);
+    border: 1px solid rgba(41,151,255,0.2);
+  }
+  .edit-tag-remove {
+    background: none; border: none; color: var(--text-muted); cursor: pointer;
+    font-size: 0.875rem; padding: 0; line-height: 1;
+  }
+  .edit-tag-remove:hover { color: var(--red); }
 
   .gallery-grid {
     display: grid;

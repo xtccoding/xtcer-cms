@@ -151,6 +151,7 @@ export interface Database {
           content_type: string | null
           size: number | null
           content_hash: string | null
+          tags: string[]
           created_at: string
         }
         Insert: {
@@ -161,6 +162,7 @@ export interface Database {
           content_type?: string | null
           size?: number | null
           content_hash?: string | null
+          tags?: string[]
           created_at?: string
         }
         Update: {
@@ -171,6 +173,7 @@ export interface Database {
           content_type?: string | null
           size?: number | null
           content_hash?: string | null
+          tags?: string[]
           created_at?: string
         }
       }

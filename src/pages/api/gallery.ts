@@ -18,10 +18,28 @@ export async function GET({ cookies, request, locals, url }: { cookies: any; req
     const page = parseInt(url.searchParams.get('page') || '1')
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200)
     const offset = (page - 1) * limit
+    const search = url.searchParams.get('q')?.trim()
+    const tag = url.searchParams.get('tag')?.trim()
+    const dateFrom = url.searchParams.get('from')
+    const dateTo = url.searchParams.get('to')
 
-    const { data: files, error } = await supabase
-      .from('assets')
-      .select('*')
+    let query = supabase.from('assets').select('*', { count: 'exact' })
+
+    // Search by filename or content_hash
+    if (search) {
+      query = query.or(`filename.ilike.%${search}%,content_hash.ilike.%${search}%`)
+    }
+
+    // Filter by tag
+    if (tag) {
+      query = query.contains('tags', [tag])
+    }
+
+    // Date range
+    if (dateFrom) query = query.gte('created_at', dateFrom)
+    if (dateTo) query = query.lte('created_at', dateTo + 'T23:59:59')
+
+    const { data: files, count, error } = await query
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -29,18 +47,47 @@ export async function GET({ cookies, request, locals, url }: { cookies: any; req
       return new Response(JSON.stringify({ error: error.message, code: error.code }), { status: 500 })
     }
 
+    // Get all unique tags for filter UI
+    const { data: allAssets } = await supabase.from('assets').select('tags')
+    const allTags = [...new Set((allAssets || []).flatMap(a => a.tags || []))].sort()
+
     const totalSize = (files || []).reduce((sum, f) => sum + (f.size || 0), 0)
 
     return new Response(JSON.stringify({
       files: files || [],
-      total: files?.length || 0,
+      total: count || 0,
       page,
       limit,
-      totalPages: Math.ceil((files?.length || 0) / limit),
+      totalPages: Math.ceil((count || 0) / limit),
       totalSize,
+      allTags,
     }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message || 'Gallery query failed' }), { status: 500 })
+  }
+}
+
+export async function PUT({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
+  if (!isAuthenticated(cookies, request, locals?.runtime?.env)) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+  }
+
+  try {
+    const body = await request.json()
+    const { id, tags } = body
+    if (!id) return new Response(JSON.stringify({ error: 'Missing id' }), { status: 400 })
+
+    const { data, error } = await supabase
+      .from('assets')
+      .update({ tags: tags || [] })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+    return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), { status: 500 })
   }
 }
 
@@ -61,7 +108,6 @@ export async function DELETE({ request, cookies, locals }: { request: Request; c
   if (!key && !id) return new Response(JSON.stringify({ error: 'Missing key or id' }), { status: 400 })
 
   try {
-    // Delete from R2 if credentials available
     if (accountId && accessKeyId && secretAccessKey && key) {
       const { S3Client, DeleteObjectCommand } = await import('@aws-sdk/client-s3')
       const s3 = new S3Client({
@@ -72,7 +118,6 @@ export async function DELETE({ request, cookies, locals }: { request: Request; c
       await s3.send(new DeleteObjectCommand({ Bucket: bucketName, Key: key }))
     }
 
-    // Delete from Supabase
     const query = supabase.from('assets').delete()
     if (id) { await query.eq('id', id) }
     else if (key) { await query.eq('key', key) }

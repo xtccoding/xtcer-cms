@@ -225,7 +225,25 @@ CREATE INDEX IF NOT EXISTS idx_feeds_url_hash ON feeds(url_hash);
 CREATE INDEX IF NOT EXISTS idx_feeds_created ON feeds(created_at);
 ALTER TABLE feeds ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS allow_all_feeds ON feeds;
-CREATE POLICY allow_all_feeds ON feeds FOR ALL USING (true) WITH CHECK (true);</code></pre>
+CREATE POLICY allow_all_feeds ON feeds FOR ALL USING (true) WITH CHECK (true);
+
+-- ==================== assets (图床) ====================
+CREATE TABLE IF NOT EXISTS assets (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  key TEXT NOT NULL UNIQUE,
+  url TEXT NOT NULL,
+  filename TEXT,
+  content_type TEXT,
+  size INTEGER,
+  content_hash TEXT,
+  tags TEXT[] DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_assets_hash ON assets(content_hash);
+CREATE INDEX IF NOT EXISTS idx_assets_tags ON assets USING GIN (tags);
+ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS allow_all_assets ON assets;
+CREATE POLICY allow_all_assets ON assets FOR ALL USING (true) WITH CHECK (true);</code></pre>
         </div>
         <div style="margin-top:1rem">
           <a href="https://supabase.com/dashboard/project/ltwwyznurskgsphujarm/sql" target="_blank" class="btn btn-primary">
