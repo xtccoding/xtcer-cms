@@ -23,6 +23,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const ua = context.request.headers.get('user-agent') || ''
   const referer = context.request.headers.get('referer') || ''
+  const country = context.request.headers.get('cf-ipcountry') || ''
 
   // Fire and forget - don't await
   supabase.from('visitors').insert({
@@ -30,6 +31,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     path: path,
     user_agent: ua.substring(0, 500),
     referer: referer.substring(0, 500),
+    country: country.substring(0, 10),
   }).then(({ error }) => {
     if (error) console.error('[visitor tracking]', error.message)
   })
