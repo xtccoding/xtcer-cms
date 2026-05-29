@@ -8,16 +8,22 @@ export async function GET({ cookies, url }: { cookies: any; url: URL }) {
   const days = range === '1d' ? 1 : range === '30d' ? 30 : 7
   const since = new Date(Date.now() - days * 86400000).toISOString()
 
-  const { data: visits } = await supabase
-    .from('visitors')
-    .select('*')
-    .gte('created_at', since)
-    .order('created_at', { ascending: false })
+  const search = url.searchParams.get('ip')?.trim()
+  const page = parseInt(url.searchParams.get('page') || '1')
+  const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200)
+  const offset = (page - 1) * limit
 
-  const { data: allVisits } = await supabase
+  // Stats query (all matching records for counting)
+  let statsQuery = supabase
     .from('visitors')
-    .select('ip, path, created_at')
+    .select('ip, path, created_at', { count: 'exact' })
     .gte('created_at', since)
+
+  if (search) {
+    statsQuery = statsQuery.ilike('ip', `%${search}%`)
+  }
+
+  const { data: allVisits, count: totalCount } = await statsQuery
 
   const uniqueIps = new Set(allVisits?.map(v => v.ip) || [])
 
@@ -36,11 +42,28 @@ export async function GET({ cookies, url }: { cookies: any; url: URL }) {
     hourlyCounts[hour] = (hourlyCounts[hour] || 0) + 1
   })
 
+  // Paginated recent visits
+  let recentQuery = supabase
+    .from('visitors')
+    .select('*')
+    .gte('created_at', since)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  if (search) {
+    recentQuery = recentQuery.ilike('ip', `%${search}%`)
+  }
+
+  const { data: recent } = await recentQuery
+
   return new Response(JSON.stringify({
-    total: allVisits?.length || 0,
+    total: totalCount || 0,
     unique: uniqueIps.size,
-    recent: visits?.slice(0, 50) || [],
+    recent: recent || [],
     topPages,
     hourlyCounts,
+    page,
+    limit,
+    totalPages: Math.ceil((totalCount || 0) / limit),
   }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }

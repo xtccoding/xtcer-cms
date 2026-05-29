@@ -56,7 +56,12 @@ const { data: blacklist } = await supabase.from('blacklist').select('*').order('
 
       <section class="panel glass-card" style="margin-top:1rem">
         <div class="panel-header">
-          <h2>最近访问</h2>
+          <h2>访问记录</h2>
+          <div class="search-bar">
+            <input type="text" id="ip-search" class="input" placeholder="搜索 IP..." style="width:180px" />
+            <button class="btn btn-ghost btn-sm" id="search-btn">搜索</button>
+            <button class="btn btn-ghost btn-sm" id="reset-btn" style="display:none">重置</button>
+          </div>
         </div>
         <div class="table-wrap">
           <table class="table">
@@ -64,6 +69,7 @@ const { data: blacklist } = await supabase.from('blacklist').select('*').order('
             <tbody id="visitors-tbody"></tbody>
           </table>
         </div>
+        <div class="pagination" id="pagination"></div>
       </section>
 
       <section class="panel glass-card" style="margin-top:1rem">
@@ -99,51 +105,110 @@ const { data: blacklist } = await supabase.from('blacklist').select('*').order('
 
   <script>
     let currentRange = '7d'
+    let currentPage = 1
+    let currentSearch = ''
 
-    async function loadStats(range) {
+    async function loadStats(range, page = 1, ip = '') {
       currentRange = range
-      const res = await fetch(`/api/visitors?range=${range}`)
+      currentPage = page
+      currentSearch = ip
+
+      const params = new URLSearchParams({ range, page: String(page), limit: '50' })
+      if (ip) params.set('ip', ip)
+
+      const res = await fetch(`/api/visitors?${params}`)
       const data = await res.json()
 
-      document.getElementById('stat-total')!.textContent = data.total.toLocaleString()
-      document.getElementById('stat-unique')!.textContent = data.unique.toLocaleString()
-      document.getElementById('stat-top')!.textContent = data.topPages[0]?.path || '-'
+      document.getElementById('stat-total')!.textContent = (data.total || 0).toLocaleString()
+      document.getElementById('stat-unique')!.textContent = (data.unique || 0).toLocaleString()
+      document.getElementById('stat-top')!.textContent = data.topPages?.[0]?.path || '-'
 
       const topEl = document.getElementById('top-pages')!
-      topEl.innerHTML = data.topPages.map(p =>
+      topEl.innerHTML = (data.topPages || []).map(p =>
         `<div class="top-item"><span class="top-path">${p.path}</span><span class="top-count">${p.count}</span></div>`
-      ).join('')
+      ).join('') || '<div class="top-item"><span class="top-path">暂无数据</span></div>'
 
-      const maxH = Math.max(...Object.values(data.hourlyCounts) as number[], 1)
+      const maxH = Math.max(...Object.values(data.hourlyCounts || {}) as number[], 1)
       const chartEl = document.getElementById('hourly-chart')!
       chartEl.innerHTML = Array.from({ length: 24 }, (_, i) => {
-        const count = data.hourlyCounts[i] || 0
+        const count = (data.hourlyCounts || {})[i] || 0
         const pct = Math.round((count / maxH) * 100)
         return `<div class="bar-col"><div class="bar" style="height:${pct}%"></div><span class="bar-label">${i}</span></div>`
       }).join('')
 
       const tbody = document.getElementById('visitors-tbody')!
-      tbody.innerHTML = data.recent.map((v: any) =>
+      tbody.innerHTML = (data.recent || []).map((v: any) =>
         `<tr>
           <td><code>${v.ip || '-'}</code></td>
-          <td>${v.path}</td>
+          <td class="td-path">${v.path}</td>
           <td class="td-muted">${v.referer ? v.referer.substring(0, 30) + '...' : '-'}</td>
-          <td class="td-muted">${new Date(v.created_at).toLocaleString('zh-CN')}</td>
+          <td class="td-muted td-time">${new Date(v.created_at).toLocaleString('zh-CN')}</td>
           <td><button class="btn btn-danger btn-sm bl-add-from-visit" data-ip="${v.ip}">拉黑</button></td>
         </tr>`
-      ).join('')
+      ).join('') || '<tr><td colspan="5" class="td-muted" style="text-align:center;padding:2rem">暂无数据</td></tr>'
+
+      // Pagination
+      const paginationEl = document.getElementById('pagination')!
+      const totalPages = data.totalPages || 1
+      if (totalPages <= 1) {
+        paginationEl.innerHTML = ''
+        return
+      }
+
+      let paginationHtml = `<span class="page-info">第 ${data.page}/${totalPages} 页，共 ${data.total} 条</span><div class="page-btns">`
+      if (data.page > 1) {
+        paginationHtml += `<button class="btn btn-ghost btn-sm page-btn" data-page="${data.page - 1}">上一页</button>`
+      }
+      if (data.page < totalPages) {
+        paginationHtml += `<button class="btn btn-ghost btn-sm page-btn" data-page="${data.page + 1}">下一页</button>`
+      }
+      paginationHtml += `</div>`
+      paginationEl.innerHTML = paginationHtml
     }
 
+    // Range buttons
     document.querySelectorAll('[data-range]').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('[data-range]').forEach(b => b.classList.remove('active'))
         btn.classList.add('active')
-        loadStats((btn as HTMLElement).dataset.range!)
+        loadStats((btn as HTMLElement).dataset.range!, 1, currentSearch)
       })
     })
 
-    loadStats('7d')
+    // IP search
+    const searchInput = document.getElementById('ip-search') as HTMLInputElement
+    const searchBtn = document.getElementById('search-btn')!
+    const resetBtn = document.getElementById('reset-btn')!
 
+    searchBtn.addEventListener('click', () => {
+      const ip = searchInput.value.trim()
+      if (ip) {
+        resetBtn.style.display = ''
+        loadStats(currentRange, 1, ip)
+      }
+    })
+
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') searchBtn.click()
+    })
+
+    resetBtn.addEventListener('click', () => {
+      searchInput.value = ''
+      resetBtn.style.display = 'none'
+      loadStats(currentRange, 1)
+    })
+
+    // Pagination clicks
+    document.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement
+      if (target.classList.contains('page-btn')) {
+        const page = parseInt(target.dataset.page || '1')
+        loadStats(currentRange, page, currentSearch)
+        document.getElementById('pagination')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+    })
+
+    // Blacklist
     document.getElementById('add-blacklist-btn')?.addEventListener('click', () => {
       const el = document.getElementById('blacklist-add')!
       el.style.display = el.style.display === 'none' ? 'block' : 'none'
@@ -171,6 +236,8 @@ const { data: blacklist } = await supabase.from('blacklist').select('*').order('
         target.closest('tr')?.remove()
       }
     })
+
+    loadStats('7d')
   </script>
 </Layout>
 
@@ -191,8 +258,10 @@ const { data: blacklist } = await supabase.from('blacklist').select('*').order('
   .panels-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 0.75rem; }
   .panel { padding: 1.25rem; }
   .panel h2 { font-size: 0.9375rem; font-weight: 600; margin-bottom: 1rem; }
-  .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+  .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem; }
   .panel-header h2 { margin-bottom: 0; }
+
+  .search-bar { display: flex; gap: 0.5rem; align-items: center; }
 
   .top-list { display: flex; flex-direction: column; gap: 0.375rem; }
   .top-item { display: flex; justify-content: space-between; align-items: center; padding: 0.375rem 0; border-bottom: 1px solid var(--border); }
@@ -210,10 +279,23 @@ const { data: blacklist } = await supabase.from('blacklist').select('*').order('
   .table td { padding: 0.625rem 0.75rem; border-bottom: 1px solid var(--border); }
   .table td code { font-size: 0.75rem; background: rgba(255,255,255,0.04); padding: 0.125rem 0.375rem; border-radius: 3px; }
   .td-muted { color: var(--text-muted); }
+  .td-path { max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .td-time { white-space: nowrap; }
+
+  .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+  .page-info { font-size: 0.75rem; color: var(--text-muted); }
+  .page-btns { display: flex; gap: 0.5rem; }
 
   @media (max-width: 768px) {
-    .admin-main { margin-left: 0; }
+    .admin-main { margin-left: 0; padding: 1rem; }
+    .admin-header { flex-direction: column; gap: 0.75rem; }
     .stats-grid { grid-template-columns: 1fr; }
     .panels-grid { grid-template-columns: 1fr; }
+    .search-bar { width: 100%; }
+    .search-bar .input { flex: 1; width: auto; }
+    .panel-header { flex-direction: column; align-items: stretch; }
+    .td-path { max-width: 120px; }
+    .td-time { font-size: 0.6875rem; }
+    .pagination { flex-direction: column; gap: 0.5rem; }
   }
 </style>
