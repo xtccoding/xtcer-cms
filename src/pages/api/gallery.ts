@@ -74,12 +74,16 @@ export async function PUT({ request, cookies, locals }: { request: Request; cook
 
   try {
     const body = await request.json()
-    const { id, tags } = body
+    const { id, tags, filename } = body
     if (!id) return new Response(JSON.stringify({ error: 'Missing id' }), { status: 400 })
+
+    const updates: any = {}
+    if (tags !== undefined) updates.tags = tags
+    if (filename !== undefined) updates.filename = filename
 
     const { data, error } = await supabase
       .from('assets')
-      .update({ tags: tags || [] })
+      .update(updates)
       .eq('id', id)
       .select()
       .single()

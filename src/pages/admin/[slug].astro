@@ -46,13 +46,27 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
 
       <div class="gallery-stats" id="gallery-stats"></div>
 
-      <div class="gallery-toolbar glass-card">
-        <div class="search-row">
-          <input type="text" id="gallery-search" class="input" placeholder="搜索文件名、hash..." />
-          <input type="date" id="date-from" class="input date-input" title="开始日期" />
-          <input type="date" id="date-to" class="input date-input" title="结束日期" />
-          <button class="btn btn-ghost btn-sm" id="search-btn">搜索</button>
-          <button class="btn btn-ghost btn-sm" id="reset-btn" style="display:none">重置</button>
+      <div class="gallery-toolbar">
+        <div class="toolbar-row">
+          <div class="search-wrap">
+            <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="gallery-search" class="search-input" placeholder="搜索文件名、hash..." />
+          </div>
+          <div class="date-wrap">
+            <input type="date" id="date-from" class="date-input" title="开始日期" />
+            <span class="date-sep">-</span>
+            <input type="date" id="date-to" class="date-input" title="结束日期" />
+          </div>
+          <div class="toolbar-btns">
+            <button class="btn btn-ghost btn-sm" id="search-btn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              搜索
+            </button>
+            <button class="btn btn-ghost btn-sm" id="reset-btn" style="display:none">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+              重置
+            </button>
+          </div>
         </div>
         <div class="tags-row" id="tags-row"></div>
       </div>
@@ -106,6 +120,19 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
       <div class="modal-actions" style="margin-top:1rem">
         <button class="btn btn-ghost" id="tag-cancel">取消</button>
         <button class="btn btn-primary" id="tag-save">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="rename-modal" class="modal" style="display:none">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content glass-card" style="max-width:380px">
+      <h3>重命名</h3>
+      <input type="text" id="rename-input" class="input" placeholder="输入新名称" style="margin:0.75rem 0" />
+      <p style="font-size:0.6875rem;color:var(--text-muted);margin-bottom:1rem">仅修改显示名称，不影响实际文件路径</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="rename-cancel">取消</button>
+        <button class="btn btn-primary" id="rename-save">保存</button>
       </div>
     </div>
   </div>
@@ -179,7 +206,10 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
             <div class="img-tags">${tags}</div>
             <span style="display:block;font-size:0.5625rem;color:var(--text-muted);margin-top:0.125rem">${formatSize(f.size)}</span>
           </div>
-          <div style="display:flex;gap:0.25rem;padding:0 0.375rem 0.375rem">
+          <div style="display:flex;gap:0.25rem;padding:0 0.375rem 0.375rem;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm rename-btn" data-id="${f.id}" data-name="${name}" title="重命名" style="font-size:0.5625rem;padding:0.1875rem 0.3125rem">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
             <button class="btn btn-ghost btn-sm tag-edit-btn" data-id="${f.id}" data-tags='${JSON.stringify(f.tags || [])}' title="编辑标签" style="font-size:0.5625rem;padding:0.1875rem 0.3125rem">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
             </button>
@@ -306,6 +336,14 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
         const id = tagEditBtn.dataset.id
         const tags = JSON.parse(tagEditBtn.dataset.tags || '[]')
         openTagEditor(id!, tags)
+        return
+      }
+
+      const renameBtn = target.closest('.rename-btn') as HTMLElement
+      if (renameBtn) {
+        const id = renameBtn.dataset.id
+        const name = renameBtn.dataset.name || ''
+        openRenameModal(id!, name)
         return
       }
 
@@ -485,6 +523,35 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
 
     document.getElementById('tag-cancel')?.addEventListener('click', () => { document.getElementById('tag-modal')!.style.display = 'none' })
 
+    // Rename
+    let renameId = ''
+    function openRenameModal(id: string, name: string) {
+      renameId = id
+      const input = document.getElementById('rename-input') as HTMLInputElement
+      input.value = name
+      document.getElementById('rename-modal')!.style.display = 'flex'
+      setTimeout(() => input.focus(), 50)
+    }
+
+    document.getElementById('rename-save')?.addEventListener('click', async () => {
+      const input = document.getElementById('rename-input') as HTMLInputElement
+      const newName = input.value.trim()
+      if (!newName || !renameId) return
+      const res = await fetch('/api/gallery', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: renameId, filename: newName }) })
+      if (res.ok) {
+        const file = allFiles.find(f => f.id === renameId)
+        if (file) file.filename = newName
+        renderGallery()
+        ;(window as any).showToast('已重命名', 'success')
+      } else {
+        ;(window as any).showToast('重命名失败', 'error')
+      }
+      document.getElementById('rename-modal')!.style.display = 'none'
+    })
+
+    document.getElementById('rename-cancel')?.addEventListener('click', () => { document.getElementById('rename-modal')!.style.display = 'none' })
+    document.getElementById('rename-input')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('rename-save')?.click() })
+
     loadImages()
   </script>
 </Layout>
@@ -511,18 +578,45 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
 
   .gallery-stats { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem; }
 
-  .gallery-toolbar { padding: 0.75rem 1rem; margin-bottom: 0.75rem; }
-  .search-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
-  .search-row .input { flex: 1; min-width: 120px; font-size: 0.8125rem; padding: 0.375rem 0.625rem; }
-  .date-input { width: 140px !important; flex: 0 0 auto !important; }
-  .tags-row { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.5rem; align-items: center; }
-  .tags-label { font-size: 0.6875rem; color: var(--text-muted); }
+  .gallery-toolbar {
+    background: var(--surface);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    padding: 0.875rem 1rem;
+    margin-bottom: 1rem;
+  }
+  .toolbar-row { display: flex; gap: 0.625rem; align-items: center; }
+  .search-wrap {
+    flex: 1; display: flex; align-items: center; gap: 0.5rem;
+    background: rgba(0,0,0,0.2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 0 0.75rem;
+    transition: border-color 0.2s;
+  }
+  .search-wrap:focus-within { border-color: var(--primary); }
+  .search-icon { color: var(--text-muted); flex-shrink: 0; }
+  .search-input {
+    flex: 1; background: none; border: none; color: var(--text);
+    font-size: 0.8125rem; padding: 0.5rem 0; outline: none; font-family: inherit;
+  }
+  .search-input::placeholder { color: var(--text-muted); }
+  .date-wrap { display: flex; align-items: center; gap: 0.375rem; }
+  .date-sep { color: var(--text-muted); font-size: 0.75rem; }
+  .date-input {
+    background: rgba(0,0,0,0.2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text);
+    font-size: 0.75rem; padding: 0.4375rem 0.625rem; outline: none;
+    font-family: inherit; width: 130px; transition: border-color 0.2s;
+  }
+  .date-input:focus { border-color: var(--primary); }
+  .toolbar-btns { display: flex; gap: 0.375rem; }
+  .tags-row { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.625rem; align-items: center; }
+  .tags-label { font-size: 0.6875rem; color: var(--text-muted); margin-right: 0.25rem; }
   .tag-btn {
-    padding: 0.125rem 0.5rem; border-radius: 999px; border: 1px solid var(--glass-border);
-    background: var(--surface); color: var(--text-muted); font-size: 0.6875rem;
+    padding: 0.1875rem 0.625rem; border-radius: 999px; border: 1px solid var(--glass-border);
+    background: rgba(255,255,255,0.03); color: var(--text-muted); font-size: 0.6875rem;
     cursor: pointer; transition: all 0.15s;
   }
-  .tag-btn:hover { color: var(--text); border-color: var(--glass-border-hover); }
+  .tag-btn:hover { color: var(--text); border-color: var(--glass-border-hover); background: var(--surface-hover); }
   .tag-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
 
   .img-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem; }
@@ -615,6 +709,11 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
     .admin-header { flex-direction: column; gap: 0.75rem; }
     .header-actions { width: 100%; }
     .upload-zone { padding: 1.5rem; }
+    .toolbar-row { flex-direction: column; gap: 0.5rem; }
+    .search-wrap { width: 100%; }
+    .date-wrap { width: 100%; }
+    .date-input { flex: 1; width: auto; }
+    .toolbar-btns { width: 100%; justify-content: flex-end; }
     .lightbox-nav { width: 36px; height: 36px; }
     .lightbox-prev { left: 0.5rem; }
     .lightbox-next { right: 0.5rem; }
