@@ -19,9 +19,9 @@ export async function GET({ cookies, locals, url }: { cookies: any; locals: any;
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200)
     const offset = (page - 1) * limit
 
-    const { data: files, count, error } = await supabase
+    const { data: files, error } = await supabase
       .from('assets')
-      .select('*', { count: 'exact' })
+      .select('*')
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -33,10 +33,10 @@ export async function GET({ cookies, locals, url }: { cookies: any; locals: any;
 
     return new Response(JSON.stringify({
       files: files || [],
-      total: count || 0,
+      total: files?.length || 0,
       page,
       limit,
-      totalPages: Math.ceil((count || 0) / limit),
+      totalPages: Math.ceil((files?.length || 0) / limit),
       totalSize,
     }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
   } catch (err: any) {
