@@ -57,12 +57,13 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
       credentials: { accessKeyId, secretAccessKey },
     })
 
-    const buffer = Buffer.from(await file.arrayBuffer())
+    const arrayBuffer = await file.arrayBuffer()
+    const uint8Array = new Uint8Array(arrayBuffer)
 
     await s3.send(new PutObjectCommand({
       Bucket: bucketName,
       Key: key,
-      Body: buffer,
+      Body: uint8Array,
       ContentType: file.type,
       CacheControl: 'public, max-age=31536000',
     }))
