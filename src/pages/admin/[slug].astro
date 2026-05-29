@@ -15,36 +15,25 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
 ---
 
 <Layout title="图床管理 - XTCer">
-  <div class="admin-layout">
+    <div class="admin-layout">
     <Sidebar active="gallery" />
     <div class="admin-main">
       <header class="admin-header">
         <div>
           <h1>图床管理</h1>
-          <p class="admin-subtitle">R2 图片存储 · 按内容 hash 去重</p>
+          <p class="admin-subtitle" id="gallery-stats">加载中...</p>
         </div>
         <div class="header-actions">
           <input type="file" id="upload-input" accept="image/*" multiple style="display:none" />
+          <button class="btn btn-ghost btn-sm" id="refresh-btn" title="刷新">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+          </button>
           <button class="btn btn-primary btn-sm" id="upload-btn">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            上传图片
-          </button>
-          <button class="btn btn-ghost btn-sm" id="refresh-btn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
-            刷新
+            上传
           </button>
         </div>
       </header>
-
-      <div class="upload-zone" id="upload-zone">
-        <div class="upload-zone-inner">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          <p>拖拽图片到这里上传，或 <span class="upload-link" id="upload-link">点击选择</span></p>
-          <small>支持 JPG / PNG / GIF / WebP / SVG · 最大 10MB · 自动按内容 hash 去重</small>
-        </div>
-      </div>
-
-      <div class="gallery-stats" id="gallery-stats"></div>
 
       <div class="gallery-toolbar">
         <div class="toolbar-row">
@@ -76,6 +65,22 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
       <div class="gallery-grid" id="gallery-grid"></div>
 
       <div class="gallery-pagination" id="gallery-pagination"></div>
+    </div>
+  </div>
+
+  <!-- Upload Modal -->
+  <div id="upload-modal" class="modal" style="display:none">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content glass-card" style="max-width:480px">
+      <h3>上传图片</h3>
+      <div class="upload-zone" id="upload-zone">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <p>拖拽图片到这里，或 <span class="upload-link" id="upload-link">点击选择</span></p>
+        <small>JPG / PNG / GIF / WebP / SVG · 最大 10MB · 自动 hash 去重</small>
+      </div>
+      <div class="modal-actions" style="margin-top:1rem">
+        <button class="btn btn-ghost" id="upload-cancel">关闭</button>
+      </div>
     </div>
   </div>
 
@@ -249,10 +254,17 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
     const uploadBtn = document.getElementById('upload-btn')!
     const uploadLink = document.getElementById('upload-link')!
     const uploadZone = document.getElementById('upload-zone')!
+    const uploadModal = document.getElementById('upload-modal')!
 
-    uploadBtn.addEventListener('click', () => uploadInput.click())
+    uploadBtn.addEventListener('click', () => {
+      uploadModal.style.display = 'flex'
+    })
+    document.getElementById('upload-cancel')?.addEventListener('click', () => {
+      uploadModal.style.display = 'none'
+    })
     uploadLink.addEventListener('click', () => uploadInput.click())
 
+    // Drag & drop on modal
     uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragover') })
     uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'))
     uploadZone.addEventListener('drop', (e) => {
@@ -260,6 +272,14 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
       uploadZone.classList.remove('dragover')
       const files = e.dataTransfer?.files
       if (files?.length) uploadFiles(Array.from(files))
+    })
+
+    // Also allow drag anywhere on the page to open modal
+    document.addEventListener('dragover', (e) => {
+      if (e.dataTransfer?.types.includes('Files')) {
+        e.preventDefault()
+        uploadModal.style.display = 'flex'
+      }
     })
 
     uploadInput.addEventListener('change', () => {
@@ -294,6 +314,7 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
       ;(window as any).showToast(msg, failed > 0 ? 'error' : 'success')
 
       uploadInput.value = ''
+      uploadModal.style.display = 'none'
       loadImages()
     }
 
@@ -596,6 +617,19 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
 
   .gallery-stats { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem; }
 
+  .upload-zone {
+    border: 2px dashed var(--glass-border); border-radius: var(--radius);
+    padding: 2.5rem 2rem; text-align: center;
+    transition: all 0.2s; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 0.625rem;
+  }
+  .upload-zone:hover { border-color: var(--primary); background: rgba(41,151,255,0.03); }
+  .upload-zone.dragover { border-color: var(--primary); background: rgba(41,151,255,0.06); }
+  .upload-zone p { color: var(--text-muted); font-size: 0.8125rem; }
+  .upload-zone small { color: var(--text-muted); font-size: 0.6875rem; }
+  .upload-link { color: var(--primary); cursor: pointer; }
+  .upload-link:hover { text-decoration: underline; }
+
   .gallery-toolbar {
     display: flex; align-items: center; gap: 0.625rem;
     flex-wrap: wrap; margin-bottom: 1rem;
@@ -743,7 +777,6 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
     .admin-main { margin-left: 0; padding: 0.75rem; }
     .admin-header { flex-direction: column; gap: 0.75rem; }
     .header-actions { width: 100%; }
-    .upload-zone { padding: 1.5rem; }
     .toolbar-search { min-width: 0; }
     .toolbar-search input { width: 100px; }
     .date-dropdown { right: -1rem; }
