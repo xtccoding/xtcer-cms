@@ -64,11 +64,14 @@ export async function PUT({ request, cookies, locals }: { request: Request; cook
   return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }
 
-export async function DELETE({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
+export async function DELETE({ request, url, cookies, locals }: { request: Request; url: URL; cookies: any; locals: any }) {
   if (!isAuthenticated(cookies, request, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
-  const body = await request.json()
-  const { id } = body
+  // Support both query param and body
+  let id = url.searchParams.get('id')
+  if (!id) {
+    try { const body = await request.json(); id = body.id } catch {}
+  }
   if (!id) return new Response(JSON.stringify({ error: 'Missing id' }), { status: 400 })
 
   const { error } = await supabase.from('deals').delete().eq('id', id)
