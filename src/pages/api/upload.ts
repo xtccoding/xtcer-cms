@@ -1,4 +1,5 @@
-import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { supabase } from '../../lib/supabase'
 
 function isAuthenticated(cookies: any, request: Request, env: any): boolean {
   const cookieAuth = cookies.get('admin_auth')
@@ -51,7 +52,6 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
     const arrayBuffer = await file.arrayBuffer()
     const uint8Array = new Uint8Array(arrayBuffer)
 
-    // Content hash for deduplication
     const hash = await sha256(arrayBuffer)
     const hashShort = hash.substring(0, 12)
     const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
@@ -63,40 +63,51 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
       credentials: { accessKeyId, secretAccessKey },
     })
 
-    // Check if file already exists (dedup)
-    let existed = false
-    try {
-      await s3.send(new HeadObjectCommand({ Bucket: bucketName, Key: key }))
-      existed = true
-    } catch {
-      // Not found, will upload
+    // Dedup: check if hash already exists in Supabase
+    const { data: existing } = await supabase
+      .from('assets')
+      .select('url, key')
+      .eq('content_hash', hash)
+      .limit(1)
+
+    if (existing && existing.length > 0) {
+      return new Response(JSON.stringify({
+        url: existing[0].url,
+        key: existing[0].key,
+        size: file.size,
+        hash,
+        deduplicated: true,
+      }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
     }
 
-    if (!existed) {
-      await s3.send(new PutObjectCommand({
-        Bucket: bucketName,
-        Key: key,
-        Body: uint8Array,
-        ContentType: file.type,
-        CacheControl: 'public, max-age=31536000',
-        Metadata: {
-          'original-name': encodeURIComponent(file.name),
-          'content-hash': hash,
-        },
-      }))
-    }
+    // Upload to R2
+    await s3.send(new PutObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+      Body: uint8Array,
+      ContentType: file.type,
+      CacheControl: 'public, max-age=31536000',
+    }))
 
     const url = `${publicUrl}/${key}`
+
+    // Save metadata to Supabase
+    await supabase.from('assets').insert({
+      key,
+      url,
+      filename: file.name,
+      content_type: file.type,
+      size: file.size,
+      content_hash: hash,
+    })
 
     return new Response(JSON.stringify({
       url,
       key,
       size: file.size,
       hash,
-      deduplicated: existed,
-    }), {
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-    })
+      deduplicated: false,
+    }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message || 'Upload failed' }), { status: 500 })
   }

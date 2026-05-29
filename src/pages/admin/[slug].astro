@@ -65,27 +65,27 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
   </div>
 
   <script>
+    let deleteId = ''
     let deleteKey = ''
-    let nextToken: string | null = null
+    let currentPage = 1
+    let totalPages = 1
     let allFiles: any[] = []
 
-    async function loadImages(token?: string, append = false) {
-      const params = new URLSearchParams({ limit: '50' })
-      if (token) params.set('token', token)
-
+    async function loadImages(page = 1, append = false) {
+      const params = new URLSearchParams({ page: String(page), limit: '50' })
       const res = await fetch(`/api/gallery?${params}`)
       const data = await res.json()
 
       if (!append) allFiles = []
       allFiles.push(...(data.files || []))
 
-      nextToken = data.hasMore ? data.nextToken : null
+      currentPage = data.page || 1
+      totalPages = data.totalPages || 1
       renderGallery()
       renderPagination()
 
       const statsEl = document.getElementById('gallery-stats')!
-      const totalSize = allFiles.reduce((sum, f) => sum + (f.size || 0), 0)
-      statsEl.textContent = `${allFiles.length} 张图片 · ${(totalSize / 1024 / 1024).toFixed(1)} MB`
+      statsEl.textContent = `${data.total || allFiles.length} 张图片 · ${((data.totalSize || 0) / 1024 / 1024).toFixed(1)} MB`
     }
 
     function formatSize(bytes: number): string {
@@ -97,14 +97,14 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
     function renderGallery() {
       const grid = document.getElementById('gallery-grid')!
       grid.innerHTML = allFiles.map((f, i) => {
-        const name = f.key?.split('/').pop() || ''
-        const date = f.lastModified ? new Date(f.lastModified).toLocaleDateString('zh-CN') : ''
+        const name = f.filename || f.key?.split('/').pop() || ''
+        const date = f.created_at ? new Date(f.created_at).toLocaleDateString('zh-CN') : ''
         return `<div class="gallery-item glass-card" data-index="${i}">
           <div class="gallery-img-wrap">
             <img src="${f.url}" alt="${name}" loading="lazy" />
           </div>
           <div class="gallery-info">
-            <span class="gallery-name" title="${f.key}">${name}</span>
+            <span class="gallery-name" title="${name}">${name}</span>
             <span class="gallery-meta">${formatSize(f.size)} · ${date}</span>
           </div>
           <div class="gallery-actions">
@@ -114,7 +114,7 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
             <button class="btn btn-ghost btn-sm copy-md" data-url="${f.url}" data-name="${name}" title="复制 Markdown">
               MD
             </button>
-            <button class="btn btn-danger btn-sm del-img" data-key="${f.key}" title="删除">
+            <button class="btn btn-danger btn-sm del-img" data-id="${f.id}" data-key="${f.key}" title="删除">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
             </button>
           </div>
@@ -124,9 +124,19 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
 
     function renderPagination() {
       const el = document.getElementById('gallery-pagination')!
-      if (!nextToken) { el.innerHTML = ''; return }
-      el.innerHTML = `<button class="btn btn-ghost btn-sm" id="load-more">加载更多</button>`
-      document.getElementById('load-more')?.addEventListener('click', () => loadImages(nextToken!, true))
+      if (totalPages <= 1) { el.innerHTML = ''; return }
+
+      let html = `<span class="page-info">第 ${currentPage}/${totalPages} 页</span><div class="page-btns">`
+      if (currentPage > 1) {
+        html += `<button class="btn btn-ghost btn-sm page-btn" data-page="1">首页</button>`
+        html += `<button class="btn btn-ghost btn-sm page-btn" data-page="${currentPage - 1}">上一页</button>`
+      }
+      if (currentPage < totalPages) {
+        html += `<button class="btn btn-ghost btn-sm page-btn" data-page="${currentPage + 1}">下一页</button>`
+        html += `<button class="btn btn-ghost btn-sm page-btn" data-page="${totalPages}">末页</button>`
+      }
+      html += `</div>`
+      el.innerHTML = html
     }
 
     // Upload
@@ -201,20 +211,29 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
       // Delete
       const delBtn = target.closest('.del-img') as HTMLElement
       if (delBtn) {
+        deleteId = delBtn.dataset.id || ''
         deleteKey = delBtn.dataset.key || ''
         document.getElementById('delete-modal')!.style.display = 'flex'
+      }
+
+      // Pagination
+      const pageBtn = target.closest('.page-btn') as HTMLElement
+      if (pageBtn) {
+        const page = parseInt(pageBtn.dataset.page || '1')
+        loadImages(page)
+        document.querySelector('.gallery-grid')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
       }
     })
 
     document.getElementById('cancel-delete')?.addEventListener('click', () => { document.getElementById('delete-modal')!.style.display = 'none' })
     document.querySelector('.modal-backdrop')?.addEventListener('click', () => { document.getElementById('delete-modal')!.style.display = 'none' })
     document.getElementById('confirm-delete')?.addEventListener('click', async () => {
-      if (!deleteKey) return
-      const res = await fetch('/api/gallery', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: deleteKey }) })
+      if (!deleteId && !deleteKey) return
+      const res = await fetch('/api/gallery', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: deleteId, key: deleteKey }) })
       if (res.ok) {
         ;(window as any).showToast('已删除', 'success')
         document.getElementById('delete-modal')!.style.display = 'none'
-        allFiles = allFiles.filter(f => f.key !== deleteKey)
+        allFiles = allFiles.filter(f => f.id !== deleteId)
         renderGallery()
       } else {
         ;(window as any).showToast('删除失败', 'error')
@@ -274,7 +293,9 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
 
   .empty-state { grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--text-muted); }
 
-  .gallery-pagination { display: flex; justify-content: center; margin-top: 1.25rem; }
+  .gallery-pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+  .page-info { font-size: 0.75rem; color: var(--text-muted); }
+  .page-btns { display: flex; gap: 0.375rem; }
 
   .modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
   .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); }
