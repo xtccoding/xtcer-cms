@@ -91,11 +91,11 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
 
     const url = `${publicUrl}/${key}`
 
-    // Save metadata to Supabase
+    // Save metadata to Supabase (only hash-based key, no original filename)
     await supabase.from('assets').insert({
       key,
       url,
-      filename: file.name,
+      filename: `${hashShort}.${ext}`,
       content_type: file.type,
       size: file.size,
       content_hash: hash,
