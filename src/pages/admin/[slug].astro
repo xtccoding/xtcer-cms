@@ -362,14 +362,16 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
   }
   .gallery-item:hover { border-color: var(--glass-border-hover); }
   .gallery-thumb {
+    position: relative;
     width: 100%;
-    aspect-ratio: 1;
+    padding-top: 100%;
     overflow: hidden;
     background: rgba(0,0,0,0.2);
   }
   .gallery-thumb img {
-    width: 100%;
-    height: 100%;
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
     object-fit: cover;
     display: block;
   }
