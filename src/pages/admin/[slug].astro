@@ -196,14 +196,26 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
       return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;')
     }
 
+    function getThumbUrl(url: string, width = 400): string {
+      if (!url) return url
+      try {
+        const u = new URL(url)
+        if (u.hostname === 'img.xtcer.cn' || u.hostname.endsWith('.r2.cloudflarestorage.com')) {
+          return `${u.protocol}//${u.hostname}/cdn-cgi/image/width=${width},quality=75,format=auto${u.pathname}`
+        }
+      } catch {}
+      return url
+    }
+
     function renderGallery() {
       const grid = document.getElementById('gallery-grid')!
       grid.innerHTML = allFiles.map((f, i) => {
         const name = escapeHtml(f.filename || f.key?.split('/').pop() || '')
         const tags = (f.tags || []).map((t: string) => `<span class="img-tag" data-tag="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('')
+        const thumb = escapeHtml(getThumbUrl(f.url, 400))
         return `<div class="gallery-item glass-card" data-index="${i}">
           <div class="gallery-img-wrap" data-index="${i}" style="position:relative;width:100%;padding-top:100%;overflow:hidden;background:rgba(0,0,0,0.3);cursor:pointer;border-radius:var(--radius-sm) var(--radius-sm) 0 0">
-            <img src="${escapeHtml(f.url)}" alt="${name}" loading="lazy" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block" />
+            <img src="${thumb}" data-full="${escapeHtml(f.url)}" alt="${name}" loading="lazy" decoding="async" onerror="this.src=this.dataset.full" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block" />
             <div class="gallery-img-overlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.4);opacity:0;transition:opacity 0.2s">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
             </div>
@@ -459,6 +471,8 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
       `
       lightbox.style.display = 'flex'
       document.body.style.overflow = 'hidden'
+      if (index + 1 < allFiles.length) { const img = new Image(); img.src = allFiles[index + 1].url }
+      if (index - 1 >= 0) { const img = new Image(); img.src = allFiles[index - 1].url }
     }
 
     function closeLightbox() {
