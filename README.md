@@ -1,13 +1,29 @@
-# XTCer CMS
+# XTcer CMS
 
-> 🚀 **[Live Demo](https://xtcer.cn)** — 技术文章 · 云服务优惠 · AI 情报 · 安全漏洞实时推送
+> 🚀 **[Live Demo](https://xtcer.cn)** — 技术探索者 · eXploring Tech
+
+**XTcer = eXploring Tech er（技术探索者）**
 
 一个基于 **Astro + Supabase + Cloudflare Pages** 的轻量级 CMS，零成本部署，极速加载。
 
 ![Astro](https://img.shields.io/badge/Astro-SSR-FF5D01?logo=astro)
 ![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase)
 ![Cloudflare](https://img.shields.io/badge/Cloudflare-Pages-F38020?logo=cloudflare)
+![Tailwind](https://img.shields.io/badge/Tailwind-CSS-06B6D4?logo=tailwindcss)
 ![License](https://img.shields.io/badge/License-MIT-blue)
+
+---
+
+## 品牌故事
+
+**XTcer** 代表 **eXploring Tech er**（技术探索者）：
+
+- **XT** = eXploring Tech（探索技术）
+- **cer** = 者（人/者后缀）
+
+> 探索前沿，洞见未来
+
+我们站在技术前沿，持续追踪 AI、安全、云服务等前沿技术动态，为你筛选最有价值的信息。
 
 ---
 
@@ -17,10 +33,11 @@
 
 | 页面 | 链接 | 说明 |
 |------|------|------|
-| 首页 | [xtcer.cn](https://xtcer.cn) | 文章 + 导航 + 最新情报 |
+| 首页 | [xtcer.cn](https://xtcer.cn) | Siri 风格波浪 + 粒子效果 + 文章 + 导航 + 情报 |
 | 文章 | [xtcer.cn/posts/...](https://xtcer.cn) | Markdown + 目录 + 评论 |
 | 优惠 | [xtcer.cn/deals](https://xtcer.cn/deals) | 云服务产品目录 |
 | 情报 | [xtcer.cn/feeds](https://xtcer.cn/feeds) | 8 类实时情报流 |
+| 关于 | [xtcer.cn/about](https://xtcer.cn/about) | 品牌故事 |
 | RSS | [xtcer.cn/rss.xml](https://xtcer.cn/rss.xml) | 订阅源 |
 | 管理后台 | [xtcer.cn/admin](https://xtcer.cn/admin) | 密码保护 |
 
@@ -43,6 +60,8 @@
 | 🤖 AI | Cerebras 免费模型（润色/扩展/摘要/翻译） | ✅ |
 | 🌗 主题 | Light / Dark 切换，localStorage 持久化 | ✅ |
 | 📱 响应式 | 移动端完美适配 | ✅ |
+| ✨ 粒子效果 | Siri 风格波浪 + 背景粒子 + 鼠标跟随 | ✅ |
+| 🎨 外观管理 | Banner 文字 + 粒子效果参数可配置 | ✅ |
 
 ---
 
@@ -50,14 +69,15 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                       XTCer CMS                             │
+│                       XTcer CMS                             │
 ├────────────────┬────────────────┬───────────────────────────┤
 │   Astro SSR    │   Supabase     │   Cloudflare Pages        │
 │   (前端框架)    │  (PostgreSQL)  │   (部署 / CDN / Workers)  │
 ├────────────────┼────────────────┼───────────────────────────┤
-│   marked       │  Row Level     │   边缘计算 (Edge Runtime)  │
-│   Giscus       │  Security      │   自动 HTTPS              │
-│   Cerebras AI  │  JSONB 扩展     │   环境变量                │
+│   Tailwind CSS │  Row Level     │   边缘计算 (Edge Runtime)  │
+│   marked       │  Security      │   自动 HTTPS              │
+│   Giscus       │  JSONB 扩展     │   环境变量                │
+│   Cerebras AI  │                │                           │
 └────────────────┴────────────────┴───────────────────────────┘
 ```
 
@@ -75,12 +95,15 @@ src/
 │   ├── supabase.ts                # Supabase 客户端
 │   └── database.types.ts          # TypeScript 类型定义
 ├── middleware.ts                   # 访客追踪中间件
+├── styles/
+│   └── global.css                 # 全局样式（Glassmorphism 工具类）
 ├── pages/
-│   ├── index.astro                # 首页（文章 + 导航 + 情报）
+│   ├── index.astro                # 首页（Siri 波浪 + 粒子 + Banner）
 │   ├── deals.astro                # 云服务优惠列表
 │   ├── feeds.astro                # 情报流（8 分类 Tab）
-│   ├── posts/[id].astro           # 文章详情（Markdown + TOC + 评论 + 更多文章）
-│   ├── about / contact / privacy / tos
+│   ├── posts/[id].astro           # 文章详情（Markdown + TOC + 评论）
+│   ├── about.astro                # 关于页（品牌故事）
+│   ├── contact / privacy / tos
 │   ├── admin/
 │   │   ├── index.astro            # 设置页（架构概览 + 全量建表 SQL）
 │   │   ├── login.astro            # 登录
@@ -90,7 +113,9 @@ src/
 │   │   ├── deals.astro            # 优惠管理
 │   │   ├── feeds.astro            # 情报管理
 │   │   ├── links.astro            # 导航管理
-│   │   ├── files.astro            # 文件管理 + 分享
+│   │   ├── appearance.astro       # 外观管理（Banner + 粒子效果）
+│   │   ├── [slug].astro           # 图床管理
+│   │   ├── files/[slug].astro     # 文件管理 + 分享
 │   │   └── visitors.astro         # 访客统计 + 黑名单
 │   ├── s/[slug].astro             # 文件分享页（公开）
 │   └── api/
@@ -98,12 +123,14 @@ src/
 │       ├── deals/                 # 优惠 CRUD + 批量 upsert
 │       ├── feeds/                 # 情报 CRUD + 3 层防重批量
 │       ├── links/                 # 导航 CRUD
+│       ├── settings.ts            # 站点配置（Banner + 粒子效果）
 │       ├── visitors/              # 访客统计 + 记录
 │       ├── blacklist/             # 黑名单管理
 │       ├── files/                 # 文件管理 + 分享 + 密码验证
 │       ├── search.ts              # 全文搜索
 │       └── ai/index.ts            # AI 写作助手
 ├── astro.config.mjs
+├── tailwind.config.mjs            # Tailwind 配置
 ├── wrangler.toml
 └── package.json
 ```
@@ -146,6 +173,7 @@ FEED_API_KEY=your-feed-api-key
 | `deals` | 云服务优惠 | `UNIQUE(provider, product)` |
 | `feeds` | 情报流 | `UNIQUE(feed_type, title)` + `url_hash` |
 | `files` | 文件分享 | `share_slug UNIQUE` + 密码 + 过期 |
+| `site_settings` | 站点配置 | `key UNIQUE`（Banner + 粒子效果） |
 
 所有表启用 RLS，策略为全开放（写入安全靠 API 层认证）。
 
@@ -180,6 +208,81 @@ Cloudflare Pages 自动构建部署。
 
 ---
 
+## 外观管理
+
+### 后台配置
+
+访问 `/admin/appearance` 可以配置：
+
+**Banner 文字**：
+- 标题第一行：探索前沿
+- 标题分隔符：·
+- 标题第二行：洞见未来
+- 英文 Tagline：eXploring Tech
+- 中文 Tagline：技术探索者
+- 描述标签：每行一个
+
+**粒子效果模式**：
+
+| 模式 | 说明 | 效果 |
+|------|------|------|
+| Siri 波浪 | 多层同心圆波动 | ◎◎◎ |
+| 单环波动 | 单个圆环波动 | ○ |
+| 双环波动 | 双层圆环波动 | ◎○ |
+| 仅粒子 | 只有背景粒子 | · · · |
+
+**可调参数**：
+- 背景粒子：数量、大小、透明度、速度、颜色
+- Siri 波浪：层数、半径、间距、幅度、频率、速度
+- 鼠标效果：开关、半径、脉冲速度
+
+### 数据库配置
+
+配置存储在 `site_settings` 表：
+
+```sql
+CREATE TABLE site_settings (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  key TEXT UNIQUE NOT NULL,
+  value JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+---
+
+## 设计风格
+
+### Glassmorphism 设计系统
+
+- 🌗 Light / Dark 主题切换（localStorage 持久化，系统跟随）
+- 🪟 苹果毛玻璃特效（`backdrop-filter: blur`）
+- ✨ Siri 风格中心波浪动画
+- 🎨 渐变背景 + 网格纹理 + 浮动光球
+- 🖱️ 鼠标跟随脉冲效果
+- 📱 响应式：3 列（大屏）→ 2 列（平板）→ 1 列（手机）
+- 📜 细线半透明滚动条
+- ⌨️ 全局搜索快捷键（Cmd+K / Ctrl+K）
+
+### 字体
+
+- **品牌 Logo**：Space Grotesk（几何感、科技感）
+- **正文内容**：Inter（可读性极佳、专业）
+
+### 颜色方案
+
+| 颜色 | 用途 |
+|------|------|
+| `#2997ff` | 主色（电光蓝） |
+| `#bf5af2` | 强调色（紫色） |
+| `#00ffff` | 辅助色（青色） |
+| `#30d158` | 成功色（绿色） |
+| `#ff9f0a` | 警告色（橙色） |
+| `#ff453a` | 危险色（红色） |
+
+---
+
 ## API 文档
 
 ### 认证方式
@@ -198,24 +301,15 @@ Cloudflare Pages 自动构建部署。
 | `/api/posts/[id]` | GET | 公开 | 文章详情 |
 | `/api/posts/[id]` | PUT / DELETE | Cookie / Key | 更新 / 删除 |
 | `/api/posts/views` | POST | 公开 | 浏览量 +1 |
-| `/api/deals` | GET | 公开 | 优惠列表（category / region 筛选） |
+| `/api/deals` | GET | 公开 | 优惠列表 |
 | `/api/deals` | POST / PUT / DELETE | Cookie / Key | CRUD |
 | `/api/deals/batch` | POST | Cookie / Key | 批量 upsert |
-| `/api/feeds` | GET | 公开 | 情报列表（type / priority 筛选） |
+| `/api/feeds` | GET | 公开 | 情报列表 |
 | `/api/feeds` | POST / PUT / DELETE | Cookie / Key | CRUD |
 | `/api/feeds/batch` | POST | Cookie / Key | 批量 upsert（3 层防重） |
 | `/api/links` | GET / POST | Cookie | 导航链接 |
-| `/api/links/[id]` | PUT / DELETE | Cookie | 导航链接 |
-| `/api/visitors` | GET | Cookie | 访客统计 |
-| `/api/visitors/track` | POST | 公开 | 记录访客 |
-| `/api/blacklist` | GET / POST / DELETE | Cookie | 黑名单 |
-| `/api/files` | GET | Cookie | 文件列表 |
-| `/api/files` | POST | Cookie | 上传文件（FormData: file, slug, password, expires） |
-| `/api/files` | PUT | Cookie | 更新分享设置（slug, password, expires） |
-| `/api/files` | DELETE | Cookie | 删除文件 |
-| `/api/files/verify` | POST | 公开 | 验证文件密码 |
-| `/api/files/download` | POST | 公开 | 下载计数 +1 |
-| `/s/[slug]` | GET | 公开 | 文件分享页 |
+| `/api/settings` | GET | 公开 | 站点配置 |
+| `/api/settings` | POST | Cookie | 更新配置 |
 | `/api/search` | GET | 公开 | 全文搜索 |
 | `/api/ai` | POST | Cookie | AI 写作助手 |
 
@@ -258,164 +352,6 @@ curl -X POST https://xtcer.cn/api/feeds/batch \
     }]
   }'
 ```
-
-**推送文章：**
-
-```bash
-curl -X POST https://xtcer.cn/api/posts \
-  -H "Content-Type: application/json" \
-  -H "X-Feed-Key: YOUR_KEY" \
-  -d '{
-    "title": "文章标题",
-    "content": "Markdown 内容..."
-  }'
-```
-
----
-
-## 图床系统（Gallery）
-
-### 功能
-
-| 功能 | 说明 |
-|------|------|
-| R2 存储 | Cloudflare R2 对象存储，全球 CDN |
-| Hash 去重 | SHA-256 内容 hash，相同文件只存一份 |
-| 标签系统 | 给图片打标签（如人物、场景、类型），支持筛选 |
-| 搜索 | 按文件名、hash、标签搜索 |
-| 日期筛选 | 按上传日期范围筛选 |
-| 灯箱查看 | 点击放大，左右切换，键盘导航 |
-| XSS 防护 | 文件名只存 hash，显示时 HTML 转义 |
-
-### 安全设计
-
-- 上传时文件名自动替换为 `hash.ext`，原始文件名不存储
-- 动态入口路径（每次登录生成随机 slug，防扫描）
-- 所有输出经 `escapeHtml()` 转义
-
-### 图床 API
-
-| 路径 | 方法 | 认证 | 说明 |
-|------|------|------|------|
-| `/api/upload` | POST | Cookie / Key | 上传图片（FormData） |
-| `/api/gallery` | GET | Cookie / Key | 列表（支持 q/tag/from/to 筛选） |
-| `/api/gallery` | PUT | Cookie / Key | 更新标签 |
-| `/api/gallery` | DELETE | Cookie / Key | 删除图片 |
-
----
-
-## 文件分享系统（Files）
-
-### 功能
-
-| 功能 | 说明 |
-|------|------|
-| R2 存储 | 文件存于 `files/` 前缀，与图床分开 |
-| 自定义链接 | 上传时可设置自定义 slug，默认 8 位随机 |
-| 密码保护 | 可选密码，访问时需验证 |
-| 过期时间 | 支持 1 小时 / 1 天 / 7 天 / 30 天 |
-| 下载统计 | 记录下载次数 |
-| 在线预览 | 图片 / 视频 / 音频 / PDF 在线预览 |
-| 分享页 | `/s/:slug` 公开分享页，无需登录 |
-
-### 文件 API
-
-| 路径 | 方法 | 认证 | 说明 |
-|------|------|------|------|
-| `/api/files` | GET | Cookie | 文件列表（分页） |
-| `/api/files` | POST | Cookie | 上传（FormData: file, slug?, password?, expires?） |
-| `/api/files` | PUT | Cookie | 更新（share_slug, password, expires_at） |
-| `/api/files` | DELETE | Cookie | 删除（同时删除 R2 文件） |
-| `/api/files/verify` | POST | 公开 | 密码验证 |
-| `/api/files/download` | POST | 公开 | 下载计数 |
-
----
-
-## 情报系统（Alpha Feed）
-
-### 8 大情报分类
-
-| 分类 | feed_type | 说明 | 频率 |
-|------|-----------|------|------|
-| 🔒 安全 | `security` | CVE、漏洞、攻击事件 | 每天 2 次 |
-| 🐙 GitHub | `github_trending` | 开源热门项目 | 每天 1 次 |
-| 🤖 AI | `ai_monetization` | AI API 额度 / 价差 | 每天 1 次 |
-| 💰 加密 | `crypto_alpha` | DeFi / 空投 / 新链 | 每天 2 次 |
-| 💸 捡漏 | `deal_hunt` | 云服务 / 域名 / 工具优惠 | 每天 1 次 |
-| 📰 行业 | `industry_move` | 大厂动态 / 收购 / 政策 | 每周 2 次 |
-| 🛠 工具 | `devtool_launch` | 新 CLI / 插件 / 平台 | 每周 1 次 |
-| 🎓 学习 | `learn_alpha` | 免费课程 / 资源 | 每周 1 次 |
-
-### 3 层防重机制
-
-```
-第 1 层: UNIQUE(feed_type, title)     → 80% 覆盖率
-第 2 层: url_hash 归一化去重          → 90% 覆盖率
-第 3 层: 标题模糊匹配（相似度 > 60%） → 95% 覆盖率
-```
-
-### 多 Bot 架构
-
-```
-Hermes (Bot 1)                    Junier (Bot 2)
-├── deal_hunt (每天 09:00)        ├── security (每天 09:00/21:00)
-├── ai_monetization (每天 09:30)  ├── github_trending (每天 10:00)
-└── summary (每周日 10:00)        ├── crypto_alpha (每天 08:00/20:00)
-                                  ├── industry_move (周一/周四)
-                                  ├── devtool_launch (周六)
-                                  └── learn_alpha (周日)
-
-         ↓ 共用 FEED_API_KEY ↓
-
-    POST /api/feeds/batch → Supabase (3 层防重)
-```
-
----
-
-## 页面路由
-
-### 公开页面
-
-| 路径 | 说明 |
-|------|------|
-| `/` | 首页（文章 + 导航 + 最新情报） |
-| `/posts/[id]` | 文章详情（Markdown + TOC + 评论 + 更多文章悬浮框） |
-| `/deals` | 云服务优惠（分类 Tab + 卡片） |
-| `/feeds` | 情报流（8 分类 Tab + 优先级标记） |
-| `/about` | 关于我们 |
-| `/contact` | 联系我们 |
-| `/s/[slug]` | 文件分享页（密码保护 + 过期 + 预览） |
-| `/privacy` | 隐私政策 |
-| `/tos` | 服务条款 |
-| `/rss.xml` | RSS 订阅 |
-| `/sitemap.xml` | SEO 站点地图 |
-
-### 管理后台
-
-| 路径 | 说明 |
-|------|------|
-| `/admin` | 设置页（架构概览 + 全量建表 SQL） |
-| `/admin/login` | 登录 |
-| `/admin/dashboard` | 文章管理 |
-| `/admin/new` | 新建文章（AI 助手） |
-| `/admin/edit/[id]` | 编辑文章 |
-| `/admin/deals` | 优惠管理 |
-| `/admin/feeds` | 情报管理 |
-| `/admin/links` | 导航管理 |
-| `/admin/[slug]` | 图床管理（随机入口，搜索/标签/灯箱） |
-| `/admin/files` | 文件管理 + 分享链接 |
-| `/admin/visitors` | 访客统计 + 黑名单 |
-
----
-
-## 设计风格
-
-- 🌗 Light / Dark 主题切换（localStorage 持久化，系统跟随）
-- 🪟 苹果毛玻璃特效（`backdrop-filter: blur`）
-- 🎨 渐变背景 + 网格纹理
-- 📱 响应式：3 列（大屏）→ 2 列（平板）→ 1 列（手机）
-- 📜 细线半透明滚动条
-- ⌨️ 全局搜索快捷键（Cmd+K / Ctrl+K）
 
 ---
 
