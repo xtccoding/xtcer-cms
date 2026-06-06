@@ -1,4 +1,6 @@
 ---
+import '../styles/global.css'
+
 interface Props {
   title: string
   description?: string
@@ -41,8 +43,14 @@ const ogImageUrl = ogImage || new URL('/og-image.svg', 'https://xtcer.cn').href
     </script>
   </head>
   <body>
+    <!-- Animated Background -->
     <div class="bg-gradient"></div>
     <div class="bg-grid"></div>
+    <div class="bg-orbs">
+      <div class="orb orb-blue"></div>
+      <div class="orb orb-purple"></div>
+      <div class="orb orb-cyan"></div>
+    </div>
     <div id="toast-container"></div>
     <slot />
 
@@ -162,84 +170,24 @@ const ogImageUrl = ogImage || new URL('/og-image.svg', 'https://xtcer.cn').href
 </html>
 
 <style is:global>
-  *, *::before, *::after {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-
-  :root {
-    --bg: #000;
-    --surface: rgba(255, 255, 255, 0.03);
-    --surface-hover: rgba(255, 255, 255, 0.06);
-    --glass: rgba(255, 255, 255, 0.02);
-    --glass-border: rgba(255, 255, 255, 0.06);
-    --glass-border-hover: rgba(255, 255, 255, 0.12);
-    --border: rgba(255, 255, 255, 0.06);
-    --text: #f5f5f7;
-    --text-secondary: #a1a1a6;
-    --text-muted: #6e6e73;
-    --primary: #2997ff;
-    --primary-hover: #0077ed;
-    --accent: #bf5af2;
-    --green: #30d158;
-    --orange: #ff9f0a;
-    --red: #ff453a;
-    --blur: 20px;
-    --radius: 12px;
-    --radius-sm: 8px;
-    --radius-lg: 20px;
-    --nav-height: 60px;
-    --container: 1200px;
-    --container-wide: 1400px;
-  }
-
-  :root.light {
-    --bg: #f5f5f7;
-    --surface: rgba(255, 255, 255, 0.8);
-    --surface-hover: rgba(255, 255, 255, 0.9);
-    --glass: rgba(255, 255, 255, 0.7);
-    --glass-border: rgba(0, 0, 0, 0.08);
-    --glass-border-hover: rgba(0, 0, 0, 0.15);
-    --border: rgba(0, 0, 0, 0.08);
-    --text: #1d1d1f;
-    --text-secondary: #6e6e73;
-    --text-muted: #86868b;
-    --primary: #0071e3;
-    --primary-hover: #0077ed;
-    --accent: #bf5af2;
-    --green: #248a3d;
-    --orange: #c77c11;
-    --red: #d70015;
-  }
-
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    line-height: 1.6;
-    min-height: 100vh;
-    -webkit-font-smoothing: antialiased;
-    overflow-x: hidden;
-  }
-
+  /* Background Effects */
   .bg-gradient {
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: -2;
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: -3;
     background:
-      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(41, 151, 255, 0.12), transparent),
-      radial-gradient(ellipse 40% 30% at 80% 60%, rgba(191, 90, 242, 0.06), transparent),
-      radial-gradient(ellipse 50% 40% at 10% 80%, rgba(48, 209, 88, 0.04), transparent);
+      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(41, 151, 255, 0.15), transparent),
+      radial-gradient(ellipse 40% 30% at 80% 60%, rgba(191, 90, 242, 0.08), transparent),
+      radial-gradient(ellipse 50% 40% at 10% 80%, rgba(48, 209, 88, 0.05), transparent);
   }
 
   :root.light .bg-gradient {
     background:
-      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(41, 151, 255, 0.06), transparent),
-      radial-gradient(ellipse 40% 30% at 80% 60%, rgba(191, 90, 242, 0.03), transparent),
-      radial-gradient(ellipse 50% 40% at 10% 80%, rgba(48, 209, 88, 0.02), transparent);
+      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(41, 151, 255, 0.08), transparent),
+      radial-gradient(ellipse 40% 30% at 80% 60%, rgba(191, 90, 242, 0.04), transparent),
+      radial-gradient(ellipse 50% 40% at 10% 80%, rgba(48, 209, 88, 0.03), transparent);
   }
 
   .bg-grid {
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: -1;
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: -2;
     background-image:
       linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
       linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
@@ -248,12 +196,59 @@ const ogImageUrl = ogImage || new URL('/og-image.svg', 'https://xtcer.cn').href
     -webkit-mask-image: radial-gradient(ellipse 70% 50% at 50% 30%, black, transparent);
   }
 
-  a { color: var(--primary); text-decoration: none; transition: color 0.2s; }
-  a:hover { color: var(--primary-hover); }
+  :root.light .bg-grid {
+    background-image:
+      linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px);
+  }
 
-  .container { max-width: var(--container); margin: 0 auto; padding: 0 2rem; }
-  .container-wide { max-width: var(--container-wide); margin: 0 auto; padding: 0 2rem; }
+  .bg-orbs {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+  }
 
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.3;
+    animation: float 20s ease-in-out infinite;
+  }
+
+  :root.light .orb {
+    opacity: 0.15;
+  }
+
+  .orb-blue {
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(41, 151, 255, 0.4), transparent 70%);
+    top: -10%; left: 20%;
+    animation-delay: 0s;
+  }
+
+  .orb-purple {
+    width: 350px; height: 350px;
+    background: radial-gradient(circle, rgba(191, 90, 242, 0.3), transparent 70%);
+    top: 40%; right: 10%;
+    animation-delay: -7s;
+  }
+
+  .orb-cyan {
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(0, 255, 255, 0.2), transparent 70%);
+    bottom: 10%; left: 40%;
+    animation-delay: -14s;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    25% { transform: translate(50px, -30px) scale(1.1); }
+    50% { transform: translate(-20px, 40px) scale(0.95); }
+    75% { transform: translate(30px, 20px) scale(1.05); }
+  }
+
+  /* Navigation */
   .nav {
     position: sticky; top: 0; z-index: 100;
     height: var(--nav-height);
@@ -262,32 +257,29 @@ const ogImageUrl = ogImage || new URL('/og-image.svg', 'https://xtcer.cn').href
     -webkit-backdrop-filter: blur(var(--blur));
     border-bottom: 1px solid var(--border);
   }
+
   :root.light .nav {
     background: rgba(255, 255, 255, 0.7);
   }
 
-  .bg-grid {
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: -1;
-    background-image:
-      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-    background-size: 60px 60px;
-    mask-image: radial-gradient(ellipse 70% 50% at 50% 30%, black, transparent);
-    -webkit-mask-image: radial-gradient(ellipse 70% 50% at 50% 30%, black, transparent);
-  }
-  :root.light .bg-grid {
-    background-image:
-      linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px);
-  }
   .nav-inner {
     max-width: var(--container-wide); margin: 0 auto; padding: 0 2rem;
     height: 100%; display: flex; align-items: center; justify-content: space-between;
   }
-  .nav-logo { font-size: 1.125rem; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+
+  .nav-logo { 
+    font-size: 1.125rem; font-weight: 700; color: var(--text); 
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #2997ff, #bf5af2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
   .nav-links { display: flex; gap: 1.25rem; align-items: center; }
   .nav-link { color: var(--text-muted); font-size: 0.8125rem; transition: color 0.2s; }
   .nav-link:hover { color: var(--text); }
+
   .nav-search-btn {
     background: none; border: none; color: var(--text-muted); cursor: pointer;
     padding: 0.375rem; border-radius: var(--radius-sm); transition: all 0.15s;
@@ -295,47 +287,7 @@ const ogImageUrl = ogImage || new URL('/og-image.svg', 'https://xtcer.cn').href
   }
   .nav-search-btn:hover { color: var(--text); background: var(--surface); }
 
-  .glass-card {
-    background: var(--surface);
-    backdrop-filter: blur(var(--blur));
-    -webkit-backdrop-filter: blur(var(--blur));
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius);
-    transition: all 0.2s;
-  }
-  .glass-card:hover {
-    background: var(--surface-hover);
-    border-color: var(--glass-border-hover);
-  }
-
-  .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
-    padding: 0.5rem 1rem; border: none; border-radius: var(--radius-sm);
-    font-size: 0.8125rem; font-weight: 500; cursor: pointer;
-    transition: all 0.15s; text-decoration: none; white-space: nowrap;
-  }
-  .btn-primary { background: var(--primary); color: white; }
-  .btn-primary:hover { background: var(--primary-hover); color: white; transform: translateY(-1px); }
-  .btn-ghost { background: var(--surface); color: var(--text); border: 1px solid var(--glass-border); }
-  .btn-ghost:hover { background: var(--surface-hover); border-color: var(--glass-border-hover); }
-  .btn-danger { background: rgba(255,69,58,0.1); color: var(--red); border: 1px solid rgba(255,69,58,0.15); }
-  .btn-danger:hover { background: rgba(255,69,58,0.2); }
-  .btn-sm { padding: 0.375rem 0.625rem; font-size: 0.75rem; }
-  .btn-icon { padding: 0.5rem; }
-
-  .input {
-    width: 100%; padding: 0.625rem 0.875rem;
-    background: var(--surface); border: 1px solid var(--glass-border);
-    border-radius: var(--radius-sm); color: var(--text);
-    font-size: 0.875rem; outline: none; transition: all 0.15s; font-family: inherit;
-  }
-  .input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(41,151,255,0.1); }
-  .input::placeholder { color: var(--text-muted); }
-  textarea.input { resize: vertical; min-height: 200px; font-family: 'SF Mono', 'Fira Code', monospace; line-height: 1.7; }
-
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-  .fade-in { animation: fadeIn 0.3s ease-out; }
-
+  /* Search Modal */
   .search-modal {
     position: fixed; inset: 0; z-index: 1000;
     align-items: flex-start; justify-content: center;
@@ -380,6 +332,7 @@ const ogImageUrl = ogImage || new URL('/og-image.svg', 'https://xtcer.cn').href
   .search-item-desc { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .search-empty { padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.8125rem; }
 
+  /* Toast Notifications */
   #toast-container {
     position: fixed; top: 1rem; right: 1rem; z-index: 9999;
     display: flex; flex-direction: column; gap: 0.5rem;
@@ -404,9 +357,17 @@ const ogImageUrl = ogImage || new URL('/og-image.svg', 'https://xtcer.cn').href
   .toast-info { border-color: rgba(41,151,255,0.3); }
   .toast-info .toast-icon { color: var(--primary); }
 
+  /* Container */
+  .container { max-width: var(--container); margin: 0 auto; padding: 0 2rem; }
+  .container-wide { max-width: var(--container-wide); margin: 0 auto; padding: 0 2rem; }
+
+  /* Responsive */
   @media (max-width: 768px) {
     :root { --nav-height: 52px; }
     .container, .container-wide { padding: 0 1.25rem; }
+    .orb-blue, .orb-purple, .orb-cyan { 
+      width: 200px; height: 200px; 
+    }
   }
   @media (max-width: 375px) {
     .container, .container-wide { padding: 0 1rem; }
