@@ -45,13 +45,15 @@ export const GET: APIRoute = async ({ url }) => {
   })
 }
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, cookies }) => {
   const runtimeEnv = (globalThis as any)?.runtime?.env
   const ADMIN_PASSWORD = runtimeEnv?.ADMIN_PASSWORD || import.meta.env.ADMIN_PASSWORD
   
-  // Simple auth check
-  const authHeader = request.headers.get('Authorization')
-  if (authHeader !== `Bearer ${ADMIN_PASSWORD}`) {
+  // Check auth: try cookie first, then Authorization header
+  const cookieAuth = cookies.get('admin_auth')?.value
+  const authHeader = request.headers.get('Authorization')?.replace('Bearer ', '')
+  
+  if (cookieAuth !== ADMIN_PASSWORD && authHeader !== ADMIN_PASSWORD) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' }
