@@ -966,191 +966,162 @@ function stripMarkdown(text: string) {
     setTimeout(() => (document.getElementById('search-input') as HTMLInputElement)?.focus(), 50)
   })
   
-  // Wave Particle System
+  // Siri-style Particle System
   class ParticleSystem {
     private canvas: HTMLCanvasElement
     private ctx: CanvasRenderingContext2D
     private particles: Array<{
       x: number
       y: number
-      baseX: number
-      baseY: number
+      vx: number
+      vy: number
       size: number
       opacity: number
-      speed: number
-      angle: number
-      amplitude: number
-      frequency: number
     }> = []
     private animationId: number = 0
     private mouse: { x: number; y: number } = { x: -1000, y: -1000 }
     private time: number = 0
-    private cols: number = 0
-    private rows: number = 0
-    private spacing: number = 18
+    private centerX: number = 0
+    private centerY: number = 0
     
     constructor(canvas: HTMLCanvasElement) {
       this.canvas = canvas
       this.ctx = canvas.getContext('2d')!
       this.resize()
-      this.init()
+      this.initParticles()
       this.animate()
       
       window.addEventListener('resize', () => {
         this.resize()
-        this.init()
+        this.particles = []
+        this.initParticles()
       })
       window.addEventListener('mousemove', (e) => {
         this.mouse.x = e.clientX
         this.mouse.y = e.clientY
-      })
-      window.addEventListener('mouseout', () => {
-        this.mouse.x = -1000
-        this.mouse.y = -1000
       })
     }
     
     resize() {
       this.canvas.width = window.innerWidth
       this.canvas.height = window.innerHeight
+      this.centerX = this.canvas.width / 2
+      this.centerY = this.canvas.height / 2
     }
     
-    init() {
-      this.particles = []
-      this.cols = Math.ceil(this.canvas.width / this.spacing) + 2
-      this.rows = Math.ceil(this.canvas.height / this.spacing) + 2
-      
-      for (let row = 0; row < this.rows; row++) {
-        for (let col = 0; col < this.cols; col++) {
-          const x = col * this.spacing
-          const y = row * this.spacing
-          
-          this.particles.push({
-            x,
-            y,
-            baseX: x,
-            baseY: y,
-            size: Math.random() * 1.5 + 0.5,
-            opacity: Math.random() * 0.3 + 0.1,
-            speed: Math.random() * 0.02 + 0.01,
-            angle: Math.random() * Math.PI * 2,
-            amplitude: Math.random() * 15 + 5,
-            frequency: Math.random() * 0.03 + 0.01
-          })
-        }
+    initParticles() {
+      const count = 50
+      for (let i = 0; i < count; i++) {
+        this.particles.push({
+          x: Math.random() * this.canvas.width,
+          y: Math.random() * this.canvas.height,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: (Math.random() - 0.5) * 0.3,
+          size: Math.random() * 1.5 + 0.5,
+          opacity: Math.random() * 0.3 + 0.05
+        })
       }
     }
     
-    drawParticle(x: number, y: number, size: number, opacity: number) {
-      // Blue-cyan gradient based on position
-      const gradient = this.ctx.createRadialGradient(x, y, 0, x, y, size * 2)
-      gradient.addColorStop(0, `rgba(41, 151, 255, ${opacity})`)
-      gradient.addColorStop(1, `rgba(0, 212, 255, ${opacity * 0.3})`)
+    drawSiriWave() {
+      const cx = this.centerX
+      const cy = this.centerY
+      const baseRadius = 80
+      const waveCount = 5
       
+      for (let i = 0; i < waveCount; i++) {
+        const timeOffset = i * 0.4
+        const radius = baseRadius + i * 15
+        const points = 60
+        
+        this.ctx.beginPath()
+        
+        for (let j = 0; j <= points; j++) {
+          const angle = (j / points) * Math.PI * 2
+          
+          // Multiple sine waves for organic movement
+          const wave1 = Math.sin(angle * 3 + this.time * 0.02 + timeOffset) * 8
+          const wave2 = Math.sin(angle * 5 - this.time * 0.015 + timeOffset * 1.5) * 5
+          const wave3 = Math.cos(angle * 2 + this.time * 0.025 + timeOffset * 0.5) * 6
+          
+          const r = radius + wave1 + wave2 + wave3
+          const x = cx + Math.cos(angle) * r
+          const y = cy + Math.sin(angle) * r
+          
+          if (j === 0) {
+            this.ctx.moveTo(x, y)
+          } else {
+            this.ctx.lineTo(x, y)
+          }
+        }
+        
+        this.ctx.closePath()
+        
+        // Gradient colors (blue to cyan to purple)
+        const hue = (this.time * 0.5 + i * 30) % 360
+        const opacity = 0.15 - i * 0.02
+        this.ctx.strokeStyle = `hsla(${200 + i * 15}, 80%, 60%, ${opacity})`
+        this.ctx.lineWidth = 2 - i * 0.2
+        this.ctx.stroke()
+      }
+      
+      // Center glow
+      const glowGradient = this.ctx.createRadialGradient(cx, cy, 0, cx, cy, baseRadius + 40)
+      glowGradient.addColorStop(0, 'rgba(41, 151, 255, 0.08)')
+      glowGradient.addColorStop(0.5, 'rgba(0, 212, 255, 0.04)')
+      glowGradient.addColorStop(1, 'rgba(191, 90, 242, 0)')
+      this.ctx.fillStyle = glowGradient
       this.ctx.beginPath()
-      this.ctx.arc(x, y, size, 0, Math.PI * 2)
-      this.ctx.fillStyle = gradient
+      this.ctx.arc(cx, cy, baseRadius + 40, 0, Math.PI * 2)
       this.ctx.fill()
     }
     
-    drawConnections() {
-      const connectionDist = 25
-      
-      for (let i = 0; i < this.particles.length; i++) {
-        const p1 = this.particles[i]
+    drawParticles() {
+      this.particles.forEach(p => {
+        // Float animation
+        p.x += p.vx + Math.sin(this.time * 0.01 + p.y * 0.01) * 0.1
+        p.y += p.vy + Math.cos(this.time * 0.01 + p.x * 0.01) * 0.1
         
-        // Check nearby particles
-        for (let j = i + 1; j < Math.min(i + 5, this.particles.length); j++) {
-          const p2 = this.particles[j]
-          const dx = p1.x - p2.x
-          const dy = p1.y - p2.y
-          const dist = Math.sqrt(dx * dx + dy * dy)
-          
-          if (dist < connectionDist) {
-            const opacity = (1 - dist / connectionDist) * 0.15
-            this.ctx.beginPath()
-            this.ctx.moveTo(p1.x, p1.y)
-            this.ctx.lineTo(p2.x, p2.y)
-            this.ctx.strokeStyle = `rgba(41, 151, 255, ${opacity})`
-            this.ctx.lineWidth = 0.3
-            this.ctx.stroke()
-          }
-        }
-      }
+        // Boundary wrap
+        if (p.x < -10) p.x = this.canvas.width + 10
+        if (p.x > this.canvas.width + 10) p.x = -10
+        if (p.y < -10) p.y = this.canvas.height + 10
+        if (p.y > this.canvas.height + 10) p.y = -10
+        
+        // Draw particle
+        this.ctx.beginPath()
+        this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+        this.ctx.fillStyle = `rgba(41, 151, 255, ${p.opacity})`
+        this.ctx.fill()
+      })
     }
     
-    drawMousePulse() {
-      if (this.mouse.x < 0 || this.mouse.y < 0) return
+    drawMouseEffect() {
+      if (this.mouse.x < 0) return
       
       const pulse = Math.sin(this.time * 0.03) * 0.5 + 0.5
       
-      // Outer ring
+      // Simple ring
       this.ctx.beginPath()
-      this.ctx.arc(this.mouse.x, this.mouse.y, 60 + pulse * 15, 0, Math.PI * 2)
-      this.ctx.strokeStyle = `rgba(41, 151, 255, ${0.08 + pulse * 0.04})`
+      this.ctx.arc(this.mouse.x, this.mouse.y, 40 + pulse * 10, 0, Math.PI * 2)
+      this.ctx.strokeStyle = `rgba(41, 151, 255, ${0.06 + pulse * 0.03})`
       this.ctx.lineWidth = 1
       this.ctx.stroke()
-      
-      // Inner ring
-      this.ctx.beginPath()
-      this.ctx.arc(this.mouse.x, this.mouse.y, 30 + pulse * 8, 0, Math.PI * 2)
-      this.ctx.strokeStyle = `rgba(0, 212, 255, ${0.06 + pulse * 0.03})`
-      this.ctx.lineWidth = 1
-      this.ctx.stroke()
-      
-      // Center glow
-      const glow = this.ctx.createRadialGradient(
-        this.mouse.x, this.mouse.y, 0,
-        this.mouse.x, this.mouse.y, 100
-      )
-      glow.addColorStop(0, `rgba(41, 151, 255, ${0.03 + pulse * 0.02})`)
-      glow.addColorStop(1, 'rgba(41, 151, 255, 0)')
-      this.ctx.fillStyle = glow
-      this.ctx.fillRect(this.mouse.x - 100, this.mouse.y - 100, 200, 200)
     }
     
     animate() {
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
       this.time++
       
-      // Update and draw particles
-      this.particles.forEach(p => {
-        // Wave animation
-        const wave1 = Math.sin(p.baseX * 0.01 + this.time * 0.02) * p.amplitude
-        const wave2 = Math.cos(p.baseY * 0.01 + this.time * 0.015) * p.amplitude * 0.5
-        const wave3 = Math.sin((p.baseX + p.baseY) * 0.005 + this.time * 0.01) * p.amplitude * 0.3
-        
-        p.x = p.baseX + wave1 + wave3
-        p.y = p.baseY + wave2 + wave3
-        
-        // Mouse interaction
-        const dx = this.mouse.x - p.x
-        const dy = this.mouse.y - p.y
-        const dist = Math.sqrt(dx * dx + dy * dy)
-        
-        if (dist < 150) {
-          const force = (150 - dist) / 150
-          const angle = Math.atan2(dy, dx)
-          p.x += Math.cos(angle) * force * 20
-          p.y += Math.sin(angle) * force * 20
-          
-          // Increase opacity near mouse
-          const nearOpacity = 0.3 + force * 0.4
-          const nearSize = p.size + force * 1.5
-          this.drawParticle(p.x, p.y, nearSize, nearOpacity)
-        } else {
-          this.drawParticle(p.x, p.y, p.size, p.opacity)
-        }
-      })
-      
-      this.drawConnections()
-      this.drawMousePulse()
+      this.drawSiriWave()
+      this.drawParticles()
+      this.drawMouseEffect()
       
       this.animationId = requestAnimationFrame(() => this.animate())
     }
   }
   
-  // Initialize particles
+  // Initialize
   const canvas = document.getElementById('particles') as HTMLCanvasElement
   if (canvas) {
     new ParticleSystem(canvas)
