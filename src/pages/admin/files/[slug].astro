@@ -1,0 +1,411 @@
+---
+import Layout from '../../../layouts/Layout.astro'
+import Sidebar from '../../../components/Sidebar.astro'
+
+const runtimeEnv = (Astro.locals as any)?.runtime?.env
+const ADMIN_PASSWORD = runtimeEnv?.ADMIN_PASSWORD || import.meta.env.ADMIN_PASSWORD
+if (!ADMIN_PASSWORD) return new Response('ADMIN_PASSWORD not configured', { status: 500 })
+const cookie = Astro.cookies.get('admin_auth')
+if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
+
+const { slug } = Astro.params
+const filesSlug = Astro.cookies.get('files_slug')?.value
+if (!filesSlug || slug !== filesSlug) return Astro.redirect('/admin')
+---
+
+<Layout title="文件管理 - XTCer">
+  <div class="admin-layout">
+    <Sidebar active="files" />
+    <div class="admin-main">
+      <header class="admin-header">
+        <div>
+          <h1>文件管理</h1>
+          <p class="admin-subtitle" id="files-stats">加载中...</p>
+        </div>
+        <div class="header-actions">
+          <input type="text" id="file-search" class="input" placeholder="搜索文件名..." style="width:160px" />
+          <button class="btn btn-ghost btn-sm" id="search-btn">搜索</button>
+          <button class="btn btn-ghost btn-sm" id="reset-btn" style="display:none">重置</button>
+          <button class="btn btn-primary btn-sm" id="upload-btn">上传文件</button>
+        </div>
+      </header>
+
+      <section class="panel glass-card">
+        <div class="finder-table">
+          <div class="finder-header">
+            <span>名称</span>
+            <span>Hash</span>
+            <span>大小</span>
+            <span>分享链接</span>
+            <span>状态</span>
+            <span>下载</span>
+            <span>日期</span>
+            <span>操作</span>
+          </div>
+          <div id="finder-body"></div>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </section>
+    </div>
+  </div>
+
+  <div id="upload-modal" class="modal" style="display:none">
+    <div class="modal-backdrop" id="upload-backdrop"></div>
+    <div class="modal-content glass-card" style="max-width:480px">
+      <h3>上传文件</h3>
+      <div class="upload-zone" id="upload-zone">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <p>拖拽文件到这里，或 <span class="upload-link" id="upload-link">点击选择</span></p>
+        <small>最大 100MB</small>
+      </div>
+      <div style="margin-top:0.75rem;display:flex;flex-direction:column;gap:0.5rem">
+        <div style="display:flex;gap:0.5rem">
+          <input type="text" id="file-slug" class="input" placeholder="自定义链接（留空随机）" style="flex:1" />
+          <input type="text" id="file-password" class="input" placeholder="密码（可选）" style="width:120px" />
+        </div>
+        <select id="file-expires" class="input" style="width:100%">
+          <option value="0">永不过期</option>
+          <option value="1">1 小时</option>
+          <option value="24">1 天</option>
+          <option value="168">7 天</option>
+          <option value="720">30 天</option>
+        </select>
+      </div>
+      <div id="upload-progress" style="display:none;margin:0.75rem 0">
+        <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:0.375rem">
+          <span id="upload-status">上传中...</span>
+        </div>
+        <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+          <div id="upload-bar" style="height:100%;background:var(--primary);width:0;transition:width 0.3s"></div>
+        </div>
+      </div>
+      <div class="modal-actions" style="margin-top:1rem">
+        <button class="btn btn-ghost" id="upload-cancel">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="edit-modal" class="modal" style="display:none">
+    <div class="modal-backdrop" id="edit-backdrop"></div>
+    <div class="modal-content glass-card" style="max-width:400px">
+      <h3>编辑分享设置</h3>
+      <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.75rem">
+        <input type="text" id="edit-slug" class="input" placeholder="分享链接" />
+        <input type="text" id="edit-password" class="input" placeholder="密码（留空取消）" />
+        <select id="edit-expires" class="input">
+          <option value="">永不过期</option>
+          <option value="1h">1 小时后</option>
+          <option value="1d">1 天后</option>
+          <option value="7d">7 天后</option>
+          <option value="30d">30 天后</option>
+        </select>
+      </div>
+      <div class="modal-actions" style="margin-top:1rem">
+        <button class="btn btn-ghost" id="edit-cancel">取消</button>
+        <button class="btn btn-primary" id="edit-save">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="delete-modal" class="modal" style="display:none">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content glass-card">
+      <h3>确认删除</h3>
+      <p>删除后文件将从 R2 存储中移除，分享链接将失效。</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="cancel-delete">取消</button>
+        <button class="btn btn-danger" id="confirm-delete">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="file-input" style="display:none" />
+
+  <script is:global>
+    let allFiles = []
+    let currentPage = 1
+    let totalPages = 1
+    let deleteId = ''
+    let editId = ''
+    let currentSearch = ''
+    const siteUrl = window.location.origin
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B'
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+      return (bytes / 1024 / 1024).toFixed(1) + ' MB'
+    }
+    function escapeHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')
+    }
+    function getHash(key) { return key?.match(/files\/([a-f0-9]+)/)?.[1] || '' }
+
+    function getFileIcon(type) {
+      if (!type) return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
+      if (type.includes('pdf')) return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff453a" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
+      if (type.startsWith('image/')) return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>'
+      if (type.startsWith('video/')) return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#bf5af2" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>'
+      if (type.startsWith('audio/')) return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff9f0a" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>'
+      if (type.includes('zip') || type.includes('rar') || type.includes('gzip') || type.includes('tar')) return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64d2ff" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>'
+      if (type.includes('word') || type.includes('document') || type.includes('presentation') || type.includes('sheet') || type.includes('excel')) return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0a84ff" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>'
+      return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
+    }
+
+    async function loadFiles(page, search) {
+      if (page !== undefined) currentPage = page
+      if (search !== undefined) currentSearch = search
+      const params = new URLSearchParams({ page: String(currentPage), limit: '50' })
+      if (currentSearch) params.set('q', currentSearch)
+      const res = await fetch('/api/files?' + params)
+      const data = await res.json()
+      allFiles = data.files || []
+      currentPage = data.page || 1
+      totalPages = data.totalPages || 1
+      renderFiles()
+      renderPagination()
+      document.getElementById('files-stats').textContent = data.total + ' 个文件'
+    }
+
+    function renderFiles() {
+      const body = document.getElementById('finder-body')
+      if (allFiles.length === 0) {
+        body.innerHTML = '<div class="finder-empty">暂无文件</div>'
+        return
+      }
+      body.innerHTML = allFiles.map(function(f) {
+        var name = escapeHtml(f.filename)
+        var ext = name.split('.').pop()?.toUpperCase() || ''
+        var hash = getHash(f.key)
+        var size = formatSize(f.size || 0)
+        var shareUrl = siteUrl + '/s/' + f.share_slug
+        var expired = f.expires_at && new Date(f.expires_at) < new Date()
+        var date = new Date(f.created_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+        var icon = getFileIcon(f.content_type)
+
+        var status = ''
+        if (expired) status = '<span class="finder-badge finder-badge-red">过期</span>'
+        else if (f.password) status = '<span class="finder-badge finder-badge-amber">密码</span>'
+        else status = '<span class="finder-badge finder-badge-green">正常</span>'
+
+        return '<div class="finder-row">' +
+          '<span class="finder-name">' + icon + ' ' + name + '</span>' +
+          '<span class="finder-hash" data-hash="' + hash + '" title="点击复制: ' + hash + '">' + hash.substring(0,8) + '</span>' +
+          '<span class="finder-size">' + size + '</span>' +
+          '<span class="finder-link" data-url="' + shareUrl + '" title="点击复制链接">/s/' + f.share_slug + '</span>' +
+          '<span class="finder-status">' + status + '</span>' +
+          '<span class="finder-dl">' + (f.downloads || 0) + '</span>' +
+          '<span class="finder-date">' + date + '</span>' +
+          '<span class="finder-actions">' +
+            '<button class="btn btn-ghost btn-sm edit-btn" data-id="' + f.id + '" data-slug="' + f.share_slug + '" data-password="' + (f.password || '') + '" title="编辑"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' +
+            '<a href="' + f.url + '" target="_blank" class="btn btn-ghost btn-sm" title="打开"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>' +
+            '<button class="btn btn-danger btn-sm del-btn" data-id="' + f.id + '" title="删除"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>' +
+          '</span>' +
+        '</div>'
+      }).join('')
+    }
+
+    function renderPagination() {
+      var el = document.getElementById('pagination')
+      if (totalPages <= 1) { el.innerHTML = ''; return }
+      var html = '<span class="page-info">第 ' + currentPage + '/' + totalPages + ' 页</span><div class="page-btns">'
+      if (currentPage > 1) { html += '<button class="btn btn-ghost btn-sm page-btn" data-page="1">首页</button><button class="btn btn-ghost btn-sm page-btn" data-page="' + (currentPage-1) + '">上一页</button>' }
+      if (currentPage < totalPages) { html += '<button class="btn btn-ghost btn-sm page-btn" data-page="' + (currentPage+1) + '">下一页</button><button class="btn btn-ghost btn-sm page-btn" data-page="' + totalPages + '">末页</button>' }
+      el.innerHTML = html + '</div>'
+    }
+
+    // Search
+    var searchInput = document.getElementById('file-search')
+    var searchBtn = document.getElementById('search-btn')
+    var resetBtn = document.getElementById('reset-btn')
+    searchBtn.addEventListener('click', function() {
+      var q = searchInput.value.trim()
+      if (q) { resetBtn.style.display = ''; loadFiles(1, q) }
+    })
+    searchInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') searchBtn.click() })
+    resetBtn.addEventListener('click', function() {
+      searchInput.value = ''; resetBtn.style.display = 'none'; loadFiles(1, '')
+    })
+
+    // Upload
+    var fileInput = document.getElementById('file-input')
+    var uploadModal = document.getElementById('upload-modal')
+    var uploadZone = document.getElementById('upload-zone')
+    document.getElementById('upload-btn').addEventListener('click', function() { uploadModal.style.display = 'flex' })
+    document.getElementById('upload-cancel').addEventListener('click', function() { uploadModal.style.display = 'none' })
+    document.getElementById('upload-backdrop').addEventListener('click', function() { uploadModal.style.display = 'none' })
+    document.getElementById('upload-link').addEventListener('click', function() { fileInput.click() })
+    uploadZone.addEventListener('dragover', function(e) { e.preventDefault(); uploadZone.classList.add('dragover') })
+    uploadZone.addEventListener('dragleave', function() { uploadZone.classList.remove('dragover') })
+    uploadZone.addEventListener('drop', function(e) { e.preventDefault(); uploadZone.classList.remove('dragover'); if (e.dataTransfer.files.length) uploadFile(e.dataTransfer.files[0]) })
+    fileInput.addEventListener('change', function() { if (fileInput.files.length) uploadFile(fileInput.files[0]) })
+
+    async function uploadFile(file) {
+      var slug = document.getElementById('file-slug').value.trim()
+      var password = document.getElementById('file-password').value.trim()
+      var expires = document.getElementById('file-expires').value
+      var progressEl = document.getElementById('upload-progress')
+      var statusEl = document.getElementById('upload-status')
+      var barEl = document.getElementById('upload-bar')
+      var zoneEl = document.getElementById('upload-zone')
+      progressEl.style.display = ''; zoneEl.style.display = 'none'; barEl.style.width = '30%'
+
+      var fd = new FormData(); fd.append('file', file)
+      if (slug) fd.append('slug', slug); if (password) fd.append('password', password)
+      if (expires !== '0') fd.append('expires', expires)
+
+      try {
+        barEl.style.width = '60%'
+        var res = await fetch('/api/files', { method: 'POST', body: fd })
+        var data = await res.json()
+        if (res.ok) {
+          barEl.style.width = '100%'; statusEl.textContent = '完成'
+          await navigator.clipboard.writeText(siteUrl + '/s/' + data.share_slug)
+          window.showToast('上传成功，链接已复制', 'success'); loadFiles()
+        } else { window.showToast(data.error || '上传失败', 'error') }
+      } catch(e) { window.showToast('上传失败', 'error') }
+
+      fileInput.value = ''
+      setTimeout(function() { uploadModal.style.display = 'none'; progressEl.style.display = 'none'; zoneEl.style.display = ''; barEl.style.width = '0' }, 600)
+    }
+
+    // Click handlers
+    document.addEventListener('click', async function(e) {
+      var t = e.target
+      var editBtn = t.closest('.edit-btn')
+      if (editBtn) {
+        editId = editBtn.dataset.id || ''
+        document.getElementById('edit-slug').value = editBtn.dataset.slug || ''
+        document.getElementById('edit-password').value = editBtn.dataset.password || ''
+        document.getElementById('edit-modal').style.display = 'flex'; return
+      }
+      var delBtn = t.closest('.del-btn')
+      if (delBtn) { deleteId = delBtn.dataset.id || ''; document.getElementById('delete-modal').style.display = 'flex'; return }
+      var hashEl = t.closest('.finder-hash')
+      if (hashEl) { await navigator.clipboard.writeText(hashEl.dataset.hash); window.showToast('Hash 已复制', 'success'); return }
+      var linkEl = t.closest('.finder-link')
+      if (linkEl) { await navigator.clipboard.writeText(linkEl.dataset.url); window.showToast('链接已复制', 'success'); return }
+      var pageBtn = t.closest('.page-btn')
+      if (pageBtn) { loadFiles(parseInt(pageBtn.dataset.page)) }
+    })
+
+    document.getElementById('edit-cancel').addEventListener('click', function() { document.getElementById('edit-modal').style.display = 'none' })
+    document.getElementById('edit-backdrop').addEventListener('click', function() { document.getElementById('edit-modal').style.display = 'none' })
+    document.getElementById('edit-save').addEventListener('click', async function() {
+      var slug = document.getElementById('edit-slug').value.trim()
+      var password = document.getElementById('edit-password').value.trim()
+      var v = document.getElementById('edit-expires').value
+      var expires_at = null
+      if (v === '1h') expires_at = new Date(Date.now() + 3600000).toISOString()
+      else if (v === '1d') expires_at = new Date(Date.now() + 86400000).toISOString()
+      else if (v === '7d') expires_at = new Date(Date.now() + 604800000).toISOString()
+      else if (v === '30d') expires_at = new Date(Date.now() + 2592000000).toISOString()
+      var res = await fetch('/api/files', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editId, share_slug: slug, password: password, expires_at: expires_at }) })
+      if (res.ok) { window.showToast('已更新', 'success'); loadFiles() }
+      else { var d = await res.json(); window.showToast(d.error || '更新失败', 'error') }
+      document.getElementById('edit-modal').style.display = 'none'
+    })
+
+    document.getElementById('cancel-delete').addEventListener('click', function() { document.getElementById('delete-modal').style.display = 'none' })
+    document.getElementById('confirm-delete').addEventListener('click', async function() {
+      if (!deleteId) return
+      await fetch('/api/files', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: deleteId }) })
+      window.showToast('已删除', 'success')
+      document.getElementById('delete-modal').style.display = 'none'; loadFiles()
+    })
+
+    loadFiles()
+  </script>
+</Layout>
+
+<style is:global>
+  .admin-layout { display: flex; min-height: 100vh; }
+  .admin-main { flex: 1; margin-left: 200px; padding: 1.25rem; }
+  .admin-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; }
+  .admin-header h1 { font-size: 1.375rem; font-weight: 700; }
+  .admin-subtitle { color: var(--text-muted); font-size: 0.75rem; margin-top: 0.125rem; }
+  .header-actions { display: flex; gap: 0.5rem; align-items: center; }
+
+  .panel { padding: 0.75rem; }
+
+  .upload-zone {
+    border: 2px dashed var(--glass-border); border-radius: var(--radius);
+    padding: 2rem; text-align: center; transition: all 0.2s; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  }
+  .upload-zone:hover { border-color: var(--primary); background: rgba(41,151,255,0.03); }
+  .upload-zone.dragover { border-color: var(--primary); background: rgba(41,151,255,0.06); }
+  .upload-zone p { color: var(--text-muted); font-size: 0.8125rem; }
+  .upload-zone small { color: var(--text-muted); font-size: 0.6875rem; }
+  .upload-link { color: var(--primary); cursor: pointer; }
+  .upload-link:hover { text-decoration: underline; }
+
+  .finder-table { font-size: 0.75rem; }
+  .finder-header {
+    display: grid;
+    grid-template-columns: 2fr 80px 65px 1fr 50px 45px 65px 80px;
+    gap: 0.375rem; padding: 0.375rem 0.5rem;
+    color: var(--text-muted); font-size: 0.625rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+  }
+  .finder-row {
+    display: grid;
+    grid-template-columns: 2fr 80px 65px 1fr 50px 45px 65px 80px;
+    gap: 0.375rem; padding: 0.375rem 0.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    align-items: center; transition: background 0.15s;
+  }
+  .finder-row:hover { background: rgba(41,151,255,0.04); }
+  .finder-empty { text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.8125rem; }
+
+  .finder-name {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .finder-name svg { flex-shrink: 0; }
+  .finder-hash {
+    font-size: 0.625rem; font-family: 'SF Mono', monospace; color: var(--text-muted);
+    cursor: pointer; transition: color 0.15s;
+  }
+  .finder-hash:hover { color: var(--primary); }
+  .finder-size { color: var(--text-muted); font-size: 0.6875rem; }
+  .finder-link {
+    font-size: 0.6875rem; color: var(--primary); font-family: 'SF Mono', monospace;
+    cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    transition: opacity 0.15s;
+  }
+  .finder-link:hover { opacity: 0.8; }
+  .finder-dl, .finder-date { color: var(--text-muted); font-size: 0.6875rem; text-align: center; }
+  .finder-actions { display: flex; gap: 0.125rem; }
+
+  .finder-badge {
+    display: inline-block; font-size: 0.5rem; font-weight: 600;
+    padding: 0.0625rem 0.375rem; border-radius: 999px;
+  }
+  .finder-badge-green { background: rgba(48,209,88,0.1); color: #30d158; }
+  .finder-badge-amber { background: rgba(255,159,10,0.1); color: #ff9f0a; }
+  .finder-badge-red { background: rgba(255,69,58,0.1); color: #ff453a; }
+
+  .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+  .page-info { font-size: 0.6875rem; color: var(--text-muted); }
+  .page-btns { display: flex; gap: 0.375rem; }
+
+  .modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
+  .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); }
+  .modal-content { position: relative; z-index: 1; width: 100%; max-width: 400px; padding: 2rem; }
+  .modal-content h3 { font-size: 1.125rem; margin-bottom: 0.75rem; }
+  .modal-content p { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
+
+  @media (max-width: 768px) {
+    .admin-main { margin-left: 0; padding: 0.75rem; }
+    .admin-header { flex-direction: column; gap: 0.5rem; }
+    .header-actions { width: 100%; flex-wrap: wrap; }
+    .finder-header, .finder-row { grid-template-columns: 1fr 60px 60px 80px; font-size: 0.6875rem; }
+    .finder-header span:nth-child(2), .finder-row .finder-hash,
+    .finder-header span:nth-child(5), .finder-row .finder-status,
+    .finder-header span:nth-child(6), .finder-row .finder-dl,
+    .finder-header span:nth-child(7), .finder-row .finder-date { display: none; }
+    .pagination { flex-direction: column; gap: 0.375rem; }
+  }
+</style>
