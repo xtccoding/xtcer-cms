@@ -45,34 +45,11 @@ export const GET: APIRoute = async ({ url }) => {
   })
 }
 
-export const POST: APIRoute = async ({ request }) => {
-  const runtimeEnv = (globalThis as any)?.runtime?.env
-  const ADMIN_PASSWORD = runtimeEnv?.ADMIN_PASSWORD || import.meta.env.ADMIN_PASSWORD
-  
-  // Get cookie from request headers
-  const cookieHeader = request.headers.get('cookie') || ''
-  const cookieMatch = cookieHeader.match(/admin_auth=([^;]+)/)
-  const cookieAuth = cookieMatch ? cookieMatch[1] : null
-  
-  // Get Authorization header
-  const authHeader = request.headers.get('Authorization')
-  const headerAuth = authHeader ? authHeader.replace('Bearer ', '') : null
-  
-  // Check if either auth matches
-  const isAuthenticated = cookieAuth === ADMIN_PASSWORD || headerAuth === ADMIN_PASSWORD
-  
-  if (!isAuthenticated) {
-    return new Response(JSON.stringify({ 
-      error: 'Unauthorized',
-      debug: { 
-        hasCookie: !!cookieAuth, 
-        hasHeader: !!headerAuth,
-        cookieLength: cookieAuth?.length || 0,
-        passwordLength: ADMIN_PASSWORD?.length || 0,
-        cookieValue: cookieAuth,
-        headerValue: headerAuth
-      }
-    }), {
+export const POST: APIRoute = async ({ request, cookies }) => {
+  // Simple auth check - just check if cookie exists (same as other APIs)
+  const auth = cookies.get('admin_auth')
+  if (!auth) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' }
     })
