@@ -180,6 +180,47 @@ export interface Database {
           created_at?: string
         }
       }
+      files: {
+        Row: {
+          id: string
+          key: string
+          url: string
+          filename: string
+          content_type: string | null
+          size: number | null
+          share_slug: string
+          password: string | null
+          downloads: number
+          expires_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          url: string
+          filename: string
+          content_type?: string | null
+          size?: number | null
+          share_slug: string
+          password?: string | null
+          downloads?: number
+          expires_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          url?: string
+          filename?: string
+          content_type?: string | null
+          size?: number | null
+          share_slug?: string
+          password?: string | null
+          downloads?: number
+          expires_at?: string | null
+          created_at?: string
+        }
+      }
     }
   }
 }
