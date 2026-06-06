@@ -19,3 +19,19 @@
 **文件:** `src/middleware.ts`
 
 **提交:** `8d7dcaf`
+
+### feat: 图床缩略图优化
+
+**问题:** 图床页面每次加载都请求原图，图片多时加载慢。
+
+**修复:** 
+- 网格使用 Cloudflare Image Resizing 生成 400px 宽度缩略图
+- 点击灯箱时加载原图
+- 预加载前后图片提升切换体验
+- 缩略图加载失败自动回退到原图
+
+**前提:** `img.xtcer.cn` 域名需在 Cloudflare 代理后面并开启 Image Resizing。若未开启，会自动回退到原图。
+
+**文件:** `src/pages/admin/[slug].astro`
+
+**提交:** `5f88189`
