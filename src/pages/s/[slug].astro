@@ -28,6 +28,7 @@ const isImage = file.content_type?.startsWith('image/')
 const isVideo = file.content_type?.startsWith('video/')
 const isAudio = file.content_type?.startsWith('audio/')
 const isPdf = file.content_type === 'application/pdf'
+const fileHash = file.key?.match(/files\/([a-f0-9]+)/)?.[1] || ''
 ---
 
 <Layout title={`${file.filename} - XTCer`}>
@@ -50,7 +51,14 @@ const isPdf = file.content_type === 'application/pdf'
         <div id="file-content">
           <div class="share-header">
             <h2>{file.filename}</h2>
-            <span class="share-meta">{formatSize(file.size || 0)} · {file.downloads || 0} 次下载</span>
+            <div class="share-meta-row">
+              <span>{formatSize(file.size || 0)} · {file.downloads || 0} 次下载</span>
+              {fileHash && (
+                <span class="share-hash" title={fileHash} onclick={`navigator.clipboard.writeText('${fileHash}');this.textContent='已复制';setTimeout(()=>this.textContent='SHA256: ${fileHash.substring(0,12)}…',1500)`}>
+                  SHA256: {fileHash.substring(0,12)}…
+                </span>
+              )}
+            </div>
           </div>
           {isImage && (
             <div class="share-preview">
@@ -135,7 +143,13 @@ const isPdf = file.content_type === 'application/pdf'
   .share-muted { color: var(--text-muted); font-size: 0.8125rem; margin-top: 0.5rem; }
   .share-icon { margin: 1.5rem 0; }
   .share-header { margin-bottom: 1.25rem; }
-  .share-meta { font-size: 0.75rem; color: var(--text-muted); }
+  .share-meta-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: center; font-size: 0.75rem; color: var(--text-muted); }
+  .share-hash {
+    font-family: 'SF Mono', monospace; font-size: 0.6875rem;
+    background: rgba(255,255,255,0.05); padding: 0.125rem 0.5rem;
+    border-radius: 3px; cursor: pointer; transition: all 0.15s;
+  }
+  .share-hash:hover { background: rgba(41,151,255,0.1); color: var(--primary); }
   .share-preview { margin: 1rem 0; border-radius: var(--radius); overflow: hidden; background: rgba(0,0,0,0.2); }
   .share-preview img { max-width: 100%; max-height: 480px; display: block; margin: 0 auto; }
   .share-preview video { max-width: 100%; max-height: 480px; display: block; margin: 0 auto; }
