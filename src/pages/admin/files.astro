@@ -19,19 +19,30 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
           <p class="admin-subtitle" id="files-stats">加载中...</p>
         </div>
         <div class="header-actions">
-          <button class="btn btn-primary btn-sm" id="upload-btn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            上传文件
-          </button>
+          <button class="btn btn-primary btn-sm" id="upload-btn">上传文件</button>
         </div>
       </header>
 
-      <div class="file-list" id="file-list"></div>
-      <div class="empty-state" id="empty-state" style="display:none">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        <p>暂无文件</p>
-      </div>
-      <div class="pagination" id="pagination"></div>
+      <section class="panel glass-card">
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>文件名</th>
+                <th>Hash</th>
+                <th>大小</th>
+                <th>分享链接</th>
+                <th>状态</th>
+                <th>下载</th>
+                <th>时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="files-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </section>
     </div>
   </div>
 
@@ -120,12 +131,10 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
       if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
       return (bytes / 1024 / 1024).toFixed(1) + ' MB'
     }
-    function escapeHtml(str: string): string {
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;')
+    function escapeHtml(s: string): string {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')
     }
-    function getHashFromKey(key: string): string {
-      return key?.match(/files\/([a-f0-9]+)/)?.[1] || ''
-    }
+    function getHash(key: string): string { return key?.match(/files\/([a-f0-9]+)/)?.[1] || '' }
 
     async function loadFiles(page = 1) {
       const res = await fetch(`/api/files?page=${page}&limit=50`)
@@ -139,53 +148,51 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
     }
 
     function renderFiles() {
-      const list = document.getElementById('file-list')!
-      const empty = document.getElementById('empty-state')!
-      if (allFiles.length === 0) { list.innerHTML = ''; empty.style.display = ''; return }
-      empty.style.display = 'none'
-      list.innerHTML = allFiles.map(f => {
+      const tbody = document.getElementById('files-tbody')!
+      if (allFiles.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="td-muted" style="text-align:center;padding:2rem">暂无文件</td></tr>'
+        return
+      }
+      tbody.innerHTML = allFiles.map(f => {
         const name = escapeHtml(f.filename)
         const ext = name.split('.').pop()?.toUpperCase() || ''
-        const hash = getHashFromKey(f.key)
-        const hashShort = hash.substring(0, 8)
+        const hash = getHash(f.key)
         const size = formatSize(f.size || 0)
         const shareUrl = `${siteUrl}/s/${f.share_slug}`
         const expired = f.expires_at && new Date(f.expires_at) < new Date()
-        const date = new Date(f.created_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+        const date = new Date(f.created_at).toLocaleDateString('zh-CN')
 
-        let statusHtml = ''
-        if (expired) statusHtml = '<span class="pill pill-red">过期</span>'
-        else if (f.password) statusHtml = '<span class="pill pill-amber">密码</span>'
-        else statusHtml = '<span class="pill pill-green">正常</span>'
+        let status = '<span class="visitor-type type-human">正常</span>'
+        if (expired) status = '<span class="visitor-type type-bot">已过期</span>'
+        else if (f.password) status = '<span class="visitor-type type-bot">密码</span>'
 
-        return `<div class="file-row">
-          <div class="file-row-left">
-            <span class="file-ext">${ext}</span>
-            <div class="file-info">
-              <span class="file-name" title="${name}">${name}</span>
-              <span class="file-sub">${size} · ${date} · <span class="hash-link" data-hash="${hash}" title="点击复制完整 hash">${hashShort}</span></span>
-            </div>
-          </div>
-          <div class="file-row-right">
-            ${statusHtml}
-            ${f.downloads > 0 ? `<span class="dl-count">${f.downloads}</span>` : ''}
-            <div class="share-pill" title="点击复制链接" data-url="${shareUrl}">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-              <span>/s/${f.share_slug}</span>
-            </div>
-            <div class="row-actions">
-              <button class="icon-btn edit-btn" data-id="${f.id}" data-slug="${f.share_slug}" data-password="${f.password || ''}" title="编辑">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              </button>
-              <a href="${f.url}" target="_blank" class="icon-btn" title="打开">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              </a>
-              <button class="icon-btn icon-btn-danger del-btn" data-id="${f.id}" title="删除">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-              </button>
-            </div>
-          </div>
-        </div>`
+        return `<tr>
+          <td>
+            <span class="file-name-cell" title="${name}">
+              <span class="ext-tag">${ext}</span>
+              ${name}
+            </span>
+          </td>
+          <td><code class="hash-cell" data-hash="${hash}" title="点击复制完整 hash">${hash.substring(0,8)}…</code></td>
+          <td class="td-muted">${size}</td>
+          <td>
+            <code class="share-cell" data-url="${shareUrl}" title="点击复制链接">/s/${f.share_slug}</code>
+          </td>
+          <td>${status}</td>
+          <td class="td-muted" style="text-align:center">${f.downloads || 0}</td>
+          <td class="td-muted td-time">${date}</td>
+          <td>
+            <button class="btn btn-ghost btn-sm edit-btn" data-id="${f.id}" data-slug="${f.share_slug}" data-password="${f.password || ''}" title="编辑">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <a href="${f.url}" target="_blank" class="btn btn-ghost btn-sm" title="打开">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+            <button class="btn btn-danger btn-sm del-btn" data-id="${f.id}" title="删除">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            </button>
+          </td>
+        </tr>`
       }).join('')
     }
 
@@ -193,36 +200,22 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
       const el = document.getElementById('pagination')!
       if (totalPages <= 1) { el.innerHTML = ''; return }
       let html = `<span class="page-info">第 ${currentPage}/${totalPages} 页</span><div class="page-btns">`
-      if (currentPage > 1) {
-        html += `<button class="btn btn-ghost btn-sm page-btn" data-page="1">首页</button>`
-        html += `<button class="btn btn-ghost btn-sm page-btn" data-page="${currentPage - 1}">上一页</button>`
-      }
-      if (currentPage < totalPages) {
-        html += `<button class="btn btn-ghost btn-sm page-btn" data-page="${currentPage + 1}">下一页</button>`
-        html += `<button class="btn btn-ghost btn-sm page-btn" data-page="${totalPages}">末页</button>`
-      }
-      html += `</div>`
-      el.innerHTML = html
+      if (currentPage > 1) { html += `<button class="btn btn-ghost btn-sm page-btn" data-page="1">首页</button><button class="btn btn-ghost btn-sm page-btn" data-page="${currentPage-1}">上一页</button>` }
+      if (currentPage < totalPages) { html += `<button class="btn btn-ghost btn-sm page-btn" data-page="${currentPage+1}">下一页</button><button class="btn btn-ghost btn-sm page-btn" data-page="${totalPages}">末页</button>` }
+      el.innerHTML = html + '</div>'
     }
 
-    // Upload
     const fileInput = document.getElementById('file-input') as HTMLInputElement
-    const uploadBtn = document.getElementById('upload-btn')!
     const uploadModal = document.getElementById('upload-modal')!
     const uploadZone = document.getElementById('upload-zone')!
 
-    uploadBtn.addEventListener('click', () => { uploadModal.style.display = 'flex' })
-    document.getElementById('upload-cancel')?.addEventListener('click', () => { uploadModal.style.display = 'none' })
-    document.getElementById('upload-backdrop')?.addEventListener('click', () => { uploadModal.style.display = 'none' })
-    document.getElementById('upload-link')?.addEventListener('click', () => fileInput.click())
-
+    document.getElementById('upload-btn')!.addEventListener('click', () => { uploadModal.style.display = 'flex' })
+    document.getElementById('upload-cancel')!.addEventListener('click', () => { uploadModal.style.display = 'none' })
+    document.getElementById('upload-backdrop')!.addEventListener('click', () => { uploadModal.style.display = 'none' })
+    document.getElementById('upload-link')!.addEventListener('click', () => fileInput.click())
     uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragover') })
     uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'))
-    uploadZone.addEventListener('drop', (e) => {
-      e.preventDefault(); uploadZone.classList.remove('dragover')
-      const files = e.dataTransfer?.files
-      if (files?.length) uploadFile(files[0])
-    })
+    uploadZone.addEventListener('drop', (e) => { e.preventDefault(); uploadZone.classList.remove('dragover'); if (e.dataTransfer?.files.length) uploadFile(e.dataTransfer.files[0]) })
     fileInput.addEventListener('change', () => { if (fileInput.files?.length) uploadFile(fileInput.files[0]) })
 
     async function uploadFile(file: File) {
@@ -233,32 +226,28 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
       const statusEl = document.getElementById('upload-status')!
       const barEl = document.getElementById('upload-bar')!
       const zoneEl = document.getElementById('upload-zone')!
-      progressEl.style.display = ''; zoneEl.style.display = 'none'
-      statusEl.textContent = '上传中...'; barEl.style.width = '30%'
+      progressEl.style.display = ''; zoneEl.style.display = 'none'; barEl.style.width = '30%'
 
-      const formData = new FormData()
-      formData.append('file', file)
-      if (slug) formData.append('slug', slug)
-      if (password) formData.append('password', password)
-      if (expires !== '0') formData.append('expires', expires)
+      const fd = new FormData(); fd.append('file', file)
+      if (slug) fd.append('slug', slug); if (password) fd.append('password', password)
+      if (expires !== '0') fd.append('expires', expires)
 
       try {
         barEl.style.width = '60%'
-        const res = await fetch('/api/files', { method: 'POST', body: formData })
+        const res = await fetch('/api/files', { method: 'POST', body: fd })
         const data = await res.json()
         if (res.ok) {
-          barEl.style.width = '100%'; statusEl.textContent = '上传完成'
+          barEl.style.width = '100%'; statusEl.textContent = '完成'
           await navigator.clipboard.writeText(`${siteUrl}/s/${data.share_slug}`)
           ;(window as any).showToast('上传成功，链接已复制', 'success'); loadFiles()
-        } else { statusEl.textContent = '上传失败'; (window as any).showToast(data.error || '上传失败', 'error') }
-      } catch { statusEl.textContent = '上传失败'; (window as any).showToast('上传失败', 'error') }
+        } else { (window as any).showToast(data.error || '上传失败', 'error') }
+      } catch { (window as any).showToast('上传失败', 'error') }
 
       fileInput.value = ''
-      setTimeout(() => { uploadModal.style.display = 'none'; progressEl.style.display = 'none'; zoneEl.style.display = ''; barEl.style.width = '0' }, 800)
+      setTimeout(() => { uploadModal.style.display = 'none'; progressEl.style.display = 'none'; zoneEl.style.display = ''; barEl.style.width = '0' }, 600)
     }
 
-    // Click handlers
-    document.addEventListener('click', (e) => {
+    document.addEventListener('click', async (e) => {
       const t = e.target as HTMLElement
       const editBtn = t.closest('.edit-btn') as HTMLElement
       if (editBtn) {
@@ -269,17 +258,17 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
       }
       const delBtn = t.closest('.del-btn') as HTMLElement
       if (delBtn) { deleteId = delBtn.dataset.id || ''; document.getElementById('delete-modal')!.style.display = 'flex'; return }
-      const sharePill = t.closest('.share-pill') as HTMLElement
-      if (sharePill) { navigator.clipboard.writeText(sharePill.dataset.url || ''); (window as any).showToast('链接已复制', 'success'); return }
-      const hashLink = t.closest('.hash-link') as HTMLElement
-      if (hashLink) { navigator.clipboard.writeText(hashLink.dataset.hash || ''); (window as any).showToast('Hash 已复制', 'success'); return }
+      const hashCell = t.closest('.hash-cell') as HTMLElement
+      if (hashCell) { await navigator.clipboard.writeText(hashCell.dataset.hash || ''); (window as any).showToast('Hash 已复制', 'success'); return }
+      const shareCell = t.closest('.share-cell') as HTMLElement
+      if (shareCell) { await navigator.clipboard.writeText(shareCell.dataset.url || ''); (window as any).showToast('链接已复制', 'success'); return }
       const pageBtn = t.closest('.page-btn') as HTMLElement
-      if (pageBtn) { loadFiles(parseInt(pageBtn.dataset.page || '1')); document.querySelector('.file-list')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) }
+      if (pageBtn) { loadFiles(parseInt(pageBtn.dataset.page || '1')) }
     })
 
-    document.getElementById('edit-cancel')?.addEventListener('click', () => { document.getElementById('edit-modal')!.style.display = 'none' })
-    document.getElementById('edit-backdrop')?.addEventListener('click', () => { document.getElementById('edit-modal')!.style.display = 'none' })
-    document.getElementById('edit-save')?.addEventListener('click', async () => {
+    document.getElementById('edit-cancel')!.addEventListener('click', () => { document.getElementById('edit-modal')!.style.display = 'none' })
+    document.getElementById('edit-backdrop')!.addEventListener('click', () => { document.getElementById('edit-modal')!.style.display = 'none' })
+    document.getElementById('edit-save')!.addEventListener('click', async () => {
       const slug = (document.getElementById('edit-slug') as HTMLInputElement).value.trim()
       const password = (document.getElementById('edit-password') as HTMLInputElement).value.trim()
       const v = (document.getElementById('edit-expires') as HTMLSelectElement).value
@@ -294,8 +283,8 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
       document.getElementById('edit-modal')!.style.display = 'none'
     })
 
-    document.getElementById('cancel-delete')?.addEventListener('click', () => { document.getElementById('delete-modal')!.style.display = 'none' })
-    document.getElementById('confirm-delete')?.addEventListener('click', async () => {
+    document.getElementById('cancel-delete')!.addEventListener('click', () => { document.getElementById('delete-modal')!.style.display = 'none' })
+    document.getElementById('confirm-delete')!.addEventListener('click', async () => {
       if (!deleteId) return
       await fetch('/api/files', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: deleteId }) })
       ;(window as any).showToast('已删除', 'success')
@@ -314,10 +303,12 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
   .admin-subtitle { color: var(--text-muted); font-size: 0.75rem; margin-top: 0.125rem; }
   .header-actions { display: flex; gap: 0.5rem; }
 
+  .panel { padding: 1rem; }
+
   .upload-zone {
     border: 2px dashed var(--glass-border); border-radius: var(--radius);
-    padding: 2.5rem 2rem; text-align: center; transition: all 0.2s; cursor: pointer;
-    display: flex; flex-direction: column; align-items: center; gap: 0.625rem;
+    padding: 2rem; text-align: center; transition: all 0.2s; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
   }
   .upload-zone:hover { border-color: var(--primary); background: rgba(41,151,255,0.03); }
   .upload-zone.dragover { border-color: var(--primary); background: rgba(41,151,255,0.06); }
@@ -326,75 +317,43 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
   .upload-link { color: var(--primary); cursor: pointer; }
   .upload-link:hover { text-decoration: underline; }
 
-  .file-list { display: flex; flex-direction: column; gap: 1px; background: var(--border); border-radius: var(--radius); overflow: hidden; }
-  .file-row {
-    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-    padding: 0.625rem 0.875rem; background: var(--surface);
-    transition: background 0.15s;
-  }
-  .file-row:hover { background: var(--surface-hover); }
+  .table-wrap { overflow-x: auto; }
+  .table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+  .table th { text-align: left; padding: 0.5rem; color: var(--text-muted); font-weight: 600; font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .table td { padding: 0.375rem 0.5rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .td-muted { color: var(--text-muted); }
+  .td-time { white-space: nowrap; font-size: 0.6875rem; }
 
-  .file-row-left { display: flex; align-items: center; gap: 0.625rem; min-width: 0; flex: 1; }
-  .file-ext {
+  .file-name-cell {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-size: 0.75rem; vertical-align: middle;
+  }
+  .ext-tag {
     font-size: 0.5rem; font-weight: 700; color: var(--text-muted);
-    padding: 0.125rem 0.3125rem; border-radius: 4px;
-    background: rgba(255,255,255,0.04); letter-spacing: 0.06em;
-    flex-shrink: 0; min-width: 28px; text-align: center;
-  }
-  .file-info { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
-  .file-name {
-    font-size: 0.8125rem; font-weight: 500; color: var(--text);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .file-sub {
-    font-size: 0.6875rem; color: var(--text-muted);
-    display: flex; align-items: center; gap: 0.375rem;
-  }
-  .hash-link {
-    font-family: 'SF Mono', monospace; font-size: 0.625rem;
-    background: rgba(255,255,255,0.04); padding: 0 0.3125rem; border-radius: 3px;
-    cursor: pointer; transition: all 0.15s;
-  }
-  .hash-link:hover { background: rgba(41,151,255,0.12); color: var(--primary); }
-
-  .file-row-right { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
-
-  .pill {
-    font-size: 0.5625rem; font-weight: 600; padding: 0.125rem 0.5rem;
-    border-radius: 999px; white-space: nowrap;
-  }
-  .pill-green { background: rgba(48,209,88,0.1); color: #30d158; }
-  .pill-amber { background: rgba(255,159,10,0.1); color: #ff9f0a; }
-  .pill-red { background: rgba(255,69,58,0.1); color: #ff453a; }
-
-  .dl-count {
-    font-size: 0.625rem; color: var(--text-muted);
-    background: rgba(255,255,255,0.04); padding: 0.0625rem 0.375rem;
-    border-radius: 999px; font-variant-numeric: tabular-nums;
+    padding: 0.0625rem 0.25rem; border-radius: 2px;
+    background: rgba(255,255,255,0.04); letter-spacing: 0.05em; flex-shrink: 0;
   }
 
-  .share-pill {
-    display: flex; align-items: center; gap: 0.3125rem;
-    font-size: 0.6875rem; color: var(--primary);
-    background: rgba(41,151,255,0.06); padding: 0.1875rem 0.625rem;
-    border-radius: 999px; cursor: pointer; transition: all 0.15s;
-    font-family: 'SF Mono', monospace; white-space: nowrap;
+  .hash-cell {
+    font-size: 0.6875rem; cursor: pointer;
+    font-family: 'SF Mono', monospace; transition: color 0.15s;
   }
-  .share-pill:hover { background: rgba(41,151,255,0.12); }
-  .share-pill svg { flex-shrink: 0; }
+  .hash-cell:hover { color: var(--primary); }
 
-  .row-actions { display: flex; gap: 0.125rem; margin-left: 0.25rem; }
-  .icon-btn {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 28px; height: 28px; border: none; border-radius: var(--radius-sm);
-    background: transparent; color: var(--text-muted); cursor: pointer;
-    transition: all 0.15s; text-decoration: none;
+  .share-cell {
+    font-size: 0.6875rem; cursor: pointer; transition: color 0.15s;
+    font-family: 'SF Mono', monospace;
   }
-  .icon-btn:hover { color: var(--text); background: rgba(255,255,255,0.06); }
-  .icon-btn-danger:hover { color: var(--red); background: rgba(255,69,58,0.08); }
+  .share-cell:hover { color: var(--primary); }
 
-  .empty-state { text-align: center; padding: 3rem; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
-  .empty-state p { font-size: 0.875rem; }
+  .visitor-type {
+    display: inline-flex; align-items: center; gap: 0.25rem;
+    padding: 0.0625rem 0.375rem; border-radius: 999px;
+    font-size: 0.625rem; font-weight: 500; white-space: nowrap;
+  }
+  .type-human { background: rgba(48,209,88,0.1); color: var(--green); }
+  .type-bot { background: rgba(255,159,10,0.1); color: var(--orange); }
 
   .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
   .page-info { font-size: 0.6875rem; color: var(--text-muted); }
@@ -409,9 +368,11 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
 
   @media (max-width: 768px) {
     .admin-main { margin-left: 0; padding: 0.75rem; }
-    .admin-header { flex-direction: column; gap: 0.75rem; }
-    .file-row { flex-direction: column; align-items: stretch; gap: 0.5rem; }
-    .file-row-right { justify-content: space-between; }
-    .share-pill span { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+    .admin-header { flex-direction: column; gap: 0.5rem; }
+    .table { font-size: 0.6875rem; }
+    .table th, .table td { padding: 0.3125rem; }
+    .file-name-cell { max-width: 120px; }
+    .td-time { display: none; }
+    .pagination { flex-direction: column; gap: 0.375rem; }
   }
 </style>
