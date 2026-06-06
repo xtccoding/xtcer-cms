@@ -90,6 +90,7 @@ function stripMarkdown(text: string) {
     <section class="hero">
       <!-- Particle Canvas -->
       <canvas id="particles" class="particles-canvas"></canvas>
+      <script type="application/json" id="particles-config" set:html={JSON.stringify(particlesConfig)} />
       
       <div class="container">
         <div class="hero-content">
@@ -990,12 +991,16 @@ function stripMarkdown(text: string) {
   }
 </style>
 
-<script define:vars={{ particlesConfig }}>
+<script>
   // Search functionality
   document.getElementById('nav-search')?.addEventListener('click', () => {
     document.getElementById('search-modal')!.style.display = 'flex'
     setTimeout(() => (document.getElementById('search-input') as HTMLInputElement)?.focus(), 50)
   })
+  
+  // Load particle config
+  const configElement = document.getElementById('particles-config')
+  const particlesConfig = configElement ? JSON.parse(configElement.textContent || '{}') : {}
   
   // Particle System with configurable modes
   class ParticleSystem {
