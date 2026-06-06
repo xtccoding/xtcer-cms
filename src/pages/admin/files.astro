@@ -26,23 +26,7 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
         </div>
       </header>
 
-      <div class="table-wrap">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>文件名</th>
-              <th>大小</th>
-              <th>分享链接</th>
-              <th>密码</th>
-              <th>下载次数</th>
-              <th>过期时间</th>
-              <th>上传时间</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="files-tbody"></tbody>
-        </table>
-      </div>
+      <div class="files-grid" id="files-grid"></div>
       <div class="pagination" id="pagination"></div>
     </div>
   </div>
@@ -149,33 +133,69 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
       document.getElementById('files-stats')!.textContent = `共 ${data.total || 0} 个文件`
     }
 
+    function getFileIcon(type: string | null): string {
+      if (!type) return '📄'
+      if (type.startsWith('image/')) return '🖼️'
+      if (type.startsWith('video/')) return '🎬'
+      if (type.startsWith('audio/')) return '🎵'
+      if (type.includes('pdf')) return '📕'
+      if (type.includes('zip') || type.includes('rar') || type.includes('7z') || type.includes('tar')) return '📦'
+      if (type.includes('word') || type.includes('document')) return '📘'
+      if (type.includes('excel') || type.includes('sheet')) return '📊'
+      if (type.includes('powerpoint') || type.includes('presentation')) return '📙'
+      if (type.includes('text') || type.includes('json') || type.includes('xml') || type.includes('html') || type.includes('css') || type.includes('javascript')) return '📝'
+      return '📄'
+    }
+
     function renderFiles() {
-      const tbody = document.getElementById('files-tbody')!
-      tbody.innerHTML = allFiles.map(f => {
+      const grid = document.getElementById('files-grid')!
+      if (allFiles.length === 0) {
+        grid.innerHTML = '<div class="empty-state">暂无文件，点击"上传文件"开始</div>'
+        return
+      }
+      grid.innerHTML = allFiles.map(f => {
         const name = escapeHtml(f.filename)
         const shareUrl = `${siteUrl}/s/${f.share_slug}`
         const expired = f.expires_at && new Date(f.expires_at) < new Date()
-        return `<tr>
-          <td><span class="file-name" title="${name}">${name}</span></td>
-          <td class="td-muted">${formatSize(f.size || 0)}</td>
-          <td>
-            <code class="share-link">${shareUrl}</code>
-            <button class="btn btn-ghost btn-sm copy-link" data-url="${shareUrl}" title="复制" style="font-size:0.5625rem;padding:0.125rem 0.25rem;margin-left:0.25rem">复制</button>
-          </td>
-          <td class="td-muted">${f.password ? '有' : '-'}</td>
-          <td class="td-muted">${f.downloads || 0}</td>
-          <td class="td-muted">${expired ? '<span style="color:var(--red)">已过期</span>' : (f.expires_at ? new Date(f.expires_at).toLocaleDateString('zh-CN') : '-')}</td>
-          <td class="td-muted">${new Date(f.created_at).toLocaleDateString('zh-CN')}</td>
-          <td>
-            <button class="btn btn-ghost btn-sm edit-btn" data-id="${f.id}" data-slug="${f.share_slug}" data-password="${f.password || ''}" title="编辑" style="font-size:0.5625rem;padding:0.1875rem 0.3125rem">
+        const icon = getFileIcon(f.content_type)
+        const size = formatSize(f.size || 0)
+        const ext = name.split('.').pop()?.toUpperCase() || ''
+        return `<div class="file-card glass-card">
+          <div class="file-card-header">
+            <span class="file-icon">${icon}</span>
+            <span class="file-ext">${ext}</span>
+          </div>
+          <div class="file-card-body">
+            <div class="file-name" title="${name}">${name}</div>
+            <div class="file-meta">
+              <span>${size}</span>
+              <span>${new Date(f.created_at).toLocaleDateString('zh-CN')}</span>
+            </div>
+            <div class="file-share">
+              <code class="share-slug">/s/${f.share_slug}</code>
+              <button class="btn btn-ghost btn-xs copy-link" data-url="${shareUrl}" title="复制链接">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              </button>
+            </div>
+            <div class="file-tags">
+              ${f.password ? '<span class="file-tag tag-lock">密码</span>' : ''}
+              ${expired ? '<span class="file-tag tag-expired">已过期</span>' : (f.expires_at ? `<span class="file-tag tag-time">${new Date(f.expires_at).toLocaleDateString('zh-CN')} 过期</span>` : '')}
+              ${f.downloads > 0 ? `<span class="file-tag tag-downloads">${f.downloads} 次下载</span>` : ''}
+            </div>
+          </div>
+          <div class="file-card-actions">
+            <button class="btn btn-ghost btn-xs edit-btn" data-id="${f.id}" data-slug="${f.share_slug}" data-password="${f.password || ''}" title="编辑">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
-            <button class="btn btn-danger btn-sm del-btn" data-id="${f.id}" title="删除" style="font-size:0.5625rem;padding:0.1875rem 0.3125rem">
+            <a href="${f.url}" target="_blank" class="btn btn-ghost btn-xs" title="预览">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+            <button class="btn btn-ghost btn-xs del-btn" data-id="${f.id}" title="删除">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
             </button>
-          </td>
-        </tr>`
-      }).join('') || '<tr><td colspan="8" class="td-muted" style="text-align:center;padding:2rem">暂无文件</td></tr>'
+          </div>
+        </div>`
+      }).join('')
     }
 
     function renderPagination() {
@@ -365,15 +385,63 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
   .upload-link { color: var(--primary); cursor: pointer; }
   .upload-link:hover { text-decoration: underline; }
 
-  .table-wrap { overflow-x: auto; }
-  .table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
-  .table th { text-align: left; padding: 0.5rem; color: var(--text-muted); font-weight: 600; font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); white-space: nowrap; }
-  .table td { padding: 0.375rem 0.5rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
-  .td-muted { color: var(--text-muted); }
-  .file-name { display: inline-block; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.6875rem; vertical-align: middle; }
-  .share-link { font-size: 0.625rem; background: rgba(255,255,255,0.04); padding: 0.0625rem 0.25rem; border-radius: 2px; }
+  .files-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 0.625rem;
+  }
+  .file-card {
+    display: flex; flex-direction: column; border-radius: var(--radius-sm); overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .file-card:hover { border-color: var(--glass-border-hover); }
+  .file-card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.75rem 0.875rem;
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--border);
+  }
+  .file-icon { font-size: 1.25rem; }
+  .file-ext {
+    font-size: 0.5625rem; font-weight: 600; color: var(--text-muted);
+    padding: 0.125rem 0.375rem; border-radius: 3px;
+    background: rgba(255,255,255,0.05); letter-spacing: 0.05em;
+  }
+  .file-card-body { flex: 1; padding: 0.75rem 0.875rem; display: flex; flex-direction: column; gap: 0.375rem; }
+  .file-name {
+    font-size: 0.8125rem; font-weight: 600; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .file-meta {
+    display: flex; gap: 0.625rem; font-size: 0.6875rem; color: var(--text-muted);
+  }
+  .file-share {
+    display: flex; align-items: center; gap: 0.375rem; margin-top: 0.125rem;
+  }
+  .share-slug {
+    font-size: 0.6875rem; color: var(--primary);
+    background: rgba(41,151,255,0.08); padding: 0.125rem 0.5rem;
+    border-radius: 3px; cursor: pointer;
+  }
+  .share-slug:hover { background: rgba(41,151,255,0.15); }
+  .file-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem; }
+  .file-tag {
+    font-size: 0.5625rem; padding: 0.0625rem 0.375rem;
+    border-radius: 999px; font-weight: 500;
+  }
+  .tag-lock { background: rgba(255,159,10,0.1); color: var(--orange); border: 1px solid rgba(255,159,10,0.15); }
+  .tag-expired { background: rgba(255,69,58,0.1); color: var(--red); border: 1px solid rgba(255,69,58,0.15); }
+  .tag-time { background: rgba(100,100,100,0.1); color: var(--text-muted); border: 1px solid rgba(100,100,100,0.15); }
+  .tag-downloads { background: rgba(48,209,88,0.1); color: var(--green); border: 1px solid rgba(48,209,88,0.15); }
+  .file-card-actions {
+    display: flex; gap: 0.25rem; padding: 0.5rem 0.875rem;
+    border-top: 1px solid var(--border); background: rgba(255,255,255,0.01);
+  }
+  .btn-xs { padding: 0.1875rem 0.375rem; font-size: 0.625rem; }
 
-  .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+  .empty-state { text-align: center; padding: 3rem; color: var(--text-muted); font-size: 0.875rem; grid-column: 1 / -1; }
+
+  .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
   .page-info { font-size: 0.6875rem; color: var(--text-muted); }
   .page-btns { display: flex; gap: 0.375rem; }
 
@@ -387,9 +455,6 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
   @media (max-width: 768px) {
     .admin-main { margin-left: 0; padding: 0.75rem; }
     .admin-header { flex-direction: column; gap: 0.75rem; }
-    .table { font-size: 0.6875rem; }
-    .table th, .table td { padding: 0.3125rem; }
-    .share-link { display: none; }
-    .file-name { max-width: 100px; }
+    .files-grid { grid-template-columns: 1fr; }
   }
 </style>
