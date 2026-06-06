@@ -24,14 +24,20 @@
 
 **问题:** 图床页面每次加载都请求原图，图片多时加载慢。
 
-**修复:** 
-- 网格使用 Cloudflare Image Resizing 生成 400px 宽度缩略图
-- 点击灯箱时加载原图
-- 预加载前后图片提升切换体验
-- 缩略图加载失败自动回退到原图
+**方案一（已弃用）:** Cloudflare Image Resizing - 需要 Pro 计划。
 
-**前提:** `img.xtcer.cn` 域名需在 Cloudflare 代理后面并开启 Image Resizing。若未开启，会自动回退到原图。
+**方案二（当前）:** 浏览器端 Canvas 生成缩略图
+- 上传时用 Canvas API 生成 400px WebP 缩略图
+- 缩略图存到 R2 的 `thumbs/` 目录
+- 数据库新增 `thumbnail_url` 字段
+- 网格优先加载缩略图，失败自动回退原图
+- 灯箱点击加载原图
 
-**文件:** `src/pages/admin/[slug].astro`
+**需要执行:**
+```sql
+ALTER TABLE assets ADD COLUMN IF NOT EXISTS thumbnail_url text;
+```
 
-**提交:** `5f88189`
+**文件:** `src/pages/admin/[slug].astro`, `src/pages/api/upload.ts`, `src/lib/database.types.ts`
+
+**提交:** `865b6e1`
