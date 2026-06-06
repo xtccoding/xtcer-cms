@@ -67,7 +67,10 @@ export const POST: APIRoute = async ({ request }) => {
       debug: { 
         hasCookie: !!cookieAuth, 
         hasHeader: !!headerAuth,
-        cookieLength: cookieAuth?.length || 0
+        cookieLength: cookieAuth?.length || 0,
+        passwordLength: ADMIN_PASSWORD?.length || 0,
+        cookieValue: cookieAuth,
+        headerValue: headerAuth
       }
     }), {
       status: 401,
