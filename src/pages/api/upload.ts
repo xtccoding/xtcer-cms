@@ -63,17 +63,44 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
       credentials: { accessKeyId, secretAccessKey },
     })
 
+    const thumbFile = formData.get('thumbnail') as File | null
+
     // Dedup: check if hash already exists in Supabase
     const { data: existing } = await supabase
       .from('assets')
-      .select('url, key')
+      .select('url, key, thumbnail_url')
       .eq('content_hash', hash)
       .limit(1)
 
     if (existing && existing.length > 0) {
+      // If existing record has no thumbnail, upload one and update
+      if (!existing[0].thumbnail_url) {
+        if (thumbFile && thumbFile.size > 0) {
+          const thumbKey = `thumbs/${hashShort}.webp`
+          const thumbBuffer = new Uint8Array(await thumbFile.arrayBuffer())
+          await s3.send(new PutObjectCommand({
+            Bucket: bucketName,
+            Key: thumbKey,
+            Body: thumbBuffer,
+            ContentType: 'image/webp',
+            CacheControl: 'public, max-age=31536000',
+          }))
+          const thumbnailUrl = `${publicUrl}/${thumbKey}`
+          await supabase.from('assets').update({ thumbnail_url: thumbnailUrl }).eq('content_hash', hash)
+          return new Response(JSON.stringify({
+            url: existing[0].url,
+            key: existing[0].key,
+            thumbnail_url: thumbnailUrl,
+            size: file.size,
+            hash,
+            deduplicated: true,
+          }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+        }
+      }
       return new Response(JSON.stringify({
         url: existing[0].url,
         key: existing[0].key,
+        thumbnail_url: existing[0].thumbnail_url,
         size: file.size,
         hash,
         deduplicated: true,
@@ -90,10 +117,9 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
     }))
 
     const url = `${publicUrl}/${key}`
-    let thumbnailUrl: string | null = null
 
     // Handle thumbnail upload
-    const thumbFile = formData.get('thumbnail') as File | null
+    let thumbnailUrl: string | null = null
     if (thumbFile && thumbFile.size > 0) {
       const thumbKey = `thumbs/${hashShort}.webp`
       const thumbBuffer = new Uint8Array(await thumbFile.arrayBuffer())
