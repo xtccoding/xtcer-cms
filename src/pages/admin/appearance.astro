@@ -81,8 +81,8 @@ const particles = particlesData?.value || {
           <h1>外观设置</h1>
           <p class="admin-subtitle">配置首页 Banner 和粒子效果</p>
         </div>
-        <button id="save-btn" class="btn btn-primary">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        <button id="save-btn" class="save-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           保存设置
         </button>
       </header>
@@ -391,6 +391,46 @@ const particles = particlesData?.value || {
       color: var(--text-muted);
     }
     
+    .save-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.625rem;
+      padding: 0.75rem 1.5rem;
+      background: linear-gradient(135deg, #2997ff, #0077ed);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(41, 151, 255, 0.3);
+    }
+    
+    .save-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(41, 151, 255, 0.4);
+    }
+    
+    .save-btn:active {
+      transform: translateY(0);
+    }
+    
+    .save-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .spin {
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
     .settings-grid {
       display: grid;
       gap: 1.5rem;
@@ -600,7 +640,7 @@ const particles = particlesData?.value || {
     document.getElementById('save-btn')?.addEventListener('click', async () => {
       const btn = document.getElementById('save-btn') as HTMLButtonElement
       btn.disabled = true
-      btn.textContent = '保存中...'
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> 保存中...'
       
       try {
         // Collect banner settings
@@ -684,7 +724,7 @@ const particles = particlesData?.value || {
         showToast('保存失败: ' + (err as Error).message, 'error')
       } finally {
         btn.disabled = false
-        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> 保存设置'
+        btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> 保存设置'
       }
     })
     
