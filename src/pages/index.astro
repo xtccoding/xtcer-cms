@@ -1049,8 +1049,8 @@ function stripMarkdown(text: string) {
             y: pos.y,
             radius: 0,
             maxRadius: pos.maxRadius,
-            opacity: 0.15 - j * 0.04,
-            speed: 0.5 + j * 0.2,
+            opacity: 0.12 - j * 0.03,
+            speed: 0.2 + j * 0.08,
             color: colors[i % colors.length]
           })
         }
@@ -1117,26 +1117,26 @@ function stripMarkdown(text: string) {
       // Draw static pulsing circles
       const centerX = this.canvas.width / 2
       const centerY = this.canvas.height / 2
-      const pulse = Math.sin(this.time * 0.02) * 0.5 + 0.5
+      const pulse = Math.sin(this.time * 0.008) * 0.5 + 0.5
       
       // Outer pulse
       this.ctx.beginPath()
       this.ctx.arc(centerX, centerY, 180 + pulse * 20, 0, Math.PI * 2)
-      this.ctx.strokeStyle = `rgba(41, 151, 255, ${0.06 + pulse * 0.04})`
+      this.ctx.strokeStyle = `rgba(41, 151, 255, ${0.05 + pulse * 0.03})`
       this.ctx.lineWidth = 1
       this.ctx.stroke()
       
       // Middle pulse
       this.ctx.beginPath()
       this.ctx.arc(centerX, centerY, 120 + pulse * 15, 0, Math.PI * 2)
-      this.ctx.strokeStyle = `rgba(191, 90, 242, ${0.05 + pulse * 0.03})`
+      this.ctx.strokeStyle = `rgba(191, 90, 242, ${0.04 + pulse * 0.02})`
       this.ctx.lineWidth = 1
       this.ctx.stroke()
       
       // Inner pulse
       this.ctx.beginPath()
       this.ctx.arc(centerX, centerY, 60 + pulse * 10, 0, Math.PI * 2)
-      this.ctx.strokeStyle = `rgba(0, 212, 255, ${0.04 + pulse * 0.03})`
+      this.ctx.strokeStyle = `rgba(0, 212, 255, ${0.03 + pulse * 0.02})`
       this.ctx.lineWidth = 1
       this.ctx.stroke()
     }
