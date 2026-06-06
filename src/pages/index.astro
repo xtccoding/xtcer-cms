@@ -119,28 +119,29 @@ function stripMarkdown(text: string) {
           
           <!-- Description -->
           <p class="hero-desc">
-            {banner.desc_items.map((item: string, i: number) => (
-              <>
-                {i > 0 && <span class="desc-dot">·</span>}
-                <span class="desc-item">{item}</span>
-              </>
-            ))}
+            <a href="/feeds" class="desc-item">AI 情报</a>
+            <span class="desc-dot">·</span>
+            <a href="/feeds" class="desc-item">安全漏洞</a>
+            <span class="desc-dot">·</span>
+            <a href="/deals" class="desc-item">云服务优惠</a>
+            <span class="desc-dot">·</span>
+            <a href="/" class="desc-item">技术深度</a>
           </p>
           
           <!-- Stats -->
           <div class="hero-stats">
-            <div class="stat-item glass-card">
+            <a href="/" class="stat-item glass-card">
               <span class="stat-number">{posts?.length || 0}</span>
               <span class="stat-label">技术文章</span>
-            </div>
-            <div class="stat-item glass-card">
+            </a>
+            <a href="/feeds" class="stat-item glass-card">
               <span class="stat-number">{recentFeeds?.length || 0}</span>
               <span class="stat-label">实时情报</span>
-            </div>
-            <div class="stat-item glass-card">
+            </a>
+            <a href="/" class="stat-item glass-card">
               <span class="stat-number">{links?.length || 0}</span>
               <span class="stat-label">精选导航</span>
-            </div>
+            </a>
           </div>
 
           <!-- Actions -->
@@ -435,7 +436,8 @@ function stripMarkdown(text: string) {
     color: var(--text-secondary);
     transition: all 0.3s ease;
     letter-spacing: 0.02em;
-    cursor: default;
+    cursor: pointer;
+    text-decoration: none;
   }
   
   .desc-item:hover {
@@ -471,7 +473,9 @@ function stripMarkdown(text: string) {
     min-width: 140px;
     transition: all 0.3s ease;
     border-radius: 16px;
-    cursor: default;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
   }
   
   .stat-item:hover {
