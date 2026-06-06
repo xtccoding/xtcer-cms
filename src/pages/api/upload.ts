@@ -90,11 +90,28 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
     }))
 
     const url = `${publicUrl}/${key}`
+    let thumbnailUrl: string | null = null
+
+    // Handle thumbnail upload
+    const thumbFile = formData.get('thumbnail') as File | null
+    if (thumbFile && thumbFile.size > 0) {
+      const thumbKey = `thumbs/${hashShort}.webp`
+      const thumbBuffer = new Uint8Array(await thumbFile.arrayBuffer())
+      await s3.send(new PutObjectCommand({
+        Bucket: bucketName,
+        Key: thumbKey,
+        Body: thumbBuffer,
+        ContentType: 'image/webp',
+        CacheControl: 'public, max-age=31536000',
+      }))
+      thumbnailUrl = `${publicUrl}/${thumbKey}`
+    }
 
     // Save metadata to Supabase (only hash-based key, no original filename)
     await supabase.from('assets').insert({
       key,
       url,
+      thumbnail_url: thumbnailUrl,
       filename: `${hashShort}.${ext}`,
       content_type: file.type,
       size: file.size,
@@ -104,6 +121,7 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
     return new Response(JSON.stringify({
       url,
       key,
+      thumbnail_url: thumbnailUrl,
       size: file.size,
       hash,
       deduplicated: false,

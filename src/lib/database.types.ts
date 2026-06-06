@@ -147,6 +147,7 @@ export interface Database {
           id: string
           key: string
           url: string
+          thumbnail_url: string | null
           filename: string | null
           content_type: string | null
           size: number | null
@@ -158,6 +159,7 @@ export interface Database {
           id?: string
           key: string
           url: string
+          thumbnail_url?: string | null
           filename?: string | null
           content_type?: string | null
           size?: number | null
@@ -169,6 +171,7 @@ export interface Database {
           id?: string
           key?: string
           url?: string
+          thumbnail_url?: string | null
           filename?: string | null
           content_type?: string | null
           size?: number | null
