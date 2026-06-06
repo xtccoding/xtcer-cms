@@ -9,15 +9,20 @@ if (!ADMIN_PASSWORD) return new Response('ADMIN_PASSWORD not configured', { stat
 const cookie = Astro.cookies.get('admin_auth')
 if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
 
-const [postsRes, linksRes, dealsRes, feedsRes, visitorsRes, blacklistRes, filesRes] = await Promise.all([
-  supabase.from('posts').select('id', { count: 'exact', head: true }),
-  supabase.from('links').select('id', { count: 'exact', head: true }),
-  supabase.from('deals').select('id', { count: 'exact', head: true }),
-  supabase.from('feeds').select('id', { count: 'exact', head: true }),
-  supabase.from('visitors').select('id', { count: 'exact', head: true }),
-  supabase.from('blacklist').select('id', { count: 'exact', head: true }),
-  supabase.from('files').select('id', { count: 'exact', head: true }).catch(() => ({ count: null })),
-])
+let postsRes = { count: 0 }, linksRes = { count: 0 }, dealsRes = { count: 0 }, feedsRes = { count: 0 }, visitorsRes = { count: 0 }, blacklistRes = { count: 0 }, filesRes = { count: 0 }
+try {
+  const results = await Promise.all([
+    supabase.from('posts').select('id', { count: 'exact', head: true }),
+    supabase.from('links').select('id', { count: 'exact', head: true }),
+    supabase.from('deals').select('id', { count: 'exact', head: true }),
+    supabase.from('feeds').select('id', { count: 'exact', head: true }),
+    supabase.from('visitors').select('id', { count: 'exact', head: true }),
+    supabase.from('blacklist').select('id', { count: 'exact', head: true }),
+    supabase.from('files').select('id', { count: 'exact', head: true }),
+  ])
+  postsRes = results[0]; linksRes = results[1]; dealsRes = results[2]; feedsRes = results[3]
+  visitorsRes = results[4]; blacklistRes = results[5]; filesRes = results[6]
+} catch (e) {}
 ---
 
 <Layout title="设置 - XTCer">
