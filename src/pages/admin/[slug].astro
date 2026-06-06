@@ -70,13 +70,22 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
 
   <!-- Upload Modal -->
   <div id="upload-modal" class="modal" style="display:none">
-    <div class="modal-backdrop"></div>
+    <div class="modal-backdrop" id="upload-backdrop"></div>
     <div class="modal-content glass-card" style="max-width:480px">
       <h3>上传图片</h3>
       <div class="upload-zone" id="upload-zone">
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         <p>拖拽图片到这里，或 <span class="upload-link" id="upload-link">点击选择</span></p>
-        <small>JPG / PNG / GIF / WebP / SVG · 最大 10MB · 自动 hash 去重</small>
+        <small>JPG / PNG / GIF / WebP / SVG · 最大 10MB · 自动 hash 去重 · 支持多选</small>
+      </div>
+      <div id="upload-progress" style="display:none;margin:0.75rem 0">
+        <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:0.375rem">
+          <span id="upload-status">上传中...</span>
+          <span id="upload-count">0/0</span>
+        </div>
+        <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+          <div id="upload-bar" style="height:100%;background:var(--primary);width:0;transition:width 0.3s"></div>
+        </div>
       </div>
       <div class="modal-actions" style="margin-top:1rem">
         <button class="btn btn-ghost" id="upload-cancel">关闭</button>
@@ -268,6 +277,9 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
     document.getElementById('upload-cancel')?.addEventListener('click', () => {
       uploadModal.style.display = 'none'
     })
+    document.getElementById('upload-backdrop')?.addEventListener('click', () => {
+      uploadModal.style.display = 'none'
+    })
     uploadLink.addEventListener('click', () => uploadInput.click())
 
     // Drag & drop on modal
@@ -295,8 +307,23 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
 
     async function uploadFiles(files: File[]) {
       let success = 0, dedup = 0, failed = 0
+      const total = files.length
 
-      for (const file of files) {
+      const progressEl = document.getElementById('upload-progress')!
+      const statusEl = document.getElementById('upload-status')!
+      const countEl = document.getElementById('upload-count')!
+      const barEl = document.getElementById('upload-bar')!
+      const zoneEl = document.getElementById('upload-zone')!
+
+      progressEl.style.display = ''
+      zoneEl.style.display = 'none'
+
+      for (let i = 0; i < total; i++) {
+        const file = files[i]
+        countEl.textContent = `${i + 1}/${total}`
+        statusEl.textContent = `上传中: ${file.name}`
+        barEl.style.width = `${((i) / total) * 100}%`
+
         const formData = new FormData()
         formData.append('file', file)
 
@@ -321,13 +348,21 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
         }
       }
 
-      let msg = `上传完成：${success} 张成功`
+      barEl.style.width = '100%'
+      statusEl.textContent = '上传完成'
+
+      let msg = `${success} 张成功`
       if (dedup > 0) msg += `（${dedup} 张去重）`
       if (failed > 0) msg += `，${failed} 张失败`
       ;(window as any).showToast(msg, failed > 0 ? 'error' : 'success')
 
       uploadInput.value = ''
-      uploadModal.style.display = 'none'
+      setTimeout(() => {
+        uploadModal.style.display = 'none'
+        progressEl.style.display = 'none'
+        zoneEl.style.display = ''
+        barEl.style.width = '0'
+      }, 800)
       loadImages()
     }
 
