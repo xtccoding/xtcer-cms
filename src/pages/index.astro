@@ -39,7 +39,7 @@ function stripMarkdown(text: string) {
 }
 ---
 
-<Layout title="XTCer - 技术内容与云服务情报" description="XTCer - 技术文章、云服务优惠、AI情报、安全漏洞实时推送。Astro + Supabase 构建，极速加载。">
+<Layout title="XTcer - 技术探索者 | AI情报·安全漏洞·云服务优惠" description="XTcer - 技术探索者，专注前沿技术洞察。AI情报、安全漏洞、云服务优惠、技术深度文章实时推送。Astro + Supabase 构建，极速加载。">
   <nav class="nav">
       <div class="nav-inner">
         <a href="/" class="nav-logo">XTCer</a>
@@ -60,26 +60,26 @@ function stripMarkdown(text: string) {
         <div class="hero-content">
           <div class="hero-badge">
             <span class="badge-dot"></span>
-            轻量级内容管理
+            技术探索者
           </div>
           <h1 class="hero-title">
-            <span class="title-line">用简单的工具，</span>
-            <span class="title-line title-gradient">写有价值的内容</span>
+            <span class="title-line">eXploring Tech</span>
+            <span class="title-line title-gradient">探索前沿，洞见未来</span>
           </h1>
-          <p class="hero-desc">Astro + Supabase + Cloudflare · 极速加载 · 免费部署</p>
+          <p class="hero-desc">AI 情报 · 安全漏洞 · 云服务优惠 · 技术深度</p>
           
           <div class="hero-stats">
             <div class="stat-item glass-card">
               <span class="stat-number">{posts?.length || 0}</span>
-              <span class="stat-label">篇文章</span>
+              <span class="stat-label">技术文章</span>
             </div>
             <div class="stat-item glass-card">
               <span class="stat-number">{recentFeeds?.length || 0}</span>
-              <span class="stat-label">条情报</span>
+              <span class="stat-label">实时情报</span>
             </div>
             <div class="stat-item glass-card">
               <span class="stat-number">{links?.length || 0}</span>
-              <span class="stat-label">个导航</span>
+              <span class="stat-label">精选导航</span>
             </div>
           </div>
 
@@ -195,7 +195,10 @@ function stripMarkdown(text: string) {
   <footer class="footer">
     <div class="container-wide">
       <div class="footer-inner">
-        <span>© 2026 XTCer</span>
+        <div class="footer-brand">
+          <span class="footer-logo">XTcer</span>
+          <span class="footer-slogan">探索前沿，洞见未来</span>
+        </div>
         <div class="footer-links">
           <a href="/rss.xml" target="_blank">RSS</a>
           <a href="/privacy">隐私政策</a>
@@ -203,6 +206,9 @@ function stripMarkdown(text: string) {
           <a href="/about">关于</a>
           <a href="/contact">联系</a>
         </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 XTcer - eXploring Tech</span>
       </div>
     </div>
   </footer>
@@ -649,7 +655,7 @@ function stripMarkdown(text: string) {
   /* Footer */
   .footer { 
     border-top: 1px solid var(--border); 
-    padding: 2.5rem 0; 
+    padding: 2.5rem 0 1.5rem; 
     margin-top: 2rem; 
   }
   
@@ -657,8 +663,28 @@ function stripMarkdown(text: string) {
     display: flex; 
     justify-content: space-between; 
     align-items: center; 
-    font-size: 0.8125rem; 
-    color: var(--text-muted); 
+    margin-bottom: 1.5rem;
+  }
+  
+  .footer-brand {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .footer-logo {
+    font-size: 1.125rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #2997ff, #bf5af2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .footer-slogan {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-style: italic;
   }
   
   .footer-links { 
@@ -668,10 +694,19 @@ function stripMarkdown(text: string) {
   
   .footer-links a { 
     color: var(--text-muted); 
+    font-size: 0.8125rem;
     transition: color 0.2s;
   }
   
   .footer-links a:hover { color: var(--text); }
+  
+  .footer-bottom {
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
 
   /* Navigation Overrides */
   .nav-links { display: flex; gap: 1.25rem; align-items: center; }
@@ -703,6 +738,7 @@ function stripMarkdown(text: string) {
     .feed-row { padding: 0.625rem 0.875rem; }
     .feed-summary { display: none; }
     .footer-inner { flex-direction: column; gap: 1.25rem; text-align: center; }
+    .footer-brand { align-items: center; }
     .footer-links { gap: 1.5rem; }
     .section-header h2 { font-size: 1.25rem; }
   }

@@ -2,11 +2,11 @@
 import Layout from '../layouts/Layout.astro'
 ---
 
-<Layout title="关于我们 - XTCer">
+<Layout title="关于 XTcer - 技术探索者" description="XTcer 是一个专注于前沿技术的内容平台，提供 AI 情报、安全漏洞、云服务优惠等深度技术内容。">
   <main>
     <nav class="nav">
       <div class="nav-inner">
-        <a href="/" class="nav-logo">XTCer</a>
+        <a href="/" class="nav-logo">XTcer</a>
         <div class="nav-links">
           <a href="/" class="nav-link">首页</a>
         </div>
@@ -14,55 +14,534 @@ import Layout from '../layouts/Layout.astro'
     </nav>
 
     <article class="page">
-      <h1>关于我们</h1>
+      <!-- Hero Header -->
+      <header class="about-hero">
+        <div class="hero-badge">
+          <span class="badge-dot"></span>
+          关于我们
+        </div>
+        <h1>
+          <span class="title-line">XTcer</span>
+          <span class="title-sub">技术探索者</span>
+        </h1>
+        <p class="hero-desc">eXploring Tech, Delivering Value</p>
+      </header>
 
-      <section>
-        <h2>XTCer 是什么？</h2>
-        <p>XTCer 是一个轻量、美观的内容管理系统，旨在为创作者提供简单高效的内容发布平台。</p>
+      <!-- Brand Story -->
+      <section class="brand-section">
+        <div class="section-icon">🎯</div>
+        <h2>品牌含义</h2>
+        <div class="brand-card glass-card">
+          <div class="brand-name">
+            <span class="brand-xt">XT</span>
+            <span class="brand-plus">=</span>
+            <span class="brand-text">eXploring Tech</span>
+          </div>
+          <p class="brand-meaning">
+            <strong>XT</strong> 代表 <strong>eXploring Tech</strong>（探索技术），<strong>cer</strong> 是"者"的后缀。
+          </p>
+          <p class="brand-desc">
+            XTcer = 技术探索者。我们站在技术前沿，持续追踪 AI、安全、云服务等前沿技术动态，
+            为你筛选最有价值的信息，让技术洞察触手可及。
+          </p>
+        </div>
       </section>
 
-      <section>
+      <!-- Mission -->
+      <section class="brand-section">
+        <div class="section-icon">🚀</div>
         <h2>我们的使命</h2>
-        <p>我们相信内容创作应该是简单、快速的。通过使用现代技术栈，我们打造了一个加载速度极快、使用体验流畅的内容平台。</p>
-      </section>
-
-      <section>
-        <h2>技术栈</h2>
-        <p>XTCer 使用以下技术构建：</p>
-        <ul>
-          <li><strong>Astro</strong> - 极快的静态站点生成器</li>
-          <li><strong>Supabase</strong> - 开源的 Firebase 替代方案</li>
-          <li><strong>Cloudflare Pages</strong> - 全球 CDN 加速</li>
+        <p>在信息爆炸的时代，我们相信<strong>高质量的技术洞察</strong>应该是简洁、高效、易于获取的。</p>
+        <p>XTcer 致力于：</p>
+        <ul class="mission-list">
+          <li>
+            <span class="mission-icon">🔍</span>
+            <div>
+              <strong>深度探索</strong>
+              <span>深入挖掘 AI、安全、云服务等领域的前沿动态</span>
+            </div>
+          </li>
+          <li>
+            <span class="mission-icon">⚡</span>
+            <div>
+              <strong>极速传递</strong>
+              <span>第一时间推送安全漏洞、AI 新进展等关键信息</span>
+            </div>
+          </li>
+          <li>
+            <span class="mission-icon">💎</span>
+            <div>
+              <strong>价值筛选</strong>
+              <span>从海量信息中筛选出真正有价值的内容</span>
+            </div>
+          </li>
+          <li>
+            <span class="mission-icon">🌐</span>
+            <div>
+              <strong>全球视野</strong>
+              <span>覆盖全球技术生态，提供国际化视角</span>
+            </div>
+          </li>
         </ul>
       </section>
 
-      <section>
-        <h2>为什么选择轻量方案？</h2>
-        <p>传统的内容管理系统往往过于臃肿，加载缓慢。XTCer 采用轻量级架构，打包体积仅为传统方案的十分之一，为您提供：</p>
-        <ul>
-          <li>极速的页面加载速度</li>
-          <li>更好的用户体验</li>
-          <li>更低的运营成本</li>
-          <li>更高的安全性</li>
-        </ul>
+      <!-- Content Areas -->
+      <section class="brand-section">
+        <div class="section-icon">📡</div>
+        <h2>内容领域</h2>
+        <div class="content-grid">
+          <div class="content-card glass-card">
+            <div class="content-icon">🤖</div>
+            <h3>AI 情报</h3>
+            <p>追踪 AI 领域最新进展、工具发布、商业应用，把握人工智能发展脉搏</p>
+          </div>
+          <div class="content-card glass-card">
+            <div class="content-icon">🔒</div>
+            <h3>安全漏洞</h3>
+            <p>实时监控安全漏洞动态，第一时间推送关键安全信息，守护数字资产</p>
+          </div>
+          <div class="content-card glass-card">
+            <div class="content-icon">☁️</div>
+            <h3>云服务优惠</h3>
+            <p>精选各大云服务商优惠信息，帮你节省成本，优化资源配置</p>
+          </div>
+          <div class="content-card glass-card">
+            <div class="content-icon">📝</div>
+            <h3>技术深度</h3>
+            <p>原创技术文章、最佳实践、架构设计，提升技术深度和广度</p>
+          </div>
+        </div>
       </section>
 
-      <section>
+      <!-- Tech Stack -->
+      <section class="brand-section">
+        <div class="section-icon">⚙️</div>
+        <h2>技术架构</h2>
+        <p>XTcer 使用现代化技术栈构建，追求极致性能和用户体验：</p>
+        <div class="tech-grid">
+          <div class="tech-item">
+            <span class="tech-badge">Astro</span>
+            <span class="tech-desc">极速静态站点生成器</span>
+          </div>
+          <div class="tech-item">
+            <span class="tech-badge">Supabase</span>
+            <span class="tech-desc">开源实时数据库</span>
+          </div>
+          <div class="tech-item">
+            <span class="tech-badge">Cloudflare</span>
+            <span class="tech-desc">全球边缘网络加速</span>
+          </div>
+          <div class="tech-item">
+            <span class="tech-badge">TypeScript</span>
+            <span class="tech-desc">类型安全的 JavaScript</span>
+          </div>
+        </div>
+        <div class="tech-highlight glass-card">
+          <h4>为什么选择轻量方案？</h4>
+          <p>传统 CMS 往往臃肿缓慢。XTcer 采用轻量级架构，打包体积仅为传统方案的 1/10，实现：</p>
+          <ul>
+            <li>⚡ 极速页面加载（全球 CDN &lt;100ms）</li>
+            <li>🎯 更好的用户体验和 SEO 表现</li>
+            <li>💰 更低的运营成本（免费部署）</li>
+            <li>🔒 更高的安全性（无数据库暴露）</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Slogan -->
+      <section class="brand-section slogan-section">
+        <div class="slogan-card glass-card">
+          <blockquote>
+            "探索前沿，洞见未来"
+          </blockquote>
+          <p>站在技术前沿，为你筛选最有价值的信息</p>
+        </div>
+      </section>
+
+      <!-- Contact -->
+      <section class="brand-section">
+        <div class="section-icon">💬</div>
         <h2>联系我们</h2>
-        <p>如果您有任何问题或建议，请访问我们的<a href="/contact">联系我们</a>页面。</p>
+        <p>如果您有任何问题、建议或合作意向，欢迎通过以下方式联系我们：</p>
+        <a href="/contact" class="contact-btn glass-btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          联系我们
+        </a>
       </section>
     </article>
   </main>
 </Layout>
 
 <style>
-  .page { max-width: 720px; margin: 0 auto; padding: 3rem 0; }
-  .page h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.375rem; }
-  .update { color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 2.5rem; }
-  section { margin-bottom: 2rem; }
-  h2 { font-size: 1.125rem; margin-bottom: 0.75rem; }
-  p { color: var(--text-secondary); font-size: 0.9375rem; margin-bottom: 0.75rem; line-height: 1.8; }
-  ul { margin: 0.75rem 0; padding-left: 1.5rem; color: var(--text-secondary); }
-  li { margin-bottom: 0.375rem; line-height: 1.6; }
-  a { color: var(--primary); }
+  .page { 
+    max-width: 800px; 
+    margin: 0 auto; 
+    padding: 2rem 0 4rem; 
+  }
+  
+  /* About Hero */
+  .about-hero {
+    text-align: center;
+    padding: 4rem 0 3rem;
+    margin-bottom: 3rem;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 1rem;
+    background: rgba(41,151,255,0.08);
+    border: 1px solid rgba(41,151,255,0.15);
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    color: var(--primary);
+    margin-bottom: 1.5rem;
+    font-weight: 500;
+  }
+  
+  .badge-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--primary);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+  
+  .about-hero h1 {
+    margin-bottom: 1rem;
+  }
+  
+  .title-line {
+    display: block;
+    font-size: 3.5rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    background: linear-gradient(135deg, #2997ff 0%, #bf5af2 50%, #00ffff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    background-size: 200% 200%;
+    animation: gradientShift 3s ease infinite;
+  }
+  
+  @keyframes gradientShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+  
+  .title-sub {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.1em;
+    margin-top: 0.25rem;
+  }
+  
+  .hero-desc {
+    font-size: 1.125rem;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+  
+  /* Brand Sections */
+  .brand-section {
+    margin-bottom: 3rem;
+  }
+  
+  .section-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .brand-section h2 {
+    font-size: 1.375rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    letter-spacing: -0.01em;
+  }
+  
+  .brand-section p {
+    color: var(--text-secondary);
+    font-size: 0.9375rem;
+    line-height: 1.8;
+    margin-bottom: 0.75rem;
+  }
+  
+  .brand-section strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+  
+  /* Brand Card */
+  .brand-card {
+    padding: 1.5rem;
+    margin-top: 1rem;
+  }
+  
+  .brand-name {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  
+  .brand-xt {
+    font-size: 2rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #2997ff, #bf5af2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .brand-plus {
+    font-size: 1.25rem;
+    color: var(--text-muted);
+  }
+  
+  .brand-text {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+  
+  .brand-meaning {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .brand-desc {
+    font-size: 0.9375rem;
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+  
+  /* Mission List */
+  .mission-list {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+  }
+  
+  .mission-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    background: var(--surface);
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    transition: all 0.2s ease;
+  }
+  
+  .mission-list li:hover {
+    background: var(--surface-hover);
+    border-color: var(--glass-border-hover);
+    transform: translateX(4px);
+  }
+  
+  .mission-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+  }
+  
+  .mission-list strong {
+    display: block;
+    font-size: 0.9375rem;
+    color: var(--text);
+    margin-bottom: 0.25rem;
+  }
+  
+  .mission-list span {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  
+  /* Content Grid */
+  .content-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  
+  .content-card {
+    padding: 1.25rem;
+    transition: all 0.2s ease;
+  }
+  
+  .content-card:hover {
+    transform: translateY(-2px);
+  }
+  
+  .content-icon {
+    font-size: 1.75rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .content-card h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+  }
+  
+  .content-card p {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+  }
+  
+  /* Tech Grid */
+  .tech-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    margin: 1rem 0;
+  }
+  
+  .tech-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--surface);
+    border-radius: 8px;
+    border: 1px solid var(--glass-border);
+  }
+  
+  .tech-badge {
+    padding: 0.25rem 0.75rem;
+    background: rgba(41,151,255,0.1);
+    color: var(--primary);
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  
+  .tech-desc {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+  }
+  
+  .tech-highlight {
+    padding: 1.5rem;
+    margin-top: 1rem;
+  }
+  
+  .tech-highlight h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text);
+  }
+  
+  .tech-highlight p {
+    font-size: 0.9375rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .tech-highlight ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .tech-highlight li {
+    padding: 0.375rem 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+  
+  /* Slogan Section */
+  .slogan-section {
+    margin: 3rem 0;
+  }
+  
+  .slogan-card {
+    padding: 2rem;
+    text-align: center;
+    background: linear-gradient(135deg, rgba(41,151,255,0.05), rgba(191,90,242,0.05));
+  }
+  
+  .slogan-card blockquote {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.75rem;
+    font-style: italic;
+    letter-spacing: 0.05em;
+  }
+  
+  .slogan-card p {
+    font-size: 0.9375rem;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  
+  /* Contact Button */
+  .contact-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #2997ff, #0077ed);
+    color: white;
+    border-radius: 12px;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    margin-top: 1rem;
+  }
+  
+  .contact-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(41,151,255,0.3);
+    color: white;
+  }
+  
+  /* Responsive */
+  @media (max-width: 640px) {
+    .about-hero {
+      padding: 2rem 0;
+    }
+    
+    .title-line {
+      font-size: 2.5rem;
+    }
+    
+    .title-sub {
+      font-size: 1.125rem;
+    }
+    
+    .content-grid,
+    .tech-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .brand-name {
+      justify-content: center;
+    }
+    
+    .mission-list li {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+  }
 </style>
