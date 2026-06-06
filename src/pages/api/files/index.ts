@@ -23,12 +23,17 @@ export async function GET({ cookies, request, locals, url }: { cookies: any; req
     const page = parseInt(url.searchParams.get('page') || '1')
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200)
     const offset = (page - 1) * limit
+    const q = (url.searchParams.get('q') || '').trim()
 
-    const { data: files, count, error } = await supabase
+    let query = supabase
       .from('files')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
+
+    if (q) query = query.ilike('filename', `%${q}%`)
+
+    const { data: files, count, error } = await query
 
     if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
 

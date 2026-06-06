@@ -24,7 +24,6 @@ if (!filesSlug || slug !== filesSlug) return Astro.redirect('/admin')
         </div>
         <div class="header-actions">
           <input type="text" id="file-search" class="input" placeholder="搜索文件名..." style="width:160px" />
-          <button class="btn btn-ghost btn-sm" id="search-btn">搜索</button>
           <button class="btn btn-ghost btn-sm" id="reset-btn" style="display:none">重置</button>
           <button class="btn btn-primary btn-sm" id="upload-btn">上传文件</button>
         </div>
@@ -215,13 +214,14 @@ if (!filesSlug || slug !== filesSlug) return Astro.redirect('/admin')
 
     // Search
     var searchInput = document.getElementById('file-search')
-    var searchBtn = document.getElementById('search-btn')
     var resetBtn = document.getElementById('reset-btn')
-    searchBtn.addEventListener('click', function() {
+    var searchTimer = null
+    searchInput.addEventListener('input', function() {
+      clearTimeout(searchTimer)
       var q = searchInput.value.trim()
-      if (q) { resetBtn.style.display = ''; loadFiles(1, q) }
+      resetBtn.style.display = q ? '' : 'none'
+      searchTimer = setTimeout(function() { loadFiles(1, q) }, 300)
     })
-    searchInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') searchBtn.click() })
     resetBtn.addEventListener('click', function() {
       searchInput.value = ''; resetBtn.style.display = 'none'; loadFiles(1, '')
     })
