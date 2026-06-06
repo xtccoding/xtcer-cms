@@ -1,0 +1,703 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import Sidebar from '../../components/Sidebar.astro'
+import { supabase } from '../../lib/supabase'
+
+const runtimeEnv = (Astro.locals as any)?.runtime?.env
+const ADMIN_PASSWORD = runtimeEnv?.ADMIN_PASSWORD || import.meta.env.ADMIN_PASSWORD
+if (!ADMIN_PASSWORD) return new Response('ADMIN_PASSWORD not configured', { status: 500 })
+const cookie = Astro.cookies.get('admin_auth')
+if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
+
+// Get current settings
+const { data: bannerData } = await supabase
+  .from('site_settings')
+  .select('value')
+  .eq('key', 'banner')
+  .single()
+
+const { data: particlesData } = await supabase
+  .from('site_settings')
+  .select('value')
+  .eq('key', 'particles')
+  .single()
+
+const banner = bannerData?.value || {
+  title_line1: '探索前沿',
+  title_line2: '洞见未来',
+  title_dot: '·',
+  tagline_en: 'eXploring Tech',
+  tagline_cn: '技术探索者',
+  desc_items: ['AI 情报', '安全漏洞', '云服务优惠', '技术深度']
+}
+
+const particles = particlesData?.value || {
+  mode: 'siri',
+  background_particles: {
+    count: 120,
+    size_min: 0.5,
+    size_max: 2,
+    opacity_min: 0.05,
+    opacity_max: 0.35,
+    speed: 0.3,
+    color: '41, 151, 255'
+  },
+  siri_wave: {
+    layers: 5,
+    base_radius: 80,
+    layer_spacing: 15,
+    wave_amplitude: 8,
+    wave_frequency: 3,
+    speed: 0.02
+  },
+  single_ring: {
+    radius: 100,
+    wave_amplitude: 12,
+    speed: 0.015,
+    color: '41, 151, 255'
+  },
+  double_ring: {
+    radius1: 80,
+    radius2: 120,
+    wave_amplitude: 10,
+    speed: 0.02,
+    color1: '41, 151, 255',
+    color2: '191, 90, 242'
+  },
+  mouse_effect: {
+    enabled: true,
+    radius: 40,
+    pulse_speed: 0.03
+  }
+}
+---
+
+<Layout title="外观设置 - XTCer">
+  <div class="admin-layout">
+    <Sidebar active="appearance" />
+    <div class="admin-main">
+      <header class="admin-header">
+        <div>
+          <h1>外观设置</h1>
+          <p class="admin-subtitle">配置首页 Banner 和粒子效果</p>
+        </div>
+        <button id="save-btn" class="btn btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          保存设置
+        </button>
+      </header>
+
+      <div class="settings-grid">
+        <!-- Banner Settings -->
+        <section class="settings-section glass-card">
+          <h2>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
+            Banner 文字
+          </h2>
+          
+          <div class="form-group">
+            <label>标题第一行</label>
+            <input type="text" id="banner-title1" class="input" value={banner.title_line1} />
+          </div>
+          
+          <div class="form-group">
+            <label>标题分隔符</label>
+            <input type="text" id="banner-dot" class="input" value={banner.title_dot} maxlength="2" />
+          </div>
+          
+          <div class="form-group">
+            <label>标题第二行</label>
+            <input type="text" id="banner-title2" class="input" value={banner.title_line2} />
+          </div>
+          
+          <div class="form-group">
+            <label>英文 Tagline</label>
+            <input type="text" id="banner-tagline-en" class="input" value={banner.tagline_en} />
+          </div>
+          
+          <div class="form-group">
+            <label>中文 Tagline</label>
+            <input type="text" id="banner-tagline-cn" class="input" value={banner.tagline_cn} />
+          </div>
+          
+          <div class="form-group">
+            <label>描述标签（每行一个）</label>
+            <textarea id="banner-desc" class="input" rows="4">{banner.desc_items.join('\n')}</textarea>
+          </div>
+        </section>
+
+        <!-- Particle Mode -->
+        <section class="settings-section glass-card">
+          <h2>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+            粒子效果模式
+          </h2>
+          
+          <div class="mode-selector">
+            <label class="mode-option">
+              <input type="radio" name="particle-mode" value="siri" checked={particles.mode === 'siri'} />
+              <span class="mode-card">
+                <span class="mode-icon">◎</span>
+                <span class="mode-name">Siri 波浪</span>
+                <span class="mode-desc">多层同心圆波动</span>
+              </span>
+            </label>
+            
+            <label class="mode-option">
+              <input type="radio" name="particle-mode" value="single" checked={particles.mode === 'single'} />
+              <span class="mode-card">
+                <span class="mode-icon">○</span>
+                <span class="mode-name">单环波动</span>
+                <span class="mode-desc">单个圆环波动</span>
+              </span>
+            </label>
+            
+            <label class="mode-option">
+              <input type="radio" name="particle-mode" value="double" checked={particles.mode === 'double'} />
+              <span class="mode-card">
+                <span class="mode-icon">◎◎</span>
+                <span class="mode-name">双环波动</span>
+                <span class="mode-desc">双层圆环波动</span>
+              </span>
+            </label>
+            
+            <label class="mode-option">
+              <input type="radio" name="particle-mode" value="none" checked={particles.mode === 'none'} />
+              <span class="mode-card">
+                <span class="mode-icon">·</span>
+                <span class="mode-name">仅粒子</span>
+                <span class="mode-desc">只有背景粒子</span>
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <!-- Background Particles -->
+        <section class="settings-section glass-card">
+          <h2>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/></svg>
+            背景粒子
+          </h2>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>粒子数量</label>
+              <input type="number" id="bg-count" class="input" value={particles.background_particles.count} min="10" max="300" />
+            </div>
+            <div class="form-group">
+              <label>移动速度</label>
+              <input type="number" id="bg-speed" class="input" value={particles.background_particles.speed} min="0.05" max="1" step="0.05" />
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>最小尺寸</label>
+              <input type="number" id="bg-size-min" class="input" value={particles.background_particles.size_min} min="0.1" max="3" step="0.1" />
+            </div>
+            <div class="form-group">
+              <label>最大尺寸</label>
+              <input type="number" id="bg-size-max" class="input" value={particles.background_particles.size_max} min="0.5" max="5" step="0.1" />
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>最小透明度</label>
+              <input type="number" id="bg-opacity-min" class="input" value={particles.background_particles.opacity_min} min="0.01" max="0.5" step="0.01" />
+            </div>
+            <div class="form-group">
+              <label>最大透明度</label>
+              <input type="number" id="bg-opacity-max" class="input" value={particles.background_particles.opacity_max} min="0.1" max="1" step="0.05" />
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>颜色 (RGB)</label>
+            <input type="text" id="bg-color" class="input" value={particles.background_particles.color} placeholder="41, 151, 255" />
+          </div>
+        </section>
+
+        <!-- Siri Wave Settings -->
+        <section class="settings-section glass-card" id="siri-settings">
+          <h2>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/><path d="M12 6c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/></svg>
+            Siri 波浪参数
+          </h2>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>波浪层数</label>
+              <input type="number" id="siri-layers" class="input" value={particles.siri_wave.layers} min="1" max="10" />
+            </div>
+            <div class="form-group">
+              <label>基础半径</label>
+              <input type="number" id="siri-radius" class="input" value={particles.siri_wave.base_radius} min="30" max="200" />
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>层间距</label>
+              <input type="number" id="siri-spacing" class="input" value={particles.siri_wave.layer_spacing} min="5" max="30" />
+            </div>
+            <div class="form-group">
+              <label>波浪幅度</label>
+              <input type="number" id="siri-amplitude" class="input" value={particles.siri_wave.wave_amplitude} min="2" max="20" />
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>波浪频率</label>
+              <input type="number" id="siri-frequency" class="input" value={particles.siri_wave.wave_frequency} min="1" max="8" />
+            </div>
+            <div class="form-group">
+              <label>动画速度</label>
+              <input type="number" id="siri-speed" class="input" value={particles.siri_wave.speed} min="0.005" max="0.05" step="0.005" />
+            </div>
+          </div>
+        </section>
+
+        <!-- Single Ring Settings -->
+        <section class="settings-section glass-card" id="single-settings" style="display:none">
+          <h2>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+            单环波动参数
+          </h2>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>圆环半径</label>
+              <input type="number" id="single-radius" class="input" value={particles.single_ring.radius} min="30" max="200" />
+            </div>
+            <div class="form-group">
+              <label>波浪幅度</label>
+              <input type="number" id="single-amplitude" class="input" value={particles.single_ring.wave_amplitude} min="2" max="25" />
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>动画速度</label>
+              <input type="number" id="single-speed" class="input" value={particles.single_ring.speed} min="0.005" max="0.05" step="0.005" />
+            </div>
+            <div class="form-group">
+              <label>颜色 (RGB)</label>
+              <input type="text" id="single-color" class="input" value={particles.single_ring.color} />
+            </div>
+          </div>
+        </section>
+
+        <!-- Double Ring Settings -->
+        <section class="settings-section glass-card" id="double-settings" style="display:none">
+          <h2>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/></svg>
+            双环波动参数
+          </h2>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>内环半径</label>
+              <input type="number" id="double-radius1" class="input" value={particles.double_ring.radius1} min="30" max="150" />
+            </div>
+            <div class="form-group">
+              <label>外环半径</label>
+              <input type="number" id="double-radius2" class="input" value={particles.double_ring.radius2} min="50" max="250" />
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>波浪幅度</label>
+              <input type="number" id="double-amplitude" class="input" value={particles.double_ring.wave_amplitude} min="2" max="20" />
+            </div>
+            <div class="form-group">
+              <label>动画速度</label>
+              <input type="number" id="double-speed" class="input" value={particles.double_ring.speed} min="0.005" max="0.05" step="0.005" />
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>内环颜色 (RGB)</label>
+              <input type="text" id="double-color1" class="input" value={particles.double_ring.color1} />
+            </div>
+            <div class="form-group">
+              <label>外环颜色 (RGB)</label>
+              <input type="text" id="double-color2" class="input" value={particles.double_ring.color2} />
+            </div>
+          </div>
+        </section>
+
+        <!-- Mouse Effect -->
+        <section class="settings-section glass-card">
+          <h2>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 9l4 4 4-4"/><path d="M15 9l4 4"/></svg>
+            鼠标效果
+          </h2>
+          
+          <div class="form-group">
+            <label class="toggle-label">
+              <input type="checkbox" id="mouse-enabled" checked={particles.mouse_effect.enabled} />
+              <span>启用鼠标跟随效果</span>
+            </label>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>脉冲半径</label>
+              <input type="number" id="mouse-radius" class="input" value={particles.mouse_effect.radius} min="20" max="100" />
+            </div>
+            <div class="form-group">
+              <label>脉冲速度</label>
+              <input type="number" id="mouse-speed" class="input" value={particles.mouse_effect.pulse_speed} min="0.01" max="0.08" step="0.005" />
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <style>
+    .admin-layout {
+      display: flex;
+      min-height: 100vh;
+    }
+    
+    .admin-main {
+      flex: 1;
+      padding: 2rem;
+      margin-left: 200px;
+    }
+    
+    .admin-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+    
+    .admin-header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+    
+    .admin-subtitle {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+    
+    .settings-grid {
+      display: grid;
+      gap: 1.5rem;
+    }
+    
+    .settings-section {
+      padding: 1.5rem;
+    }
+    
+    .settings-section h2 {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .settings-section h2 svg {
+      color: var(--primary);
+    }
+    
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+    
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+    
+    .form-group label {
+      display: block;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+    
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    
+    .input {
+      width: 100%;
+      padding: 0.625rem 0.875rem;
+      background: var(--surface);
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.875rem;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    
+    .input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(41, 151, 255, 0.1);
+    }
+    
+    textarea.input {
+      resize: vertical;
+      min-height: 100px;
+    }
+    
+    /* Mode Selector */
+    .mode-selector {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+    }
+    
+    .mode-option {
+      cursor: pointer;
+    }
+    
+    .mode-option input {
+      display: none;
+    }
+    
+    .mode-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 1.25rem;
+      background: var(--surface);
+      border: 2px solid var(--glass-border);
+      border-radius: 12px;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    
+    .mode-option input:checked + .mode-card {
+      border-color: var(--primary);
+      background: rgba(41, 151, 255, 0.08);
+    }
+    
+    .mode-card:hover {
+      border-color: var(--glass-border-hover);
+    }
+    
+    .mode-icon {
+      font-size: 1.5rem;
+      color: var(--primary);
+    }
+    
+    .mode-name {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    
+    .mode-desc {
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+    }
+    
+    /* Toggle */
+    .toggle-label {
+      display: flex !important;
+      align-items: center;
+      gap: 0.75rem;
+      cursor: pointer;
+    }
+    
+    .toggle-label input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+    }
+    
+    /* Toast */
+    #toast-container {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 9999;
+    }
+    
+    .toast {
+      padding: 0.75rem 1.25rem;
+      background: rgba(30, 30, 30, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.875rem;
+      animation: slideIn 0.3s ease;
+    }
+    
+    .toast.success {
+      border-color: rgba(48, 209, 88, 0.3);
+    }
+    
+    .toast.error {
+      border-color: rgba(255, 69, 58, 0.3);
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @media (max-width: 768px) {
+      .admin-main {
+        margin-left: 0;
+        padding: 1rem;
+      }
+      
+      .mode-selector {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+
+  <script>
+    // Toggle settings sections based on mode
+    const modeInputs = document.querySelectorAll('input[name="particle-mode"]')
+    const siriSettings = document.getElementById('siri-settings')
+    const singleSettings = document.getElementById('single-settings')
+    const doubleSettings = document.getElementById('double-settings')
+    
+    function updateSettingsVisibility() {
+      const mode = document.querySelector('input[name="particle-mode"]:checked')?.value
+      
+      siriSettings!.style.display = mode === 'siri' ? 'block' : 'none'
+      singleSettings!.style.display = mode === 'single' ? 'block' : 'none'
+      doubleSettings!.style.display = mode === 'double' ? 'block' : 'none'
+    }
+    
+    modeInputs.forEach(input => {
+      input.addEventListener('change', updateSettingsVisibility)
+    })
+    
+    updateSettingsVisibility()
+    
+    // Save settings
+    document.getElementById('save-btn')?.addEventListener('click', async () => {
+      const btn = document.getElementById('save-btn') as HTMLButtonElement
+      btn.disabled = true
+      btn.textContent = '保存中...'
+      
+      try {
+        // Collect banner settings
+        const banner = {
+          title_line1: (document.getElementById('banner-title1') as HTMLInputElement).value,
+          title_line2: (document.getElementById('banner-title2') as HTMLInputElement).value,
+          title_dot: (document.getElementById('banner-dot') as HTMLInputElement).value,
+          tagline_en: (document.getElementById('banner-tagline-en') as HTMLInputElement).value,
+          tagline_cn: (document.getElementById('banner-tagline-cn') as HTMLInputElement).value,
+          desc_items: (document.getElementById('banner-desc') as HTMLTextAreaElement).value.split('\n').filter(Boolean)
+        }
+        
+        // Collect particle settings
+        const mode = (document.querySelector('input[name="particle-mode"]:checked') as HTMLInputElement)?.value
+        
+        const particles = {
+          mode,
+          background_particles: {
+            count: parseInt((document.getElementById('bg-count') as HTMLInputElement).value),
+            size_min: parseFloat((document.getElementById('bg-size-min') as HTMLInputElement).value),
+            size_max: parseFloat((document.getElementById('bg-size-max') as HTMLInputElement).value),
+            opacity_min: parseFloat((document.getElementById('bg-opacity-min') as HTMLInputElement).value),
+            opacity_max: parseFloat((document.getElementById('bg-opacity-max') as HTMLInputElement).value),
+            speed: parseFloat((document.getElementById('bg-speed') as HTMLInputElement).value),
+            color: (document.getElementById('bg-color') as HTMLInputElement).value
+          },
+          siri_wave: {
+            layers: parseInt((document.getElementById('siri-layers') as HTMLInputElement).value),
+            base_radius: parseInt((document.getElementById('siri-radius') as HTMLInputElement).value),
+            layer_spacing: parseInt((document.getElementById('siri-spacing') as HTMLInputElement).value),
+            wave_amplitude: parseInt((document.getElementById('siri-amplitude') as HTMLInputElement).value),
+            wave_frequency: parseInt((document.getElementById('siri-frequency') as HTMLInputElement).value),
+            speed: parseFloat((document.getElementById('siri-speed') as HTMLInputElement).value)
+          },
+          single_ring: {
+            radius: parseInt((document.getElementById('single-radius') as HTMLInputElement).value),
+            wave_amplitude: parseInt((document.getElementById('single-amplitude') as HTMLInputElement).value),
+            speed: parseFloat((document.getElementById('single-speed') as HTMLInputElement).value),
+            color: (document.getElementById('single-color') as HTMLInputElement).value
+          },
+          double_ring: {
+            radius1: parseInt((document.getElementById('double-radius1') as HTMLInputElement).value),
+            radius2: parseInt((document.getElementById('double-radius2') as HTMLInputElement).value),
+            wave_amplitude: parseInt((document.getElementById('double-amplitude') as HTMLInputElement).value),
+            speed: parseFloat((document.getElementById('double-speed') as HTMLInputElement).value),
+            color1: (document.getElementById('double-color1') as HTMLInputElement).value,
+            color2: (document.getElementById('double-color2') as HTMLInputElement).value
+          },
+          mouse_effect: {
+            enabled: (document.getElementById('mouse-enabled') as HTMLInputElement).checked,
+            radius: parseInt((document.getElementById('mouse-radius') as HTMLInputElement).value),
+            pulse_speed: parseFloat((document.getElementById('mouse-speed') as HTMLInputElement).value)
+          }
+        }
+        
+        // Get admin password from cookie
+        const response = await fetch('/api/settings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${document.cookie.match(/admin_auth=([^;]+)/)?.[1] || ''}`
+          },
+          body: JSON.stringify({ key: 'banner', value: banner })
+        })
+        
+        if (!response.ok) throw new Error('Failed to save banner')
+        
+        const response2 = await fetch('/api/settings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${document.cookie.match(/admin_auth=([^;]+)/)?.[1] || ''}`
+          },
+          body: JSON.stringify({ key: 'particles', value: particles })
+        })
+        
+        if (!response2.ok) throw new Error('Failed to save particles')
+        
+        showToast('设置已保存', 'success')
+      } catch (err) {
+        showToast('保存失败: ' + (err as Error).message, 'error')
+      } finally {
+        btn.disabled = false
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> 保存设置'
+      }
+    })
+    
+    function showToast(message: string, type: string) {
+      const container = document.getElementById('toast-container')!
+      const toast = document.createElement('div')
+      toast.className = `toast ${type}`
+      toast.textContent = message
+      container.appendChild(toast)
+      setTimeout(() => {
+        toast.style.animation = 'slideIn 0.3s ease reverse'
+        setTimeout(() => toast.remove(), 300)
+      }, 3000)
+    }
+  </script>
+</Layout>
