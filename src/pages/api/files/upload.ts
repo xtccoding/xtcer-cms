@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { supabase } from '../../../lib/supabase'
 
 function randomSlug(len = 8): string {
@@ -85,6 +85,47 @@ export async function POST({ request, locals }: { request: Request; locals: any 
       ...inserted,
       share_url: `${siteUrl}/s/${slug}`,
     }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), { status: 500 })
+  }
+}
+
+export async function DELETE({ request, locals }: { request: Request; locals: any }) {
+  const env = locals?.runtime?.env || {}
+  const validKey = env.UPLOAD_API_KEY || import.meta.env.UPLOAD_API_KEY
+  if (!validKey) return new Response(JSON.stringify({ error: 'UPLOAD_API_KEY not configured' }), { status: 500 })
+
+  const auth = request.headers.get('Authorization') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : auth
+  if (token !== validKey) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+
+  const accountId = env.R2_ACCOUNT_ID || import.meta.env.R2_ACCOUNT_ID
+  const accessKeyId = env.R2_ACCESS_KEY_ID || import.meta.env.R2_ACCESS_KEY_ID
+  const secretAccessKey = env.R2_SECRET_ACCESS_KEY || import.meta.env.R2_SECRET_ACCESS_KEY
+  const bucketName = env.R2_BUCKET_NAME || import.meta.env.R2_BUCKET_NAME || 'xtcer-assets'
+
+  try {
+    const { id, slug } = await request.json()
+    if (!id && !slug) return new Response(JSON.stringify({ error: 'Provide id or slug' }), { status: 400 })
+
+    let query = supabase.from('files').select('id, key')
+    if (id) query = query.eq('id', id)
+    else query = query.eq('share_slug', slug)
+    const { data: file } = query.single ? await query.single() : await query.limit(1).maybeSingle()
+
+    if (!file) return new Response(JSON.stringify({ error: 'File not found' }), { status: 404 })
+
+    if (file.key && accountId && accessKeyId && secretAccessKey) {
+      const s3 = new S3Client({
+        region: 'auto',
+        endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+        credentials: { accessKeyId, secretAccessKey },
+      })
+      await s3.send(new DeleteObjectCommand({ Bucket: bucketName, Key: file.key }))
+    }
+
+    await supabase.from('files').delete().eq('id', file.id)
+    return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500 })
   }
