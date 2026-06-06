@@ -41,3 +41,38 @@ ALTER TABLE assets ADD COLUMN IF NOT EXISTS thumbnail_url text;
 **文件:** `src/pages/admin/[slug].astro`, `src/pages/api/upload.ts`, `src/lib/database.types.ts`
 
 **提交:** `865b6e1`
+
+### feat: 文件管理与分享
+
+**功能:**
+- 管理后台文件上传/删除（侧边栏"文件"入口）
+- 存储在 R2 的 `files/` 前缀下
+- 分享链接支持自定义 slug（默认 8 位随机）
+- 可选密码保护
+- 可选过期时间（1小时/1天/7天/30天）
+- 下载次数统计
+- 公开分享页 `/s/:slug`（图片/视频/音频/PDF 在线预览）
+
+**需要执行:**
+```sql
+CREATE TABLE IF NOT EXISTS files (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  key text NOT NULL,
+  url text NOT NULL,
+  filename text NOT NULL,
+  content_type text,
+  size bigint,
+  share_slug text NOT NULL UNIQUE,
+  password text,
+  downloads int DEFAULT 0,
+  expires_at timestamptz,
+  created_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_files_share_slug ON files(share_slug);
+CREATE OR REPLACE FUNCTION increment_downloads(slug text)
+RETURNS void AS $$ BEGIN UPDATE files SET downloads = downloads + 1 WHERE share_slug = slug; END; $$ LANGUAGE plpgsql;
+```
+
+**文件:** `src/pages/admin/files.astro`, `src/pages/s/[slug].astro`, `src/pages/api/files/`, `src/components/Sidebar.astro`, `src/lib/database.types.ts`
+
+**提交:** `29d8fc1`
