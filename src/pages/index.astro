@@ -42,7 +42,7 @@ function stripMarkdown(text: string) {
 <Layout title="XTcer - 技术探索者 | AI情报·安全漏洞·云服务优惠" description="XTcer - 技术探索者，专注前沿技术洞察。AI情报、安全漏洞、云服务优惠、技术深度文章实时推送。Astro + Supabase 构建，极速加载。">
   <nav class="nav">
       <div class="nav-inner">
-        <a href="/" class="nav-logo">XTCer</a>
+        <a href="/" class="nav-logo">XTcer</a>
         <div class="nav-links">
           <a href="/deals" class="nav-link">优惠</a>
           <a href="/feeds" class="nav-link">情报</a>
@@ -58,16 +58,41 @@ function stripMarkdown(text: string) {
     <section class="hero">
       <div class="container">
         <div class="hero-content">
-          <div class="hero-badge">
-            <span class="badge-dot"></span>
-            技术探索者
+          <!-- Brand Logo -->
+          <div class="brand-logo">
+            <div class="logo-wrapper">
+              <span class="logo-xt">XT</span>
+              <span class="logo-cer">cer</span>
+            </div>
+            <div class="logo-glow"></div>
           </div>
-          <h1 class="hero-title">
-            <span class="title-line">eXploring Tech</span>
-            <span class="title-line title-gradient">探索前沿，洞见未来</span>
-          </h1>
-          <p class="hero-desc">AI 情报 · 安全漏洞 · 云服务优惠 · 技术深度</p>
           
+          <!-- Tagline -->
+          <div class="hero-tagline">
+            <span class="tagline-en">eXploring Tech</span>
+            <span class="tagline-divider"></span>
+            <span class="tagline-cn">技术探索者</span>
+          </div>
+          
+          <!-- Slogan -->
+          <h1 class="hero-slogan">
+            <span class="slogan-line">探索前沿</span>
+            <span class="slogan-dot">·</span>
+            <span class="slogan-line slogan-gradient">洞见未来</span>
+          </h1>
+          
+          <!-- Description -->
+          <p class="hero-desc">
+            <span class="desc-item">AI 情报</span>
+            <span class="desc-dot">·</span>
+            <span class="desc-item">安全漏洞</span>
+            <span class="desc-dot">·</span>
+            <span class="desc-item">云服务优惠</span>
+            <span class="desc-dot">·</span>
+            <span class="desc-item">技术深度</span>
+          </p>
+          
+          <!-- Stats -->
           <div class="hero-stats">
             <div class="stat-item glass-card">
               <span class="stat-number">{posts?.length || 0}</span>
@@ -83,32 +108,26 @@ function stripMarkdown(text: string) {
             </div>
           </div>
 
+          <!-- Actions -->
           <div class="hero-actions">
-            <a href="/feeds" class="btn-primary glass-btn-primary">
+            <a href="/feeds" class="btn-primary">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 019 9M4 4a16 16 0 0116 16"/><circle cx="5" cy="19" r="1"/></svg>
               查看情报
             </a>
-            <a href="/about" class="btn-ghost glass-btn-ghost">
+            <a href="/about" class="btn-ghost">
               了解更多
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
             </a>
           </div>
         </div>
 
-        <!-- Floating Cards -->
-        <div class="hero-cards">
-          <div class="floating-card card-1 glass-card">
-            <div class="card-icon">🔒</div>
-            <div class="card-text">安全漏洞</div>
-          </div>
-          <div class="floating-card card-2 glass-card">
-            <div class="card-icon">🤖</div>
-            <div class="card-text">AI 情报</div>
-          </div>
-          <div class="floating-card card-3 glass-card">
-            <div class="card-icon">💰</div>
-            <div class="card-text">云服务优惠</div>
-          </div>
+        <!-- Floating Elements -->
+        <div class="hero-float">
+          <div class="float-orb orb-1"></div>
+          <div class="float-orb orb-2"></div>
+          <div class="float-orb orb-3"></div>
+          <div class="float-ring ring-1"></div>
+          <div class="float-ring ring-2"></div>
         </div>
       </div>
     </section>
@@ -196,7 +215,9 @@ function stripMarkdown(text: string) {
     <div class="container-wide">
       <div class="footer-inner">
         <div class="footer-brand">
-          <span class="footer-logo">XTcer</span>
+          <div class="footer-logo">
+            <span class="logo-xt">XT</span><span class="logo-cer">cer</span>
+          </div>
           <span class="footer-slogan">探索前沿，洞见未来</span>
         </div>
         <div class="footer-links">
@@ -217,65 +238,148 @@ function stripMarkdown(text: string) {
 <style>
   /* Hero Section */
   .hero { 
-    padding: 8rem 0 4rem; 
+    padding: 6rem 0 4rem; 
     text-align: center; 
     position: relative;
     overflow: hidden;
+    min-height: 80vh;
+    display: flex;
+    align-items: center;
   }
   
   .hero-content {
     position: relative;
     z-index: 2;
+    width: 100%;
   }
   
-  .hero-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.375rem 1rem;
-    background: rgba(41,151,255,0.08);
-    border: 1px solid rgba(41,151,255,0.15);
-    border-radius: 999px;
-    font-size: 0.8125rem;
-    color: var(--primary);
+  /* Brand Logo */
+  .brand-logo {
+    position: relative;
+    display: inline-block;
     margin-bottom: 2rem;
-    font-weight: 500;
-    animation: fadeIn 0.5s ease-out;
+    animation: fadeIn 0.8s ease-out;
   }
   
-  .badge-dot {
-    width: 6px;
-    height: 6px;
-    background: var(--primary);
-    border-radius: 50%;
-    animation: pulse 2s infinite;
+  .logo-wrapper {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0;
+    font-size: 5rem;
+    font-weight: 900;
+    letter-spacing: -0.05em;
+    line-height: 1;
   }
   
-  .hero-title {
-    font-size: clamp(2.5rem, 6vw, 4.5rem);
-    font-weight: 800;
-    letter-spacing: -0.04em;
-    line-height: 1.1;
+  .logo-xt {
+    background: linear-gradient(135deg, #2997ff 0%, #00d4ff 50%, #bf5af2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    background-size: 200% 200%;
+    animation: gradientShift 4s ease infinite;
+    position: relative;
+  }
+  
+  .logo-xt::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #2997ff, #bf5af2, #00ffff);
+    border-radius: 2px;
+    animation: glowPulse 2s ease-in-out infinite;
+  }
+  
+  .logo-cer {
+    color: var(--text);
+    opacity: 0.9;
+  }
+  
+  .logo-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(41,151,255,0.15) 0%, transparent 50%);
+    pointer-events: none;
+    animation: glowBreath 3s ease-in-out infinite;
+  }
+  
+  @keyframes gradientShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+  
+  @keyframes glowPulse {
+    0%, 100% { opacity: 0.5; transform: scaleX(0.8); }
+    50% { opacity: 1; transform: scaleX(1); }
+  }
+  
+  @keyframes glowBreath {
+    0%, 100% { opacity: 0.3; transform: translate(-50%, -50%) scale(0.8); }
+    50% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+  }
+  
+  /* Tagline */
+  .hero-tagline {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
     margin-bottom: 1.5rem;
     animation: slideUp 0.6s ease-out;
   }
   
-  .title-line {
-    display: block;
-    background: linear-gradient(135deg, #fff 20%, rgba(255,255,255,0.6) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  .tagline-en {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
   }
   
-  :root.light .title-line {
-    background: linear-gradient(135deg, #1d1d1f 20%, rgba(29,29,31,0.6) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  .tagline-divider {
+    width: 24px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+    border-radius: 1px;
   }
   
-  .title-gradient {
+  .tagline-cn {
+    font-size: 1.125rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  
+  /* Slogan */
+  .hero-slogan {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
+    margin-bottom: 1.5rem;
+    animation: slideUp 0.7s ease-out;
+  }
+  
+  .slogan-line {
+    display: inline;
+    color: var(--text);
+  }
+  
+  .slogan-dot {
+    display: inline;
+    color: var(--primary);
+    margin: 0 0.5rem;
+    font-weight: 300;
+  }
+  
+  .slogan-gradient {
     background: linear-gradient(135deg, #2997ff 0%, #bf5af2 50%, #00ffff 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -284,62 +388,104 @@ function stripMarkdown(text: string) {
     animation: gradientShift 3s ease infinite;
   }
   
-  @keyframes gradientShift {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
+  :root.light .slogan-line {
+    color: #1d1d1f;
   }
   
+  /* Description */
   .hero-desc {
-    font-size: 1.125rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 1rem;
     color: var(--text-muted);
     margin-bottom: 3rem;
-    animation: slideUp 0.7s ease-out;
+    animation: slideUp 0.8s ease-out;
   }
   
+  .desc-item {
+    padding: 0.375rem 1rem;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 999px;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+  }
+  
+  .desc-item:hover {
+    background: rgba(41,151,255,0.1);
+    border-color: rgba(41,151,255,0.2);
+    color: var(--primary);
+  }
+  
+  :root.light .desc-item {
+    background: rgba(0,0,0,0.03);
+    border-color: rgba(0,0,0,0.06);
+  }
+  
+  .desc-dot {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+  }
+  
+  /* Stats */
   .hero-stats {
     display: flex;
     justify-content: center;
     gap: 1rem;
     margin-bottom: 3rem;
-    animation: slideUp 0.8s ease-out;
+    animation: slideUp 0.9s ease-out;
   }
   
   .stat-item {
-    padding: 1rem 1.5rem;
+    padding: 1.25rem 1.75rem;
     text-align: center;
-    min-width: 120px;
+    min-width: 130px;
+    transition: all 0.2s ease;
+  }
+  
+  .stat-item:hover {
+    transform: translateY(-2px);
+    border-color: var(--glass-border-hover);
   }
   
   .stat-number {
     display: block;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--primary);
-    margin-bottom: 0.25rem;
+    font-size: 1.75rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #2997ff, #bf5af2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.375rem;
   }
   
   .stat-label {
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     color: var(--text-muted);
+    font-weight: 500;
   }
   
+  /* Actions */
   .hero-actions {
     display: flex;
     justify-content: center;
     gap: 1rem;
-    animation: slideUp 0.9s ease-out;
+    animation: slideUp 1s ease-out;
   }
   
   .btn-primary, .btn-ghost {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    border-radius: 12px;
-    font-size: 0.9375rem;
-    font-weight: 500;
+    gap: 0.625rem;
+    padding: 0.875rem 2rem;
+    border-radius: 14px;
+    font-size: 1rem;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.25s ease;
     text-decoration: none;
   }
   
@@ -347,86 +493,149 @@ function stripMarkdown(text: string) {
     background: linear-gradient(135deg, #2997ff 0%, #0077ed 100%);
     color: white;
     border: none;
-    box-shadow: 0 4px 12px rgba(41, 151, 255, 0.3);
+    box-shadow: 0 4px 16px rgba(41,151,255,0.3);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s ease;
   }
   
   .btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(41, 151, 255, 0.4);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(41,151,255,0.4);
     color: white;
   }
   
+  .btn-primary:hover::before {
+    left: 100%;
+  }
+  
   .btn-ghost {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(255,255,255,0.03);
     color: var(--text);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255,255,255,0.08);
   }
   
   .btn-ghost:hover {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255,255,255,0.15);
     color: var(--text);
+    transform: translateY(-2px);
   }
   
   :root.light .btn-ghost {
-    background: rgba(255, 255, 255, 0.8);
-    border-color: rgba(0, 0, 0, 0.08);
+    background: rgba(0,0,0,0.03);
+    border-color: rgba(0,0,0,0.08);
   }
   
   :root.light .btn-ghost:hover {
-    background: rgba(255, 255, 255, 0.9);
-    border-color: rgba(0, 0, 0, 0.15);
+    background: rgba(0,0,0,0.06);
+    border-color: rgba(0,0,0,0.15);
   }
   
-  /* Floating Cards */
-  .hero-cards {
+  /* Floating Elements */
+  .hero-float {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 100%;
-    height: 100%;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     pointer-events: none;
     z-index: 1;
   }
   
-  .floating-card {
+  .float-orb {
     position: absolute;
-    padding: 1rem 1.25rem;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    pointer-events: auto;
-    cursor: default;
-    animation: float 6s ease-in-out infinite;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.3;
   }
   
-  .card-1 {
-    top: 20%;
-    left: 10%;
-    animation-delay: 0s;
+  :root.light .float-orb {
+    opacity: 0.15;
   }
   
-  .card-2 {
-    top: 30%;
-    right: 10%;
-    animation-delay: -2s;
-  }
-  
-  .card-3 {
-    bottom: 25%;
+  .orb-1 {
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(41,151,255,0.4), transparent 70%);
+    top: 10%;
     left: 15%;
-    animation-delay: -4s;
+    animation: float1 8s ease-in-out infinite;
   }
   
-  .card-icon {
-    font-size: 1.5rem;
+  .orb-2 {
+    width: 250px;
+    height: 250px;
+    background: radial-gradient(circle, rgba(191,90,242,0.3), transparent 70%);
+    top: 60%;
+    right: 10%;
+    animation: float2 10s ease-in-out infinite;
   }
   
-  .card-text {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text);
+  .orb-3 {
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(0,255,255,0.2), transparent 70%);
+    bottom: 20%;
+    left: 30%;
+    animation: float3 12s ease-in-out infinite;
+  }
+  
+  .float-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(41,151,255,0.1);
+  }
+  
+  .ring-1 {
+    width: 400px;
+    height: 400px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation: ringPulse 4s ease-in-out infinite;
+  }
+  
+  .ring-2 {
+    width: 300px;
+    height: 300px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation: ringPulse 4s ease-in-out infinite 1s;
+  }
+  
+  @keyframes float1 {
+    0%, 100% { transform: translate(0, 0); }
+    33% { transform: translate(30px, -20px); }
+    66% { transform: translate(-20px, 30px); }
+  }
+  
+  @keyframes float2 {
+    0%, 100% { transform: translate(0, 0); }
+    33% { transform: translate(-25px, 25px); }
+    66% { transform: translate(35px, -15px); }
+  }
+  
+  @keyframes float3 {
+    0%, 100% { transform: translate(0, 0); }
+    33% { transform: translate(20px, 30px); }
+    66% { transform: translate(-30px, -20px); }
+  }
+  
+  @keyframes ringPulse {
+    0%, 100% { opacity: 0.3; transform: translate(-50%, -50%) scale(0.8); }
+    50% { opacity: 0.6; transform: translate(-50%, -50%) scale(1.1); }
   }
   
   @keyframes fadeIn {
@@ -435,13 +644,8 @@ function stripMarkdown(text: string) {
   }
   
   @keyframes slideUp {
-    from { opacity: 0; transform: translateY(20px); }
+    from { opacity: 0; transform: translateY(30px); }
     to { opacity: 1; transform: translateY(0); }
-  }
-  
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(0.8); }
   }
 
   /* Section Headers */
@@ -454,17 +658,18 @@ function stripMarkdown(text: string) {
   
   .section-header h2 { 
     font-size: 1.375rem; 
-    font-weight: 600; 
+    font-weight: 700; 
     letter-spacing: -0.01em;
   }
   
   .count { 
     font-size: 0.8125rem; 
     color: var(--text-muted); 
-    padding: 0.25rem 0.75rem;
+    padding: 0.375rem 1rem;
     background: rgba(255,255,255,0.03);
     border-radius: 999px;
     border: 1px solid rgba(255,255,255,0.06);
+    font-weight: 500;
   }
   
   :root.light .count {
@@ -481,7 +686,7 @@ function stripMarkdown(text: string) {
     font-size: 0.75rem; 
     color: var(--text-muted); 
     text-transform: uppercase; 
-    letter-spacing: 0.08em; 
+    letter-spacing: 0.1em; 
     margin-bottom: 1rem; 
     font-weight: 600; 
   }
@@ -503,7 +708,6 @@ function stripMarkdown(text: string) {
   
   .link-card:hover { 
     color: var(--text); 
-    transform: translateY(-2px);
   }
   
   .link-icon { 
@@ -530,6 +734,7 @@ function stripMarkdown(text: string) {
     font-size: 0.8125rem; 
     color: var(--text-muted); 
     transition: color 0.2s;
+    font-weight: 500;
   }
   
   .see-all:hover { color: var(--text); }
@@ -544,7 +749,7 @@ function stripMarkdown(text: string) {
     display: flex; 
     align-items: center; 
     gap: 0.75rem;
-    padding: 0.75rem 1rem; 
+    padding: 0.875rem 1rem; 
     cursor: pointer;
     text-decoration: none; 
     color: var(--text-secondary);
@@ -553,7 +758,6 @@ function stripMarkdown(text: string) {
   
   .feed-row:hover { 
     color: var(--text); 
-    transform: translateX(4px);
   }
   
   .feed-priority { 
@@ -565,11 +769,16 @@ function stripMarkdown(text: string) {
     animation: pulse 2s infinite; 
   }
   
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+  
   .feed-type-badge {
     padding: 0.125rem 0.5rem; 
     border-radius: 999px;
     font-size: 0.6875rem; 
-    font-weight: 500; 
+    font-weight: 600; 
     flex-shrink: 0;
     background: rgba(41,151,255,0.08); 
     color: var(--primary);
@@ -601,6 +810,7 @@ function stripMarkdown(text: string) {
     color: var(--text-muted); 
     flex-shrink: 0; 
     margin-left: auto; 
+    font-weight: 500;
   }
 
   /* Posts Section */
@@ -618,12 +828,11 @@ function stripMarkdown(text: string) {
     justify-content: space-between; 
     padding: 1.5rem; 
     cursor: pointer; 
-    transition: all 0.2s ease;
+    transition: all 0.25s ease;
   }
   
   .post-card:hover { 
     color: var(--text); 
-    transform: translateY(-4px);
   }
   
   .post-card h3 { 
@@ -650,6 +859,7 @@ function stripMarkdown(text: string) {
     margin-top: 1.25rem; 
     font-size: 0.75rem; 
     color: var(--text-muted); 
+    font-weight: 500;
   }
 
   /* Footer */
@@ -669,20 +879,28 @@ function stripMarkdown(text: string) {
   .footer-brand {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.375rem;
   }
   
   .footer-logo {
-    font-size: 1.125rem;
-    font-weight: 700;
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  
+  .footer-logo .logo-xt {
     background: linear-gradient(135deg, #2997ff, #bf5af2);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
   
+  .footer-logo .logo-cer {
+    color: var(--text);
+  }
+  
   .footer-slogan {
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     color: var(--text-muted);
     font-style: italic;
   }
@@ -694,8 +912,9 @@ function stripMarkdown(text: string) {
   
   .footer-links a { 
     color: var(--text-muted); 
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     transition: color 0.2s;
+    font-weight: 500;
   }
   
   .footer-links a:hover { color: var(--text); }
@@ -704,11 +923,21 @@ function stripMarkdown(text: string) {
     padding-top: 1.5rem;
     border-top: 1px solid var(--border);
     text-align: center;
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     color: var(--text-muted);
   }
 
   /* Navigation Overrides */
+  .nav-logo {
+    font-size: 1.125rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #2997ff, #bf5af2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
   .nav-links { display: flex; gap: 1.25rem; align-items: center; }
   .nav-search-btn {
     background: none; border: none; color: var(--text-muted); cursor: pointer;
@@ -720,17 +949,65 @@ function stripMarkdown(text: string) {
   /* Responsive */
   @media (max-width: 1024px) { 
     .posts-grid { grid-template-columns: repeat(2, 1fr); } 
-    .floating-card { display: none; }
+    .float-orb { display: none; }
+    .float-ring { display: none; }
   }
   
   @media (max-width: 640px) {
-    .hero { padding: 4rem 0 2rem; }
-    .hero-title { font-size: 2rem; }
-    .hero-desc { font-size: 1rem; margin-bottom: 2rem; }
-    .hero-stats { flex-direction: column; align-items: center; gap: 0.75rem; }
-    .stat-item { width: 100%; max-width: 200px; }
-    .hero-actions { flex-direction: column; align-items: center; }
-    .btn-primary, .btn-ghost { width: 100%; max-width: 280px; justify-content: center; }
+    .hero { 
+      padding: 4rem 0 2rem; 
+      min-height: auto;
+    }
+    
+    .logo-wrapper {
+      font-size: 3.5rem;
+    }
+    
+    .hero-tagline {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    
+    .tagline-divider {
+      width: 2px;
+      height: 16px;
+    }
+    
+    .hero-slogan {
+      font-size: 1.75rem;
+    }
+    
+    .hero-desc {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    
+    .desc-dot {
+      display: none;
+    }
+    
+    .hero-stats { 
+      flex-direction: column; 
+      align-items: center; 
+      gap: 0.75rem; 
+    }
+    
+    .stat-item { 
+      width: 100%; 
+      max-width: 220px; 
+    }
+    
+    .hero-actions { 
+      flex-direction: column; 
+      align-items: center; 
+    }
+    
+    .btn-primary, .btn-ghost { 
+      width: 100%; 
+      max-width: 280px; 
+      justify-content: center; 
+    }
+    
     .posts-grid { grid-template-columns: 1fr; }
     .post-card { padding: 1.25rem; }
     .links-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
@@ -739,7 +1016,7 @@ function stripMarkdown(text: string) {
     .feed-summary { display: none; }
     .footer-inner { flex-direction: column; gap: 1.25rem; text-align: center; }
     .footer-brand { align-items: center; }
-    .footer-links { gap: 1.5rem; }
+    .footer-links { gap: 1.5rem; flex-wrap: wrap; justify-content: center; }
     .section-header h2 { font-size: 1.25rem; }
   }
 </style>
