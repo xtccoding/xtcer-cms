@@ -966,44 +966,47 @@ function stripMarkdown(text: string) {
     setTimeout(() => (document.getElementById('search-input') as HTMLInputElement)?.focus(), 50)
   })
   
-  // Particle System with Breathing Rings
+  // Wave Particle System
   class ParticleSystem {
     private canvas: HTMLCanvasElement
     private ctx: CanvasRenderingContext2D
     private particles: Array<{
       x: number
       y: number
-      vx: number
-      vy: number
+      baseX: number
+      baseY: number
       size: number
       opacity: number
-      color: string
-    }> = []
-    private rings: Array<{
-      x: number
-      y: number
-      radius: number
-      maxRadius: number
-      opacity: number
       speed: number
-      color: string
+      angle: number
+      amplitude: number
+      frequency: number
     }> = []
     private animationId: number = 0
-    private mouse: { x: number; y: number } = { x: 0, y: 0 }
+    private mouse: { x: number; y: number } = { x: -1000, y: -1000 }
     private time: number = 0
+    private cols: number = 0
+    private rows: number = 0
+    private spacing: number = 18
     
     constructor(canvas: HTMLCanvasElement) {
       this.canvas = canvas
       this.ctx = canvas.getContext('2d')!
       this.resize()
       this.init()
-      this.initRings()
       this.animate()
       
-      window.addEventListener('resize', () => this.resize())
+      window.addEventListener('resize', () => {
+        this.resize()
+        this.init()
+      })
       window.addEventListener('mousemove', (e) => {
         this.mouse.x = e.clientX
         this.mouse.y = e.clientY
+      })
+      window.addEventListener('mouseout', () => {
+        this.mouse.x = -1000
+        this.mouse.y = -1000
       })
     }
     
@@ -1013,192 +1016,136 @@ function stripMarkdown(text: string) {
     }
     
     init() {
-      const count = Math.min(60, Math.floor(window.innerWidth / 20))
-      const colors = ['41,151,255', '191,90,242', '0,212,255', '48,209,88']
+      this.particles = []
+      this.cols = Math.ceil(this.canvas.width / this.spacing) + 2
+      this.rows = Math.ceil(this.canvas.height / this.spacing) + 2
       
-      for (let i = 0; i < count; i++) {
-        this.particles.push({
-          x: Math.random() * this.canvas.width,
-          y: Math.random() * this.canvas.height,
-          vx: (Math.random() - 0.5) * 0.4,
-          vy: (Math.random() - 0.5) * 0.4,
-          size: Math.random() * 2 + 0.5,
-          opacity: Math.random() * 0.4 + 0.1,
-          color: colors[Math.floor(Math.random() * colors.length)]
-        })
+      for (let row = 0; row < this.rows; row++) {
+        for (let col = 0; col < this.cols; col++) {
+          const x = col * this.spacing
+          const y = row * this.spacing
+          
+          this.particles.push({
+            x,
+            y,
+            baseX: x,
+            baseY: y,
+            size: Math.random() * 1.5 + 0.5,
+            opacity: Math.random() * 0.3 + 0.1,
+            speed: Math.random() * 0.02 + 0.01,
+            angle: Math.random() * Math.PI * 2,
+            amplitude: Math.random() * 15 + 5,
+            frequency: Math.random() * 0.03 + 0.01
+          })
+        }
       }
     }
     
-    initRings() {
-      const centerX = this.canvas.width / 2
-      const centerY = this.canvas.height / 2
-      const colors = ['41,151,255', '191,90,242', '0,212,255']
+    drawParticle(x: number, y: number, size: number, opacity: number) {
+      // Blue-cyan gradient based on position
+      const gradient = this.ctx.createRadialGradient(x, y, 0, x, y, size * 2)
+      gradient.addColorStop(0, `rgba(41, 151, 255, ${opacity})`)
+      gradient.addColorStop(1, `rgba(0, 212, 255, ${opacity * 0.3})`)
       
-      // Create multiple rings at different positions
-      const ringPositions = [
-        { x: centerX, y: centerY, maxRadius: 250 },
-        { x: centerX - 200, y: centerY + 100, maxRadius: 180 },
-        { x: centerX + 250, y: centerY - 80, maxRadius: 200 },
-      ]
-      
-      ringPositions.forEach((pos, i) => {
-        // Each position has multiple rings for layered effect
-        for (let j = 0; j < 3; j++) {
-          this.rings.push({
-            x: pos.x,
-            y: pos.y,
-            radius: 0,
-            maxRadius: pos.maxRadius,
-            opacity: 0.1 - j * 0.025,
-            speed: 0.15 + j * 0.05,
-            color: colors[i % colors.length]
-          })
-        }
-      })
-    }
-    
-    drawParticle(p: typeof this.particles[0]) {
       this.ctx.beginPath()
-      this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
-      this.ctx.fillStyle = `rgba(${p.color}, ${p.opacity})`
+      this.ctx.arc(x, y, size, 0, Math.PI * 2)
+      this.ctx.fillStyle = gradient
       this.ctx.fill()
     }
     
     drawConnections() {
+      const connectionDist = 25
+      
       for (let i = 0; i < this.particles.length; i++) {
-        for (let j = i + 1; j < this.particles.length; j++) {
-          const dx = this.particles[i].x - this.particles[j].x
-          const dy = this.particles[i].y - this.particles[j].y
+        const p1 = this.particles[i]
+        
+        // Check nearby particles
+        for (let j = i + 1; j < Math.min(i + 5, this.particles.length); j++) {
+          const p2 = this.particles[j]
+          const dx = p1.x - p2.x
+          const dy = p1.y - p2.y
           const dist = Math.sqrt(dx * dx + dy * dy)
           
-          if (dist < 120) {
-            const opacity = (1 - dist / 120) * 0.12
+          if (dist < connectionDist) {
+            const opacity = (1 - dist / connectionDist) * 0.15
             this.ctx.beginPath()
-            this.ctx.moveTo(this.particles[i].x, this.particles[i].y)
-            this.ctx.lineTo(this.particles[j].x, this.particles[j].y)
+            this.ctx.moveTo(p1.x, p1.y)
+            this.ctx.lineTo(p2.x, p2.y)
             this.ctx.strokeStyle = `rgba(41, 151, 255, ${opacity})`
-            this.ctx.lineWidth = 0.5
+            this.ctx.lineWidth = 0.3
             this.ctx.stroke()
           }
         }
       }
     }
     
-    drawBreathingRings() {
-      this.rings.forEach(ring => {
-        // Update ring radius
-        ring.radius += ring.speed
-        
-        // Reset when reaching max radius
-        if (ring.radius >= ring.maxRadius) {
-          ring.radius = 0
-        }
-        
-        // Calculate opacity based on radius (fade out as it expands)
-        const progress = ring.radius / ring.maxRadius
-        const currentOpacity = ring.opacity * (1 - progress * progress)
-        
-        if (currentOpacity > 0.01) {
-          this.ctx.beginPath()
-          this.ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2)
-          this.ctx.strokeStyle = `rgba(${ring.color}, ${currentOpacity})`
-          this.ctx.lineWidth = 1.5
-          this.ctx.stroke()
-          
-          // Add subtle glow effect
-          this.ctx.beginPath()
-          this.ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2)
-          this.ctx.strokeStyle = `rgba(${ring.color}, ${currentOpacity * 0.3})`
-          this.ctx.lineWidth = 4
-          this.ctx.stroke()
-        }
-      })
+    drawMousePulse() {
+      if (this.mouse.x < 0 || this.mouse.y < 0) return
       
-      const pulse = Math.sin(this.time * 0.004) * 0.5 + 0.5
+      const pulse = Math.sin(this.time * 0.03) * 0.5 + 0.5
       
-      // Center pulse (fixed position)
-      const centerX = this.canvas.width / 2
-      const centerY = this.canvas.height / 2
-      
-      // Outer
+      // Outer ring
       this.ctx.beginPath()
-      this.ctx.arc(centerX, centerY, 150 + pulse * 15, 0, Math.PI * 2)
-      this.ctx.strokeStyle = `rgba(41, 151, 255, ${0.035 + pulse * 0.015})`
+      this.ctx.arc(this.mouse.x, this.mouse.y, 60 + pulse * 15, 0, Math.PI * 2)
+      this.ctx.strokeStyle = `rgba(41, 151, 255, ${0.08 + pulse * 0.04})`
       this.ctx.lineWidth = 1
       this.ctx.stroke()
       
-      // Middle
+      // Inner ring
       this.ctx.beginPath()
-      this.ctx.arc(centerX, centerY, 100 + pulse * 10, 0, Math.PI * 2)
-      this.ctx.strokeStyle = `rgba(191, 90, 242, ${0.03 + pulse * 0.01})`
+      this.ctx.arc(this.mouse.x, this.mouse.y, 30 + pulse * 8, 0, Math.PI * 2)
+      this.ctx.strokeStyle = `rgba(0, 212, 255, ${0.06 + pulse * 0.03})`
       this.ctx.lineWidth = 1
       this.ctx.stroke()
       
-      // Inner
-      this.ctx.beginPath()
-      this.ctx.arc(centerX, centerY, 50 + pulse * 8, 0, Math.PI * 2)
-      this.ctx.strokeStyle = `rgba(0, 212, 255, ${0.025 + pulse * 0.01})`
-      this.ctx.lineWidth = 1
-      this.ctx.stroke()
-      
-      // Mouse pulse (follows cursor)
-      if (this.mouse.x > 0 && this.mouse.y > 0) {
-        const mousePulse = Math.sin(this.time * 0.006 + 1) * 0.5 + 0.5
-        
-        this.ctx.beginPath()
-        this.ctx.arc(this.mouse.x, this.mouse.y, 80 + mousePulse * 10, 0, Math.PI * 2)
-        this.ctx.strokeStyle = `rgba(41, 151, 255, ${0.025 + mousePulse * 0.01})`
-        this.ctx.lineWidth = 1
-        this.ctx.stroke()
-        
-        this.ctx.beginPath()
-        this.ctx.arc(this.mouse.x, this.mouse.y, 40 + mousePulse * 6, 0, Math.PI * 2)
-        this.ctx.strokeStyle = `rgba(0, 212, 255, ${0.02 + mousePulse * 0.008})`
-        this.ctx.lineWidth = 1
-        this.ctx.stroke()
-      }
-      this.ctx.lineWidth = 1
-      this.ctx.stroke()
+      // Center glow
+      const glow = this.ctx.createRadialGradient(
+        this.mouse.x, this.mouse.y, 0,
+        this.mouse.x, this.mouse.y, 100
+      )
+      glow.addColorStop(0, `rgba(41, 151, 255, ${0.03 + pulse * 0.02})`)
+      glow.addColorStop(1, 'rgba(41, 151, 255, 0)')
+      this.ctx.fillStyle = glow
+      this.ctx.fillRect(this.mouse.x - 100, this.mouse.y - 100, 200, 200)
     }
     
     animate() {
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
       this.time++
       
-      // Draw breathing rings first (behind particles)
-      this.drawBreathingRings()
-      
       // Update and draw particles
       this.particles.forEach(p => {
-        p.x += p.vx
-        p.y += p.vy
+        // Wave animation
+        const wave1 = Math.sin(p.baseX * 0.01 + this.time * 0.02) * p.amplitude
+        const wave2 = Math.cos(p.baseY * 0.01 + this.time * 0.015) * p.amplitude * 0.5
+        const wave3 = Math.sin((p.baseX + p.baseY) * 0.005 + this.time * 0.01) * p.amplitude * 0.3
+        
+        p.x = p.baseX + wave1 + wave3
+        p.y = p.baseY + wave2 + wave3
         
         // Mouse interaction
         const dx = this.mouse.x - p.x
         const dy = this.mouse.y - p.y
         const dist = Math.sqrt(dx * dx + dy * dy)
         
-        if (dist < 180) {
-          const force = (180 - dist) / 180
-          p.vx -= (dx / dist) * force * 0.015
-          p.vy -= (dy / dist) * force * 0.015
+        if (dist < 150) {
+          const force = (150 - dist) / 150
+          const angle = Math.atan2(dy, dx)
+          p.x += Math.cos(angle) * force * 20
+          p.y += Math.sin(angle) * force * 20
+          
+          // Increase opacity near mouse
+          const nearOpacity = 0.3 + force * 0.4
+          const nearSize = p.size + force * 1.5
+          this.drawParticle(p.x, p.y, nearSize, nearOpacity)
+        } else {
+          this.drawParticle(p.x, p.y, p.size, p.opacity)
         }
-        
-        // Boundary check
-        if (p.x < 0 || p.x > this.canvas.width) p.vx *= -1
-        if (p.y < 0 || p.y > this.canvas.height) p.vy *= -1
-        
-        // Speed limit
-        const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy)
-        if (speed > 1.2) {
-          p.vx = (p.vx / speed) * 1.2
-          p.vy = (p.vy / speed) * 1.2
-        }
-        
-        this.drawParticle(p)
       })
       
       this.drawConnections()
+      this.drawMousePulse()
+      
       this.animationId = requestAnimationFrame(() => this.animate())
     }
   }
