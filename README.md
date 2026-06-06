@@ -35,6 +35,7 @@
 | 💰 优惠 | 云服务产品目录，外部 cron 推送 | ✅ |
 | 📡 情报 | 8 类情报流，3 层防重，多 bot 推送 | ✅ |
 | 🖼 图床 | R2 存储 + hash 去重 + 标签系统 + 搜索 + 灯箱 | ✅ |
+| 📁 文件 | 文件存储 + 分享链接 + 密码保护 + 过期 + 下载统计 | ✅ |
 | 👁 访客 | 自动记录 + 统计 + IP 黑名单 | ✅ |
 | 🔍 搜索 | 全局搜索（Cmd+K / Ctrl+K） | ✅ |
 | 📊 SEO | sitemap.xml + OG meta + RSS + Schema.org | ✅ |
@@ -89,7 +90,9 @@ src/
 │   │   ├── deals.astro            # 优惠管理
 │   │   ├── feeds.astro            # 情报管理
 │   │   ├── links.astro            # 导航管理
+│   │   ├── files.astro            # 文件管理 + 分享
 │   │   └── visitors.astro         # 访客统计 + 黑名单
+│   ├── s/[slug].astro             # 文件分享页（公开）
 │   └── api/
 │       ├── posts/                 # 文章 CRUD + 浏览量
 │       ├── deals/                 # 优惠 CRUD + 批量 upsert
@@ -97,6 +100,7 @@ src/
 │       ├── links/                 # 导航 CRUD
 │       ├── visitors/              # 访客统计 + 记录
 │       ├── blacklist/             # 黑名单管理
+│       ├── files/                 # 文件管理 + 分享 + 密码验证
 │       ├── search.ts              # 全文搜索
 │       └── ai/index.ts            # AI 写作助手
 ├── astro.config.mjs
@@ -141,6 +145,7 @@ FEED_API_KEY=your-feed-api-key
 | `blacklist` | IP 黑名单 | `ip UNIQUE` |
 | `deals` | 云服务优惠 | `UNIQUE(provider, product)` |
 | `feeds` | 情报流 | `UNIQUE(feed_type, title)` + `url_hash` |
+| `files` | 文件分享 | `share_slug UNIQUE` + 密码 + 过期 |
 
 所有表启用 RLS，策略为全开放（写入安全靠 API 层认证）。
 
@@ -204,6 +209,13 @@ Cloudflare Pages 自动构建部署。
 | `/api/visitors` | GET | Cookie | 访客统计 |
 | `/api/visitors/track` | POST | 公开 | 记录访客 |
 | `/api/blacklist` | GET / POST / DELETE | Cookie | 黑名单 |
+| `/api/files` | GET | Cookie | 文件列表 |
+| `/api/files` | POST | Cookie | 上传文件（FormData: file, slug, password, expires） |
+| `/api/files` | PUT | Cookie | 更新分享设置（slug, password, expires） |
+| `/api/files` | DELETE | Cookie | 删除文件 |
+| `/api/files/verify` | POST | 公开 | 验证文件密码 |
+| `/api/files/download` | POST | 公开 | 下载计数 +1 |
+| `/s/[slug]` | GET | 公开 | 文件分享页 |
 | `/api/search` | GET | 公开 | 全文搜索 |
 | `/api/ai` | POST | Cookie | AI 写作助手 |
 
@@ -292,6 +304,33 @@ curl -X POST https://xtcer.cn/api/posts \
 
 ---
 
+## 文件分享系统（Files）
+
+### 功能
+
+| 功能 | 说明 |
+|------|------|
+| R2 存储 | 文件存于 `files/` 前缀，与图床分开 |
+| 自定义链接 | 上传时可设置自定义 slug，默认 8 位随机 |
+| 密码保护 | 可选密码，访问时需验证 |
+| 过期时间 | 支持 1 小时 / 1 天 / 7 天 / 30 天 |
+| 下载统计 | 记录下载次数 |
+| 在线预览 | 图片 / 视频 / 音频 / PDF 在线预览 |
+| 分享页 | `/s/:slug` 公开分享页，无需登录 |
+
+### 文件 API
+
+| 路径 | 方法 | 认证 | 说明 |
+|------|------|------|------|
+| `/api/files` | GET | Cookie | 文件列表（分页） |
+| `/api/files` | POST | Cookie | 上传（FormData: file, slug?, password?, expires?） |
+| `/api/files` | PUT | Cookie | 更新（share_slug, password, expires_at） |
+| `/api/files` | DELETE | Cookie | 删除（同时删除 R2 文件） |
+| `/api/files/verify` | POST | 公开 | 密码验证 |
+| `/api/files/download` | POST | 公开 | 下载计数 |
+
+---
+
 ## 情报系统（Alpha Feed）
 
 ### 8 大情报分类
@@ -345,6 +384,7 @@ Hermes (Bot 1)                    Junier (Bot 2)
 | `/feeds` | 情报流（8 分类 Tab + 优先级标记） |
 | `/about` | 关于我们 |
 | `/contact` | 联系我们 |
+| `/s/[slug]` | 文件分享页（密码保护 + 过期 + 预览） |
 | `/privacy` | 隐私政策 |
 | `/tos` | 服务条款 |
 | `/rss.xml` | RSS 订阅 |
@@ -363,6 +403,7 @@ Hermes (Bot 1)                    Junier (Bot 2)
 | `/admin/feeds` | 情报管理 |
 | `/admin/links` | 导航管理 |
 | `/admin/[slug]` | 图床管理（随机入口，搜索/标签/灯箱） |
+| `/admin/files` | 文件管理 + 分享链接 |
 | `/admin/visitors` | 访客统计 + 黑名单 |
 
 ---
@@ -412,7 +453,6 @@ Hermes (Bot 1)                    Junier (Bot 2)
 - Cloudflare Pages 免费版 Worker 大小限制 3MB
 - Supabase 免费版 500MB 数据库 + 1GB 存储
 - AI 写作助手使用免费模型，可能不稳定
-- 无文件上传功能（可通过 Supabase Storage 扩展）
 
 ---
 

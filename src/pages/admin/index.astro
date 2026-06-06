@@ -9,13 +9,14 @@ if (!ADMIN_PASSWORD) return new Response('ADMIN_PASSWORD not configured', { stat
 const cookie = Astro.cookies.get('admin_auth')
 if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
 
-const [postsRes, linksRes, dealsRes, feedsRes, visitorsRes, blacklistRes] = await Promise.all([
+const [postsRes, linksRes, dealsRes, feedsRes, visitorsRes, blacklistRes, filesRes] = await Promise.all([
   supabase.from('posts').select('id', { count: 'exact', head: true }),
   supabase.from('links').select('id', { count: 'exact', head: true }),
   supabase.from('deals').select('id', { count: 'exact', head: true }),
   supabase.from('feeds').select('id', { count: 'exact', head: true }),
   supabase.from('visitors').select('id', { count: 'exact', head: true }),
   supabase.from('blacklist').select('id', { count: 'exact', head: true }),
+  supabase.from('files').select('id', { count: 'exact', head: true }).catch(() => ({ count: null })),
 ])
 ---
 
@@ -60,6 +61,11 @@ const [postsRes, linksRes, dealsRes, feedsRes, visitorsRes, blacklistRes] = awai
             <div><h3>黑名单 Blacklist</h3><p>IP 封禁管理</p></div>
             <span class="arch-count">{blacklistRes.count ?? 0}</span>
           </div>
+          <div class="arch-item">
+            <span class="arch-icon">📁</span>
+            <div><h3>文件 Files</h3><p>文件存储 + 分享链接 + 密码保护 + 过期</p></div>
+            <span class="arch-count">{filesRes.count ?? '-'}</span>
+          </div>
         </div>
       </section>
 
@@ -96,6 +102,10 @@ const [postsRes, linksRes, dealsRes, feedsRes, visitorsRes, blacklistRes] = awai
             <tr><td><code>/api/ai</code></td><td>AI 写作助手</td><td>Cookie</td></tr>
             <tr><td><code>/api/visitors</code></td><td>访客统计</td><td>Cookie</td></tr>
             <tr><td><code>/api/blacklist</code></td><td>黑名单管理</td><td>Cookie</td></tr>
+            <tr><td><code>/api/files</code></td><td>文件管理（上传/编辑/删除）</td><td>Cookie</td></tr>
+            <tr><td><code>/api/files/verify</code></td><td>文件密码验证</td><td>公开</td></tr>
+            <tr><td><code>/api/files/download</code></td><td>下载计数</td><td>公开</td></tr>
+            <tr><td><code>/s/[slug]</code></td><td>文件分享页</td><td>公开</td></tr>
           </tbody>
         </table>
       </section>
@@ -243,7 +253,28 @@ CREATE INDEX IF NOT EXISTS idx_assets_hash ON assets(content_hash);
 CREATE INDEX IF NOT EXISTS idx_assets_tags ON assets USING GIN (tags);
 ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS allow_all_assets ON assets;
-CREATE POLICY allow_all_assets ON assets FOR ALL USING (true) WITH CHECK (true);</code></pre>
+CREATE POLICY allow_all_assets ON assets FOR ALL USING (true) WITH CHECK (true);
+
+-- ==================== files (文件分享) ====================
+CREATE TABLE IF NOT EXISTS files (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  key TEXT NOT NULL,
+  url TEXT NOT NULL,
+  filename TEXT NOT NULL,
+  content_type TEXT,
+  size BIGINT,
+  share_slug TEXT NOT NULL UNIQUE,
+  password TEXT,
+  downloads INTEGER DEFAULT 0,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_files_share_slug ON files(share_slug);
+ALTER TABLE files ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS allow_all_files ON files;
+CREATE POLICY allow_all_files ON files FOR ALL USING (true) WITH CHECK (true);
+CREATE OR REPLACE FUNCTION increment_downloads(slug TEXT)
+RETURNS VOID AS $$ BEGIN UPDATE files SET downloads = downloads + 1 WHERE share_slug = slug; END; $$ LANGUAGE plpgsql;</code></pre>
         </div>
         <div style="margin-top:1rem">
           <a href="https://supabase.com/dashboard/project/ltwwyznurskgsphujarm/sql" target="_blank" class="btn btn-primary">
