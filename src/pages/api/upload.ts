@@ -26,7 +26,7 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
   const accessKeyId = env.R2_ACCESS_KEY_ID || import.meta.env.R2_ACCESS_KEY_ID
   const secretAccessKey = env.R2_SECRET_ACCESS_KEY || import.meta.env.R2_SECRET_ACCESS_KEY
   const bucketName = env.R2_BUCKET_NAME || import.meta.env.R2_BUCKET_NAME || 'xtcer-assets'
-  const publicUrl = env.R2_PUBLIC_URL || import.meta.env.R2_PUBLIC_URL || 'https://img.xtcer.cn'
+  const publicUrl = env.R2_PUBLIC_URL || import.meta.env.R2_PUBLIC_URL || 'https://oss.xtcer.cn'
 
   if (!accountId || !accessKeyId || !secretAccessKey) {
     return new Response(JSON.stringify({ error: 'R2 not configured' }), { status: 500 })
