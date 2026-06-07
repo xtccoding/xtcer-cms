@@ -355,6 +355,88 @@ const particles = particlesData?.value || {
             </div>
           </div>
         </section>
+
+        <!-- Contact Info -->
+        <section class="settings-section glass-card">
+          <h2>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            联系方式
+          </h2>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>电子邮件</label>
+              <input type="email" id="contact-email" class="input" value={banner.contact_email || 'xtccer@gmail.com'} />
+            </div>
+            <div class="form-group">
+              <label>Twitter/X</label>
+              <input type="text" id="contact-twitter" class="input" value={banner.contact_twitter || '@xt_cer'} />
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>GitHub</label>
+              <input type="text" id="contact-github" class="input" value={banner.contact_github || 'github.com/xtccoding'} />
+            </div>
+            <div class="form-group">
+              <label>GitHub URL</label>
+              <input type="text" id="contact-github-url" class="input" value={banner.contact_github_url || 'https://github.com/xtccoding'} />
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>Twitter URL</label>
+            <input type="text" id="contact-twitter-url" class="input" value={banner.contact_twitter_url || 'https://twitter.com/xt_cer'} />
+          </div>
+        </section>
+
+        <!-- Footer -->
+        <section class="settings-section glass-card">
+          <h2>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
+            页脚设置
+          </h2>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>版权年份</label>
+              <input type="text" id="footer-year" class="input" value={banner.footer_year || '2026'} />
+            </div>
+            <div class="form-group">
+              <label>品牌名称</label>
+              <input type="text" id="footer-brand" class="input" value={banner.footer_brand || 'XTcer'} />
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>页脚 Slogan</label>
+            <input type="text" id="footer-slogan" class="input" value={banner.footer_slogan || '探索前沿，洞见未来'} />
+          </div>
+        </section>
+
+        <!-- SEO -->
+        <section class="settings-section glass-card">
+          <h2>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            SEO 设置
+          </h2>
+          
+          <div class="form-group">
+            <label>网站标题</label>
+            <input type="text" id="seo-title" class="input" value={banner.seo_title || 'XTcer - 技术探索者 | AI情报·安全漏洞·云服务优惠'} />
+          </div>
+          
+          <div class="form-group">
+            <label>网站描述</label>
+            <textarea id="seo-desc" class="input" rows="3">{banner.seo_desc || 'XTcer - 技术探索者，专注前沿技术洞察。AI情报、安全漏洞、云服务优惠、技术深度文章实时推送。'}</textarea>
+          </div>
+          
+          <div class="form-group">
+            <label>OG 图片 URL</label>
+            <input type="text" id="seo-og-image" class="input" value={banner.seo_og_image || '/og-image.svg'} />
+          </div>
+        </section>
       </div>
     </div>
   </div>
@@ -650,7 +732,18 @@ const particles = particlesData?.value || {
           title_dot: (document.getElementById('banner-dot') as HTMLInputElement).value,
           tagline_en: (document.getElementById('banner-tagline-en') as HTMLInputElement).value,
           tagline_cn: (document.getElementById('banner-tagline-cn') as HTMLInputElement).value,
-          desc_items: (document.getElementById('banner-desc') as HTMLTextAreaElement).value.split('\n').filter(Boolean)
+          desc_items: (document.getElementById('banner-desc') as HTMLTextAreaElement).value.split('\n').filter(Boolean),
+          contact_email: (document.getElementById('contact-email') as HTMLInputElement).value,
+          contact_twitter: (document.getElementById('contact-twitter') as HTMLInputElement).value,
+          contact_twitter_url: (document.getElementById('contact-twitter-url') as HTMLInputElement).value,
+          contact_github: (document.getElementById('contact-github') as HTMLInputElement).value,
+          contact_github_url: (document.getElementById('contact-github-url') as HTMLInputElement).value,
+          footer_year: (document.getElementById('footer-year') as HTMLInputElement).value,
+          footer_brand: (document.getElementById('footer-brand') as HTMLInputElement).value,
+          footer_slogan: (document.getElementById('footer-slogan') as HTMLInputElement).value,
+          seo_title: (document.getElementById('seo-title') as HTMLInputElement).value,
+          seo_desc: (document.getElementById('seo-desc') as HTMLTextAreaElement).value,
+          seo_og_image: (document.getElementById('seo-og-image') as HTMLInputElement).value
         }
         
         // Collect particle settings
