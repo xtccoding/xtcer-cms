@@ -1,4 +1,14 @@
+# XTcer - 技术探索者
+# https://xtcer.cn
+
 User-agent: *
 Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /s/
+
+# Block pages.dev domain
+User-agent: *
+Disallow: /
 
 Sitemap: https://xtcer.cn/sitemap.xml
