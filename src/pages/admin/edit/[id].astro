@@ -220,13 +220,23 @@ if (!post) return Astro.redirect('/admin/dashboard')
       saveBtn.textContent = '保存中...'
       saveBtn.disabled = true
       try {
-        const res = await fetch(`/api/posts/${postId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, summary: summaryInput.value.trim(), content: contentInput.value.trim() }) })
+        const res = await fetch(`/api/posts/${postId}`, { 
+          method: 'PUT', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ title, summary: summaryInput.value.trim(), content: contentInput.value.trim() }),
+          credentials: 'include'
+        })
         if (res.ok) {
           saved = true
           ;(window as any).showToast('文章已保存', 'success')
         } else {
           const data = await res.json().catch(() => ({}))
-          ;(window as any).showToast(data.error || '保存失败', 'error')
+          if (res.status === 401) {
+            ;(window as any).showToast('认证失败，请重新登录', 'error')
+            setTimeout(() => { window.location.href = '/admin/login' }, 1000)
+          } else {
+            ;(window as any).showToast(data.error || '保存失败', 'error')
+          }
         }
       } catch {
         ;(window as any).showToast('网络错误', 'error')

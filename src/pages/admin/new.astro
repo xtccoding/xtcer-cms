@@ -205,18 +205,29 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
       saveBtn.textContent = '保存中...'
       saveBtn.disabled = true
       try {
-        const res = await fetch('/api/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, summary: summaryInput.value.trim(), content: contentInput.value.trim() }) })
+        const res = await fetch('/api/posts', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ title, summary: summaryInput.value.trim(), content: contentInput.value.trim() }),
+          credentials: 'include'  // 确保发送 cookie
+        })
         if (res.ok) {
           const post = await res.json()
           ;(window as any).showToast('文章已创建', 'success')
+          // 跳转到编辑页面
           setTimeout(() => { window.location.href = `/admin/edit/${post.id}` }, 500)
         } else {
           const data = await res.json().catch(() => ({}))
-          ;(window as any).showToast(data.error || '保存失败', 'error')
+          if (res.status === 401) {
+            ;(window as any).showToast('认证失败，请重新登录', 'error')
+            setTimeout(() => { window.location.href = '/admin/login' }, 1000)
+          } else {
+            ;(window as any).showToast(data.error || '保存失败', 'error')
+          }
           saveBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>保存'
           saveBtn.disabled = false
         }
-      } catch {
+      } catch (e) {
         ;(window as any).showToast('网络错误', 'error')
         saveBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>保存'
         saveBtn.disabled = false

@@ -115,10 +115,31 @@ const { data: posts } = await supabase
 
 <style>
   .admin-layout { display: flex; min-height: 100vh; }
-  .admin-main { flex: 1; margin-left: 200px; padding: 1.5rem; }
-  .admin-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; }
+  .admin-main { flex: 1; margin-left: 200px; padding: 1.5rem; position: relative; z-index: 1; }
+  .admin-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; position: relative; z-index: 10; }
   .admin-header h1 { font-size: 1.5rem; font-weight: 700; }
   .admin-subtitle { color: var(--text-muted); font-size: 0.8125rem; margin-top: 0.125rem; }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    background: linear-gradient(135deg, #2997ff, #0077ed);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(41, 151, 255, 0.3);
+    color: white;
+  }
 
   .search-box { display: flex; align-items: center; gap: 0.625rem; padding: 0.625rem 0.875rem; margin-bottom: 1rem; }
   .search-input { flex: 1; background: none; border: none; color: var(--text); font-size: 0.8125rem; outline: none; font-family: inherit; }
