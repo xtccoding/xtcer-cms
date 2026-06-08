@@ -109,6 +109,13 @@ export async function GET({ url, request }: { url: URL; request: Request }) {
     // Sort by relevance if requested
     if (sort === 'relevance') {
       results.sort((a, b) => order === 'desc' ? b.relevance - a.relevance : a.relevance - b.relevance)
+    } else {
+      // Sort by time
+      results.sort((a, b) => {
+        const timeA = a.time ? new Date(a.time).getTime() : 0
+        const timeB = b.time ? new Date(b.time).getTime() : 0
+        return order === 'desc' ? timeB - timeA : timeA - timeB
+      })
     }
 
     // Format response for bot compatibility
