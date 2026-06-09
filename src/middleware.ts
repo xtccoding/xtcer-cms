@@ -17,10 +17,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
       return new Response('Not Found', { status: 404 })
     }
     
-    // Redirect custom path to /admin (internal rewrite)
+    // Rewrite custom path to /admin (internal, browser stays at custom path)
     if (path === cleanCustomPath || path.startsWith(cleanCustomPath + '/')) {
       const newPath = path.replace(cleanCustomPath, '/admin')
-      return context.redirect(newPath, 302)
+      const url = new URL(newPath, context.url.origin)
+      return next(new URL(url.pathname + url.search, context.url.origin))
     }
   }
   
