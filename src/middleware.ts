@@ -2,17 +2,50 @@ import { defineMiddleware } from 'astro:middleware'
 import { supabase } from './lib/supabase'
 
 export const onRequest = defineMiddleware(async (context, next) => {
-  if (context.request.method !== 'GET' || context.url.pathname.startsWith('/api/') || context.url.pathname.startsWith('/admin')) {
+  const path = context.url.pathname
+  
+  // Get custom admin path from env
+  const runtimeEnv = (context.locals as any)?.runtime?.env
+  const customAdminPath = runtimeEnv?.ADMIN_PATH || import.meta.env.ADMIN_PATH
+  
+  // If custom admin path is set and request starts with it, rewrite to /admin
+  if (customAdminPath && customAdminPath !== '/admin') {
+    const cleanCustomPath = customAdminPath.startsWith('/') ? customAdminPath : `/${customAdminPath}`
+    
+    if (path.startsWith(cleanCustomPath)) {
+      // Rewrite the URL to /admin
+      const newPath = path.replace(cleanCustomPath, '/admin')
+      const newUrl = new URL(newPath, context.url.origin)
+      
+      // Create a new request with the rewritten URL
+      const newRequest = new Request(newUrl, context.request)
+      
+      // Update the context URL
+      ;(context as any).url = newUrl
+      
+      // Continue with the rewritten URL
+      const response = await next()
+      
+      // Add custom header to indicate the path was rewritten
+      response.headers.set('X-Admin-Path', cleanCustomPath)
+      
+      return response
+    }
+  }
+  
+  // Skip tracking for API and admin routes
+  if (context.request.method !== 'GET' || path.startsWith('/api/') || path.startsWith('/admin')) {
     return next()
   }
 
-  const path = context.url.pathname
+  // Skip non-HTML files
   if (path.includes('.') && !path.endsWith('.html') && !path.endsWith('/')) {
     return next()
   }
 
   const response = await next()
 
+  // Track visitor
   const ip = context.request.headers.get('cf-connecting-ip') ||
              context.request.headers.get('x-forwarded-for') ||
              context.request.headers.get('x-real-ip') ||

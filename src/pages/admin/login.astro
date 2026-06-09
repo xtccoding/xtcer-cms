@@ -1,11 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro'
+import { getAdminPath } from '../../lib/admin-path'
 
 const runtimeEnv = (Astro.locals as any)?.runtime?.env
 const ADMIN_PASSWORD = runtimeEnv?.ADMIN_PASSWORD || import.meta.env.ADMIN_PASSWORD
 if (!ADMIN_PASSWORD) return new Response('ADMIN_PASSWORD not configured', { status: 500 })
 const cookie = Astro.cookies.get('admin_auth')
-if (cookie?.value === ADMIN_PASSWORD) return Astro.redirect('/admin')
+const adminPath = getAdminPath()
+if (cookie?.value === ADMIN_PASSWORD) return Astro.redirect(adminPath)
 
 let error = ''
 if (Astro.request.method === 'POST') {
@@ -17,7 +19,7 @@ if (Astro.request.method === 'POST') {
     Astro.cookies.set('admin_auth', ADMIN_PASSWORD, { path: '/', httpOnly: true, secure: true, sameSite: 'lax', maxAge: 60*60*24*7 })
     Astro.cookies.set('gallery_slug', gallerySlug, { path: '/', httpOnly: true, secure: true, sameSite: 'lax', maxAge: 60*60*24*7 })
     Astro.cookies.set('files_slug', filesSlug, { path: '/', httpOnly: true, secure: true, sameSite: 'lax', maxAge: 60*60*24*7 })
-    return Astro.redirect('/admin')
+    return Astro.redirect(adminPath)
   } else { error = '密码错误' }
 }
 ---
