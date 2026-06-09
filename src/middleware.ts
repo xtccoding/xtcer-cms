@@ -8,28 +8,14 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const runtimeEnv = (context.locals as any)?.runtime?.env
   const customAdminPath = runtimeEnv?.ADMIN_PATH || import.meta.env.ADMIN_PATH
   
-  // If custom admin path is set and request starts with it, rewrite to /admin
+  // If custom admin path is set and request starts with it, redirect to /admin
   if (customAdminPath && customAdminPath !== '/admin') {
     const cleanCustomPath = customAdminPath.startsWith('/') ? customAdminPath : `/${customAdminPath}`
     
-    if (path.startsWith(cleanCustomPath)) {
-      // Rewrite the URL to /admin
+    // Redirect custom path to /admin
+    if (path === cleanCustomPath || path.startsWith(cleanCustomPath + '/')) {
       const newPath = path.replace(cleanCustomPath, '/admin')
-      const newUrl = new URL(newPath, context.url.origin)
-      
-      // Create a new request with the rewritten URL
-      const newRequest = new Request(newUrl, context.request)
-      
-      // Update the context URL
-      ;(context as any).url = newUrl
-      
-      // Continue with the rewritten URL
-      const response = await next()
-      
-      // Add custom header to indicate the path was rewritten
-      response.headers.set('X-Admin-Path', cleanCustomPath)
-      
-      return response
+      return context.redirect(newPath, 302)
     }
   }
   
