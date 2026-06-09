@@ -8,11 +8,16 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const runtimeEnv = (context.locals as any)?.runtime?.env
   const customAdminPath = runtimeEnv?.ADMIN_PATH || import.meta.env.ADMIN_PATH
   
-  // If custom admin path is set and request starts with it, redirect to /admin
+  // If custom admin path is set
   if (customAdminPath && customAdminPath !== '/admin') {
     const cleanCustomPath = customAdminPath.startsWith('/') ? customAdminPath : `/${customAdminPath}`
     
-    // Redirect custom path to /admin
+    // Block direct access to /admin (return 404)
+    if (path === '/admin' || path.startsWith('/admin/')) {
+      return new Response('Not Found', { status: 404 })
+    }
+    
+    // Redirect custom path to /admin (internal rewrite)
     if (path === cleanCustomPath || path.startsWith(cleanCustomPath + '/')) {
       const newPath = path.replace(cleanCustomPath, '/admin')
       return context.redirect(newPath, 302)
