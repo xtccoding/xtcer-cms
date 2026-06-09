@@ -203,8 +203,27 @@ Cloudflare Pages 自动构建部署。
 | `PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase 匿名 Key |
 | `ADMIN_PASSWORD` | ✅ | 管理后台密码（无硬编码回退） |
 | `FEED_API_KEY` | ✅ | 外部推送认证 Key |
+| `ADMIN_PATH` | ❌ | 自定义管理后台路径（默认 `/admin`） |
 
 > 在 Cloudflare Pages → Settings → Environment variables 中配置。
+
+### 自定义管理路径（安全加固）
+
+设置 `ADMIN_PATH` 可以隐藏默认的 `/admin` 入口，防止暴力破解：
+
+```env
+# 示例：使用随机字符串作为管理入口
+ADMIN_PATH=/a7b9c3d5e2
+```
+
+**效果**：
+- ❌ 访问 `/admin` → 404 Not Found
+- ✅ 访问 `/a7b9c3d5e2` → 重定向到管理后台
+
+**安全建议**：
+- 使用随机字符串，避免常见路径如 `/manage`、`/dashboard`
+- 定期更换路径
+- 路径设置后需要重新部署
 
 ---
 
