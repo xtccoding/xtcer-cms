@@ -251,12 +251,12 @@ if (!post) return Astro.redirect('/admin/dashboard')
 </Layout>
 
 <style>
-  .admin-layout { display: flex; min-height: 100vh; }
-  .admin-main { flex: 1; margin-left: 200px; padding: 1.5rem; }
+  .admin-layout { display: flex; min-height: 100vh; overflow-x: hidden; }
+  .admin-main { flex: 1; margin-left: 200px; padding: 1.5rem; min-width: 0; width: calc(100% - 200px); }
   .editor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
   .back-link { display: inline-flex; align-items: center; gap: 0.375rem; color: var(--text-muted); font-size: 0.8125rem; }
   .back-link:hover { color: var(--text); }
-  .editor-actions { display: flex; gap: 0.5rem; align-items: center; }
+  .editor-actions { display: flex; gap: 0.5rem; align-items: center; flex-shrink: 0; }
   .save-status { font-size: 0.75rem; color: var(--green); }
 
   .ai-dropdown { position: relative; }
