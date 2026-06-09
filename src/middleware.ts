@@ -20,8 +20,31 @@ export const onRequest = defineMiddleware(async (context, next) => {
     // Rewrite custom path to /admin (internal, browser stays at custom path)
     if (path === cleanCustomPath || path.startsWith(cleanCustomPath + '/')) {
       const newPath = path.replace(cleanCustomPath, '/admin')
-      const url = new URL(newPath, context.url.origin)
-      return next(new URL(url.pathname + url.search, context.url.origin))
+      const rewrittenReq = new Request(new URL(newPath + context.url.search, context.url.origin), context.request)
+      const response = await next(rewrittenReq)
+
+      // Rewrite redirects: /admin/... -> customPath/...
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location')
+        if (location) {
+          const newLocation = location.replace('/admin', cleanCustomPath)
+          const headers = new Headers(response.headers)
+          headers.set('location', newLocation)
+          return new Response(null, { status: response.status, headers })
+        }
+      }
+
+      // Rewrite HTML body: replace /admin/ with custom path
+      const contentType = response.headers.get('content-type') || ''
+      if (contentType.includes('text/html')) {
+        const html = await response.text()
+        const newHtml = html.replaceAll('/admin/', `${cleanCustomPath}/`).replaceAll('"/admin"', `"${cleanCustomPath}"`)
+        const headers = new Headers(response.headers)
+        headers.delete('content-length')
+        return new Response(newHtml, { status: response.status, headers })
+      }
+
+      return response
     }
   }
   
