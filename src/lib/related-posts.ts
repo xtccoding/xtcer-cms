@@ -15,16 +15,27 @@ export async function getRelatedPosts(
   currentTags: string[],
   limit = 5
 ): Promise<RelatedPost[]> {
-  const { data: allPosts } = await supabase
+  if (!currentTags || currentTags.length === 0) {
+    const { data } = await supabase
+      .from('posts')
+      .select('id, title, summary, created_at, views, tags')
+      .neq('id', currentId)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+    return (data || []).map(p => ({ ...p, tags: p.tags || [], score: 0 }))
+  }
+
+  const { data: candidates } = await supabase
     .from('posts')
     .select('id, title, summary, created_at, views, tags')
     .neq('id', currentId)
+    .overlaps('tags', currentTags)
     .order('created_at', { ascending: false })
-    .limit(200)
+    .limit(30)
 
-  if (!allPosts || allPosts.length === 0) return []
+  if (!candidates || candidates.length === 0) return []
 
-  const scored = allPosts
+  const scored = candidates
     .map(p => {
       const postTags = p.tags || []
       const overlap = currentTags.filter(t => postTags.includes(t)).length
@@ -33,7 +44,6 @@ export async function getRelatedPosts(
       const score = overlap * 10 + recency * 2 + popularity
       return { ...p, tags: postTags, score }
     })
-    .filter(p => p.score > 1)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
 
