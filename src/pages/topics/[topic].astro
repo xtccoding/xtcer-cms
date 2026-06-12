@@ -1,0 +1,262 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { supabase } from '../../lib/supabase'
+
+const { topic } = Astro.params
+if (!topic) return Astro.redirect('/')
+
+const topicConfig: Record<string, {
+  title: string
+  description: string
+  h1: string
+  icon: string
+  feedTypes: string[]
+  tags: string[]
+  schemaDesc: string
+}> = {
+  ai: {
+    title: 'AI 模型专区 - 最新 AI 情报与技术文章 | XTCer',
+    description: 'XTCer AI 模型专区：ChatGPT、Claude、开源模型、AI 工具、模型评测等前沿 AI 情报与深度技术文章。',
+    h1: 'AI 模型专区',
+    icon: '🤖',
+    feedTypes: ['ai_monetization'],
+    tags: ['ai', 'llm', 'chatgpt', 'claude', 'openai', 'huggingface', 'transformer', 'gpt', 'gemini', 'deepseek'],
+    schemaDesc: 'XTCer AI 模型专区，汇集最新 AI 情报、模型发布、AI 工具与技术文章。',
+  },
+  security: {
+    title: '漏洞预警中心 - 安全漏洞情报实时推送 | XTCer',
+    description: 'XTCer 漏洞预警中心：CVE、0day、漏洞利用、安全工具、渗透测试等安全漏洞情报实时更新。',
+    h1: '漏洞预警中心',
+    icon: '🛡️',
+    feedTypes: ['security'],
+    tags: ['cve', 'vulnerability', 'exploit', 'security', 'rce', 'xss', 'sql-injection', 'zero-day', '漏洞', '安全'],
+    schemaDesc: 'XTCer 漏洞预警中心，实时追踪 CVE、0day、安全漏洞情报。',
+  },
+  deals: {
+    title: '白嫖捡漏专区 - 云服务优惠与免费资源 | XTCer',
+    description: 'XTCer 白嫖捡漏专区：VPS 优惠、云服务器促销、免费 AI Token、薅羊毛攻略。',
+    h1: '白嫖捡漏专区',
+    icon: '💰',
+    feedTypes: ['deal_hunt'],
+    tags: ['deal', 'vps', 'cloud', 'free', '优惠', '白嫖', '薅羊毛', 'aws', 'azure', 'gcp'],
+    schemaDesc: 'XTCer 白嫖捡漏专区，精选云服务器优惠、免费资源与薅羊毛攻略。',
+  },
+  github: {
+    title: 'GitHub 热门项目 - 开源趋势追踪 | XTCer',
+    description: 'XTCer GitHub 热门项目追踪：每日 Trending、优质开源项目、开发者工具推荐。',
+    h1: 'GitHub 热门项目',
+    icon: '⭐',
+    feedTypes: ['github_trending'],
+    tags: ['github', 'opensource', 'open-source', 'rust', 'python', 'typescript', 'go'],
+    schemaDesc: 'XTCer GitHub 热门项目追踪，每日 Trending 与优质开源项目推荐。',
+  },
+  crypto: {
+    title: '加密货币情报 - Alpha 与链上动态 | XTCer',
+    description: 'XTCer 加密情报：空投、DeFi、链上分析、项目研报等加密货币 Alpha 信息。',
+    h1: '加密情报',
+    icon: '🪙',
+    feedTypes: ['crypto_alpha'],
+    tags: ['crypto', 'bitcoin', 'ethereum', 'defi', 'airdrop', 'web3', 'nft', '区块链'],
+    schemaDesc: 'XTCer 加密情报专区，追踪空投、DeFi、链上分析等加密 Alpha 信息。',
+  },
+  tools: {
+    title: '开发者工具 - 提效神器推荐 | XTCer',
+    description: 'XTCer 开发者工具推荐：IDE、CLI、API、开发框架、效率工具等精选推荐。',
+    h1: '开发者工具',
+    icon: '🔧',
+    feedTypes: ['devtool_launch'],
+    tags: ['tool', 'devtool', 'productivity', 'cli', 'api', 'framework', '工具', '效率'],
+    schemaDesc: 'XTCer 开发者工具专区，精选 IDE、CLI、API、开发框架与效率工具。',
+  },
+}
+
+const config = topicConfig[topic as string]
+if (!config) return Astro.redirect('/')
+
+const { data: feedResults } = await supabase
+  .from('feeds')
+  .select('*')
+  .in('feed_type', config.feedTypes)
+  .order('created_at', { ascending: false })
+  .limit(100)
+
+const { data: postResults } = await supabase
+  .from('posts')
+  .select('*')
+  .overlaps('tags', config.tags)
+  .order('created_at', { ascending: false })
+  .limit(50)
+
+const totalCount = (feedResults?.length || 0) + (postResults?.length || 0)
+
+const typeLabels: Record<string, string> = {
+  security: '安全', github_trending: 'GitHub', ai_monetization: 'AI',
+  crypto_alpha: '加密', deal_hunt: '捡漏', industry_move: '行业',
+  devtool_launch: '工具', learn_alpha: '学习',
+}
+
+const schema = {
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": config.h1,
+  "description": config.schemaDesc,
+  "url": `https://xtcer.cn/topics/${topic}`,
+  "isPartOf": { "@type": "WebSite", "name": "XTCer", "url": "https://xtcer.cn" },
+  "numberOfItems": totalCount,
+}
+---
+
+<Layout title={config.title} description={config.description} schema={schema}>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">XTCer</a>
+      <div class="nav-links">
+        <a href="/" class="nav-link">首页</a>
+        <a href="/deals" class="nav-link">优惠</a>
+        <a href="/feeds" class="nav-link">情报</a>
+        <button class="nav-search-btn" id="nav-search" title="搜索 (⌘K)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="topic-page">
+    <div class="container-wide">
+      <nav class="breadcrumb" aria-label="面包屑导航">
+        <ol>
+          <li><a href="/">首页</a></li>
+          <li><a href="/feeds">专题</a></li>
+          <li aria-current="page">{config.h1}</li>
+        </ol>
+      </nav>
+
+      <header class="page-header">
+        <div class="topic-icon">{config.icon}</div>
+        <h1>{config.h1}</h1>
+        <p class="page-desc">{config.description}</p>
+        <div class="topic-nav">
+          {Object.entries(topicConfig).map(([key, cfg]) => (
+            <a href={`/topics/${key}`} class:list={['topic-link', { active: key === topic }]}>{cfg.icon} {cfg.h1}</a>
+          ))}
+        </div>
+      </header>
+
+      {postResults && postResults.length > 0 && (
+        <section class="section">
+          <h2 class="section-title">深度文章 <span class="count">{postResults.length}</span></h2>
+          <div class="posts-grid">
+            {postResults.map(post => (
+              <a href={`/posts/${post.id}`} class="post-card glass-card hover-lift">
+                <h3>{post.title}</h3>
+                <p class="excerpt">{post.summary || (post.content || '').substring(0, 120)}</p>
+                <div class="post-footer">
+                  <time>{new Date(post.created_at).toLocaleDateString('zh-CN')}</time>
+                  {post.views > 0 && <span>{post.views} 次浏览</span>}
+                </div>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {feedResults && feedResults.length > 0 && (
+        <section class="section">
+          <h2 class="section-title">实时情报 <span class="count">{feedResults.length}</span></h2>
+          <div class="feeds-list">
+            {feedResults.map(feed => (
+              <a href={feed.url || '#'} class="feed-row glass-card" target={feed.url ? '_blank' : undefined} rel="noopener">
+                <span class={`feed-priority ${feed.priority === 'critical' ? 'critical' : ''}`}>
+                  {feed.priority === 'critical' ? '🔴' : '🟢'}
+                </span>
+                <span class="feed-type-badge">{typeLabels[feed.feed_type] || feed.feed_type}</span>
+                <span class="feed-title">{feed.title}</span>
+                {feed.summary && <span class="feed-summary">{feed.summary}</span>}
+                <time class="feed-time">{new Date(feed.published_at || feed.created_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}</time>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {totalCount === 0 && (
+        <div class="empty"><p>暂无相关内容，敬请期待</p></div>
+      )}
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container-wide">
+      <div class="footer-inner">
+        <span>© 2026 XTCer</span>
+        <div class="footer-links">
+          <a href="/privacy">隐私政策</a>
+          <a href="/tos">服务条款</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('nav-search')?.addEventListener('click', () => {
+      document.getElementById('search-modal')!.style.display = 'flex'
+      setTimeout(() => (document.getElementById('search-input') as HTMLInputElement)?.focus(), 50)
+    })
+  </script>
+</Layout>
+
+<style>
+  .topic-page { padding: 2rem 0 4rem; }
+  .breadcrumb ol { display: flex; gap: 0.5rem; list-style: none; padding: 0; margin-bottom: 1.5rem; font-size: 0.8125rem; color: var(--text-muted); }
+  .breadcrumb li::after { content: '/'; margin-left: 0.5rem; color: var(--border); }
+  .breadcrumb li:last-child::after { content: ''; }
+  .breadcrumb a { color: var(--text-muted); }
+  .breadcrumb a:hover { color: var(--primary); }
+  .breadcrumb li:last-child { color: var(--text); font-weight: 500; }
+
+  .page-header { margin-bottom: 2.5rem; }
+  .topic-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+  .page-header h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.5rem; }
+  .page-desc { color: var(--text-muted); font-size: 0.9375rem; max-width: 600px; }
+
+  .topic-nav { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.5rem; }
+  .topic-link { padding: 0.5rem 1rem; border: 1px solid var(--glass-border); border-radius: 999px; font-size: 0.8125rem; color: var(--text-muted); transition: all 0.15s; }
+  .topic-link:hover { color: var(--text); border-color: var(--glass-border-hover); }
+  .topic-link.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+  .section { margin-bottom: 3rem; }
+  .section-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem; }
+  .count { font-size: 0.75rem; color: var(--text-muted); padding: 0.125rem 0.5rem; background: rgba(255,255,255,0.04); border-radius: 999px; border: 1px solid var(--border); }
+
+  .posts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.75rem; }
+  .post-card { display: flex; flex-direction: column; padding: 1.25rem 1.5rem; transition: all 0.2s; border-radius: 14px; }
+  .post-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem; }
+  .excerpt { font-size: 0.875rem; color: var(--text-secondary); line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .post-footer { display: flex; gap: 0.75rem; margin-top: auto; padding-top: 0.75rem; font-size: 0.75rem; color: var(--text-muted); }
+
+  .feeds-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .feed-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.875rem 1rem; text-decoration: none; color: var(--text-secondary); transition: all 0.2s; border-radius: 12px; }
+  .feed-row:hover { color: var(--text); }
+  .feed-priority { font-size: 0.625rem; flex-shrink: 0; }
+  .feed-priority.critical { animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .feed-type-badge { padding: 0.125rem 0.5rem; border-radius: 100px; font-size: 0.6875rem; font-weight: 500; flex-shrink: 0; background: rgba(41,151,255,0.06); color: var(--primary); border: 1px solid rgba(41,151,255,0.1); }
+  .feed-title { font-size: 0.875rem; font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .feed-summary { font-size: 0.75rem; color: var(--text-muted); max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 2; }
+  .feed-time { font-size: 0.6875rem; color: var(--text-muted); flex-shrink: 0; margin-left: auto; }
+
+  .empty { text-align: center; padding: 4rem; }
+  .empty p { color: var(--text-muted); }
+
+  .footer { border-top: 1px solid var(--border); padding: 2rem 0; margin-top: 2rem; }
+  .footer-inner { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted); }
+  .footer-links { display: flex; gap: 1.5rem; }
+  .footer-links a { color: var(--text-muted); }
+  .footer-links a:hover { color: var(--text); }
+
+  .nav-links { display: flex; gap: 1.25rem; align-items: center; }
+  .nav-search-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0.375rem; border-radius: var(--radius-sm); transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+  .nav-search-btn:hover { color: var(--text); background: var(--surface); }
+
+  @media (max-width: 640px) { .posts-grid { grid-template-columns: 1fr; } .footer-inner { flex-direction: column; gap: 1rem; } .feed-summary { display: none; } }
+</style>

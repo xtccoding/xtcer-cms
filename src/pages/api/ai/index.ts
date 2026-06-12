@@ -49,6 +49,14 @@ export async function POST({ request, cookies }: { request: Request; cookies: an
     prompt = '你是一个专业的翻译。请将以下中文内容翻译成英文，保留 Markdown 格式。直接输出翻译后的内容，不要加任何解释。'
   } else if (action === 'translate-zh') {
     prompt = '你是一个专业的翻译。请将以下英文内容翻译成中文，保留 Markdown 格式。直接输出翻译后的内容，不要加任何解释。'
+  } else if (action === 'tag') {
+    prompt = `你是一个技术文章标签生成器。根据以下文章标题和内容，生成 3-7 个最相关的英文标签（小写，用逗号分隔）。
+
+标签要求：
+- 优先使用这些已有标签（如果相关）：ai, llm, chatgpt, claude, openai, huggingface, gpt, gemini, deepseek, security, cve, vulnerability, exploit, rce, xss, zero-day, crypto, bitcoin, ethereum, defi, airdrop, web3, github, opensource, python, rust, typescript, go, vps, cloud, deal, tool, devtool, productivity, api, docker, linux, kubernetes, serverless, database, sql, redis, nginx, astro, react, vue, nodejs, tailwind, supabase, firebase, aws, azure, gcp, cf
+- 如果没有合适的已有标签，可以新增英文小写标签
+- 标签用英文，不要用中文
+- 直接输出标签列表，不要加任何解释，格式：tag1,tag2,tag3`
   } else {
     return new Response(JSON.stringify({ error: '未知操作' }), { status: 400 })
   }

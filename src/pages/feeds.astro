@@ -19,9 +19,19 @@ const tabs = [
   { key: 'devtool_launch', label: '工具' },
   { key: 'learn_alpha', label: '学习' },
 ]
+
+const schema = {
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "情报流 - XTCer",
+  "description": "Alpha Feed - 安全、AI、加密、工具等实时情报",
+  "url": "https://xtcer.cn/feeds",
+  "isPartOf": { "@type": "WebSite", "name": "XTCer", "url": "https://xtcer.cn" },
+  "numberOfItems": feeds?.length || 0,
+}
 ---
 
-<Layout title="情报流 - XTCer" description="Alpha Feed - 安全、AI、加密、工具等实时情报">
+<Layout title="情报流 - XTCer" description="Alpha Feed - 安全、AI、加密、工具等实时情报" schema={schema}>
   <nav class="nav">
     <div class="nav-inner">
       <a href="/" class="nav-logo">XTCer</a>
@@ -63,7 +73,7 @@ const tabs = [
             </h3>
             {feed.summary && <p class="feed-summary">{feed.summary}</p>}
             {feed.tags && feed.tags.length > 0 && (
-              <div class="feed-tags">{feed.tags.map((t: string) => <span class="tag">{t}</span>)}</div>
+              <div class="feed-tags">{feed.tags.map((t: string) => <a href={`/tags/${encodeURIComponent(t.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, '-').replace(/^-|-$/g, ''))}`} class="tag" rel="tag">{t}</a>)}</div>
             )}
             {feed.source && <span class="feed-source">{feed.source}</span>}
             {feed.metadata && Object.keys(feed.metadata).length > 0 && (
@@ -143,6 +153,15 @@ const tabs = [
   .feed-title a:hover { color: var(--primary); }
 
   .feed-source { font-size: 0.6875rem; color: var(--text-muted); }
+
+  .feed-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+  .feed-tags .tag {
+    padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.625rem;
+    background: rgba(41,151,255,0.06); color: var(--primary);
+    border: 1px solid rgba(41,151,255,0.1); transition: all 0.15s;
+    text-decoration: none;
+  }
+  .feed-tags .tag:hover { background: rgba(41,151,255,0.12); }
 
   .feed-meta { display: flex; flex-wrap: wrap; gap: 0.375rem; }
   .meta-tag { padding: 0.125rem 0.375rem; border-radius: var(--radius-sm); font-size: 0.625rem; color: var(--text-secondary); background: rgba(255,255,255,0.04); border: 1px solid var(--border); }

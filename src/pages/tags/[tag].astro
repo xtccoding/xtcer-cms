@@ -1,0 +1,194 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { supabase } from '../../lib/supabase'
+
+const { tag } = Astro.params
+if (!tag) return Astro.redirect('/feeds')
+
+const decodedTag = decodeURIComponent(tag)
+
+const { data: feedResults } = await supabase
+  .from('feeds')
+  .select('*')
+  .contains('tags', [decodedTag])
+  .order('created_at', { ascending: false })
+  .limit(200)
+
+const { data: postResults } = await supabase
+  .from('posts')
+  .select('*')
+  .contains('tags', [decodedTag])
+  .order('created_at', { ascending: false })
+  .limit(200)
+
+const hasResults = (feedResults && feedResults.length > 0) || (postResults && postResults.length > 0)
+if (!hasResults) return Astro.redirect('/feeds')
+
+const totalCount = (feedResults?.length || 0) + (postResults?.length || 0)
+
+const typeLabels: Record<string, string> = {
+  security: '安全', github_trending: 'GitHub', ai_monetization: 'AI',
+  crypto_alpha: '加密', deal_hunt: '捡漏', industry_move: '行业',
+  devtool_launch: '工具', learn_alpha: '学习',
+}
+
+const schema = {
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": `${decodedTag} 相关内容`,
+  "description": `XTCer 关于「${decodedTag}」的所有技术文章与情报汇总`,
+  "url": `https://xtcer.cn/tags/${encodeURIComponent(tag)}`,
+  "isPartOf": { "@type": "WebSite", "name": "XTCer", "url": "https://xtcer.cn" },
+  "about": { "@type": "Thing", "name": decodedTag },
+  "numberOfItems": totalCount,
+}
+---
+
+<Layout
+  title={`${decodedTag} 相关技术文章与安全漏洞汇总 - XTCer`}
+  description={`查看 XTCer 关于「${decodedTag}」的所有技术文章、安全漏洞情报、AI 动态。共 ${totalCount} 篇相关内容。`}
+  schema={schema}
+>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">XTCer</a>
+      <div class="nav-links">
+        <a href="/" class="nav-link">首页</a>
+        <a href="/deals" class="nav-link">优惠</a>
+        <a href="/feeds" class="nav-link">情报</a>
+        <button class="nav-search-btn" id="nav-search" title="搜索 (⌘K)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="tag-page">
+    <div class="container-wide">
+      <nav class="breadcrumb" aria-label="面包屑导航">
+        <ol>
+          <li><a href="/">首页</a></li>
+          <li><a href="/feeds">标签</a></li>
+          <li aria-current="page">{decodedTag}</li>
+        </ol>
+      </nav>
+
+      <header class="page-header">
+        <h1>#{decodedTag}</h1>
+        <p class="page-desc">共 {totalCount} 篇相关内容 · 安全漏洞、AI动态、技术文章</p>
+      </header>
+
+      {postResults && postResults.length > 0 && (
+        <section class="section">
+          <h2 class="section-title">技术文章 <span class="count">{postResults.length}</span></h2>
+          <div class="posts-grid">
+            {postResults.map(post => (
+              <a href={`/posts/${post.id}`} class="post-card glass-card hover-lift">
+                <h3>{post.title}</h3>
+                <p class="excerpt">{post.summary || (post.content || '').substring(0, 120)}</p>
+                <div class="post-footer">
+                  <time>{new Date(post.created_at).toLocaleDateString('zh-CN')}</time>
+                  {post.views > 0 && <span>{post.views} 次浏览</span>}
+                </div>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {feedResults && feedResults.length > 0 && (
+        <section class="section">
+          <h2 class="section-title">情报动态 <span class="count">{feedResults.length}</span></h2>
+          <div class="feeds-grid">
+            {feedResults.map(feed => (
+              <div class="feed-card glass-card" data-type={feed.feed_type}>
+                <div class="feed-top">
+                  <span class="feed-type">{typeLabels[feed.feed_type] || feed.feed_type}</span>
+                  <span class={`feed-priority ${feed.priority === 'critical' ? 'critical' : ''}`}>
+                    {feed.priority === 'critical' ? '🔴' : '🟢'}
+                  </span>
+                </div>
+                <h3 class="feed-title">
+                  {feed.url ? <a href={feed.url} target="_blank" rel="noopener">{feed.title}</a> : feed.title}
+                </h3>
+                {feed.summary && <p class="feed-summary">{feed.summary}</p>}
+                <time class="feed-time">{new Date(feed.created_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</time>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container-wide">
+      <div class="footer-inner">
+        <span>© 2026 XTCer</span>
+        <div class="footer-links">
+          <a href="/privacy">隐私政策</a>
+          <a href="/tos">服务条款</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('nav-search')?.addEventListener('click', () => {
+      document.getElementById('search-modal')!.style.display = 'flex'
+      setTimeout(() => (document.getElementById('search-input') as HTMLInputElement)?.focus(), 50)
+    })
+  </script>
+</Layout>
+
+<style>
+  .tag-page { padding: 2rem 0 4rem; }
+  .breadcrumb ol { display: flex; gap: 0.5rem; list-style: none; padding: 0; margin-bottom: 1.5rem; font-size: 0.8125rem; color: var(--text-muted); }
+  .breadcrumb li::after { content: '/'; margin-left: 0.5rem; color: var(--border); }
+  .breadcrumb li:last-child::after { content: ''; }
+  .breadcrumb a { color: var(--text-muted); }
+  .breadcrumb a:hover { color: var(--primary); }
+  .breadcrumb li:last-child { color: var(--text); font-weight: 500; }
+
+  .page-header { margin-bottom: 2.5rem; }
+  .page-header h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.5rem; }
+  .page-desc { color: var(--text-muted); font-size: 0.9375rem; }
+
+  .section { margin-bottom: 3rem; }
+  .section-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem; }
+  .count { font-size: 0.75rem; color: var(--text-muted); padding: 0.125rem 0.5rem; background: rgba(255,255,255,0.04); border-radius: 999px; border: 1px solid var(--border); }
+
+  .posts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.75rem; }
+  .post-card { display: flex; flex-direction: column; padding: 1.25rem 1.5rem; transition: all 0.2s; border-radius: 14px; }
+  .post-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem; }
+  .excerpt { font-size: 0.875rem; color: var(--text-secondary); line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .post-footer { display: flex; gap: 0.75rem; margin-top: auto; padding-top: 0.75rem; font-size: 0.75rem; color: var(--text-muted); }
+
+  .feeds-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.75rem; }
+  .feed-card { padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; }
+  .feed-top { display: flex; justify-content: space-between; align-items: center; }
+  .feed-type { padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.6875rem; font-weight: 500; background: rgba(41,151,255,0.08); color: var(--primary); border: 1px solid rgba(41,151,255,0.15); }
+  .feed-priority { font-size: 0.75rem; }
+  .feed-priority.critical { animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .feed-title { font-size: 0.9375rem; font-weight: 600; line-height: 1.4; }
+  .feed-title a { color: var(--text); }
+  .feed-title a:hover { color: var(--primary); }
+  .feed-summary { font-size: 0.8125rem; color: var(--text-muted); line-height: 1.5; }
+  .feed-time { font-size: 0.625rem; color: var(--text-muted); margin-top: auto; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+
+  .footer { border-top: 1px solid var(--border); padding: 2rem 0; margin-top: 2rem; }
+  .footer-inner { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted); }
+  .footer-links { display: flex; gap: 1.5rem; }
+  .footer-links a { color: var(--text-muted); }
+  .footer-links a:hover { color: var(--text); }
+
+  .nav-links { display: flex; gap: 1.25rem; align-items: center; }
+  .nav-search-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0.375rem; border-radius: var(--radius-sm); transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+  .nav-search-btn:hover { color: var(--text); background: var(--surface); }
+
+  @media (max-width: 640px) {
+    .posts-grid, .feeds-grid { grid-template-columns: 1fr; }
+    .footer-inner { flex-direction: column; gap: 1rem; }
+  }
+</style>

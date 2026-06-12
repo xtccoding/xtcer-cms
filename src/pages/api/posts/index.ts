@@ -35,15 +35,18 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
   }
 
   const body = await request.json()
-  const { title, content, summary } = body
+  const { title, content, summary, tags } = body
 
   if (!title) {
     return new Response(JSON.stringify({ error: 'Title is required' }), { status: 400 })
   }
 
+  const insertData: any = { title, content: content || '', summary: summary || '' }
+  if (tags && Array.isArray(tags)) insertData.tags = tags
+
   const { data, error } = await supabase
     .from('posts')
-    .insert({ title, content: content || '', summary: summary || '' })
+    .insert(insertData)
     .select()
     .single()
 

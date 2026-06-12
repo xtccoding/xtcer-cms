@@ -7,6 +7,7 @@ export interface Database {
           title: string
           summary: string | null
           content: string | null
+          tags: string[]
           views: number
           created_at: string
         }
@@ -15,6 +16,7 @@ export interface Database {
           title: string
           summary?: string | null
           content?: string | null
+          tags?: string[]
           views?: number
           created_at?: string
         }
@@ -23,6 +25,7 @@ export interface Database {
           title?: string
           summary?: string | null
           content?: string | null
+          tags?: string[]
           views?: number
           created_at?: string
         }

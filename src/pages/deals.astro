@@ -21,9 +21,29 @@ const categoryOrder = ['compute', 'ai', 'storage', 'tray', 'hosting', 'other']
 const sortedCategories = categoryOrder.filter(c => allCategories.includes(c))
 const remaining = allCategories.filter(c => !categoryOrder.includes(c))
 const categories = [...sortedCategories, ...remaining]
+
+const schema = {
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "云服务优惠 - XTCer",
+  "description": "精选云服务器、AI Token、存储等优惠信息，按价格排序",
+  "url": "https://xtcer.cn/deals",
+  "isPartOf": { "@type": "WebSite", "name": "XTCer", "url": "https://xtcer.cn" },
+  "about": { "@type": "Thing", "name": "云服务优惠" },
+  "hasPart": (deals || []).map(deal => ({
+    "@type": "Offer",
+    "name": deal.product,
+    "description": deal.notes || `${deal.provider} ${deal.product}`,
+    "price": deal.price_cny || deal.price_usd,
+    "priceCurrency": deal.price_cny ? "CNY" : "USD",
+    "availability": deal.is_active ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+    "seller": { "@type": "Organization", "name": deal.provider },
+    ...(deal.url ? { "url": deal.url } : {}),
+  })),
+}
 ---
 
-<Layout title="云服务优惠 - XTCer" description="精选云服务器、AI Token、存储等优惠信息，按价格排序">
+<Layout title="云服务优惠 - XTCer" description="精选云服务器、AI Token、存储等优惠信息，按价格排序" schema={schema}>
   <nav class="nav">
     <div class="nav-inner">
       <a href="/" class="nav-logo">XTCer</a>

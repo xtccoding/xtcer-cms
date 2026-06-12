@@ -119,13 +119,13 @@ function stripMarkdown(text: string) {
           
           <!-- Description -->
           <p class="hero-desc">
-            <a href="/feeds" class="desc-item">AI 情报</a>
+            <a href="/topics/ai" class="desc-item">AI 情报</a>
             <span class="desc-dot">·</span>
-            <a href="/feeds" class="desc-item">安全漏洞</a>
+            <a href="/topics/security" class="desc-item">安全漏洞</a>
             <span class="desc-dot">·</span>
             <a href="/deals" class="desc-item">云服务优惠</a>
             <span class="desc-dot">·</span>
-            <a href="/" class="desc-item">技术深度</a>
+            <a href="/topics/github" class="desc-item">GitHub 热门</a>
           </p>
           
           <!-- Stats -->
@@ -236,6 +236,47 @@ function stripMarkdown(text: string) {
         </div>
       </section>
     )}
+
+    <section class="topics-section">
+      <div class="container-wide">
+        <div class="section-header">
+          <h2>专题看板</h2>
+          <span class="count">6 个专区</span>
+        </div>
+        <div class="topics-grid">
+          <a href="/topics/ai" class="topic-card glass-card hover-lift">
+            <span class="topic-icon">🤖</span>
+            <h3>AI 模型专区</h3>
+            <p>ChatGPT、Claude、开源模型、AI 工具</p>
+          </a>
+          <a href="/topics/security" class="topic-card glass-card hover-lift">
+            <span class="topic-icon">🛡️</span>
+            <h3>漏洞预警中心</h3>
+            <p>CVE、0day、安全漏洞、渗透测试</p>
+          </a>
+          <a href="/topics/deals" class="topic-card glass-card hover-lift">
+            <span class="topic-icon">💰</span>
+            <h3>白嫖捡漏专区</h3>
+            <p>VPS 优惠、免费资源、薅羊毛</p>
+          </a>
+          <a href="/topics/github" class="topic-card glass-card hover-lift">
+            <span class="topic-icon">⭐</span>
+            <h3>GitHub 热门项目</h3>
+            <p>每日 Trending、开源项目推荐</p>
+          </a>
+          <a href="/topics/crypto" class="topic-card glass-card hover-lift">
+            <span class="topic-icon">🪙</span>
+            <h3>加密情报</h3>
+            <p>空投、DeFi、链上分析</p>
+          </a>
+          <a href="/topics/tools" class="topic-card glass-card hover-lift">
+            <span class="topic-icon">🔧</span>
+            <h3>开发者工具</h3>
+            <p>IDE、CLI、API、效率工具</p>
+          </a>
+        </div>
+      </div>
+    </section>
   </main>
 
   <footer class="footer">
@@ -249,6 +290,8 @@ function stripMarkdown(text: string) {
         </div>
         <div class="footer-links">
           <a href="/rss.xml" target="_blank">RSS</a>
+          <a href="/topics/ai">AI 专区</a>
+          <a href="/topics/security">漏洞预警</a>
           <a href="/privacy">隐私政策</a>
           <a href="/tos">服务条款</a>
           <a href="/about">关于</a>
@@ -770,7 +813,20 @@ function stripMarkdown(text: string) {
   }
 
   /* Posts Section */
-  .posts-section { padding: 0 0 5rem; }
+  .posts-section { padding: 0 0 4rem; }
+
+  /* Topics Section */
+  .topics-section { padding: 0 0 5rem; }
+  .topics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem; }
+  .topic-card {
+    display: flex; flex-direction: column; gap: 0.5rem;
+    padding: 1.5rem; transition: all 0.3s ease; border-radius: 16px;
+    cursor: pointer; text-decoration: none;
+  }
+  .topic-card:hover { color: var(--text); }
+  .topic-icon { font-size: 2rem; }
+  .topic-card h3 { font-family: 'Inter', sans-serif; font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; }
+  .topic-card p { font-family: 'Inter', sans-serif; font-size: 0.8125rem; color: var(--text-muted); line-height: 1.5; }
   
   .posts-grid { 
     display: grid; 
@@ -987,6 +1043,7 @@ function stripMarkdown(text: string) {
     .posts-grid { grid-template-columns: 1fr; }
     .post-card { padding: 1.25rem; border-radius: 14px; }
     .links-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+    .topics-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
     .link-card { padding: 0.875rem; border-radius: 12px; }
     .feed-row { padding: 0.625rem 0.875rem; border-radius: 10px; }
     .feed-summary { display: none; }
