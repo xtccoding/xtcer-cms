@@ -1,0 +1,205 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { supabase } from '../../lib/supabase'
+
+const { data: posts } = await supabase.from('posts').select('tags')
+const { data: feeds } = await supabase.from('feeds').select('tags')
+
+const tagCount = new Map<string, number>()
+for (const p of posts || []) {
+  for (const t of p.tags || []) tagCount.set(t, (tagCount.get(t) || 0) + 1)
+}
+for (const f of feeds || []) {
+  for (const t of f.tags || []) tagCount.set(t, (tagCount.get(t) || 0) + 1)
+}
+
+const sortedTags = [...tagCount.entries()].sort((a, b) => b[1] - a[1])
+const totalTags = sortedTags.length
+const totalItems = [...tagCount.values()].reduce((s, n) => s + n, 0)
+
+function tagSlug(tag: string) {
+  return encodeURIComponent(tag.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, '-').replace(/^-|-$/g, ''))
+}
+
+const tagColors = ['#2997ff', '#bf5af2', '#30d158', '#ff9f0a', '#ff453a', '#00ffff', '#ff6b9d', '#ffd60a']
+
+const schema = {
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "全部标签 - XTCer",
+  "description": `XTCer 标签索引，共 ${totalTags} 个标签，${totalItems} 篇相关内容。`,
+  "url": "https://xtcer.cn/tags",
+  "isPartOf": { "@type": "WebSite", "name": "XTCer", "url": "https://xtcer.cn" },
+  "hasPart": sortedTags.map(([tag, count]) => ({
+    "@type": "CollectionPage",
+    "name": tag,
+    "url": `https://xtcer.cn/tags/${tagSlug(tag)}`,
+    "numberOfItems": count,
+  })),
+}
+---
+
+<Layout
+  title="全部标签 - 技术标签索引 | XTCer"
+  description={`XTCer 全部标签索引，共 ${totalTags} 个技术标签，涵盖 AI、安全漏洞、云服务、开发工具等领域。快速定位你感兴趣的内容。`}
+  schema={schema}
+>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">XTCer</a>
+      <div class="nav-links">
+        <a href="/" class="nav-link">首页</a>
+        <a href="/deals" class="nav-link">优惠</a>
+        <a href="/feeds" class="nav-link">情报</a>
+        <button class="nav-search-btn" id="nav-search" title="搜索 (⌘K)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="tags-index-page">
+    <div class="container-wide">
+      <nav class="breadcrumb" aria-label="面包屑导航">
+        <ol>
+          <li><a href="/">首页</a></li>
+          <li aria-current="page">标签</li>
+        </ol>
+      </nav>
+
+      <header class="page-header">
+        <h1>全部标签</h1>
+        <p class="page-desc">共 {totalTags} 个标签 · {totalItems} 篇相关内容 · 点击进入专题聚合页</p>
+      </header>
+
+      <div class="tags-cloud">
+        {sortedTags.map(([tag, count], i) => {
+          const size = count >= 20 ? 'xl' : count >= 10 ? 'lg' : count >= 5 ? 'md' : count >= 2 ? 'sm' : 'xs'
+          const color = tagColors[i % tagColors.length]
+          return (
+            <a href={`/tags/${tagSlug(tag)}`} class={`tag-chip tag-${size}`} style={`--tag-color: ${color}`}>
+              <span class="tag-name">#{tag}</span>
+              <span class="tag-count">{count}</span>
+            </a>
+          )
+        })}
+      </div>
+
+      <section class="tags-table-section">
+        <h2>标签列表</h2>
+        <div class="tags-table">
+          {sortedTags.map(([tag, count], i) => (
+            <a href={`/tags/${tagSlug(tag)}`} class="tag-row">
+              <span class="tag-rank">#{i + 1}</span>
+              <span class="tag-name">{tag}</span>
+              <div class="tag-bar">
+                <div class="tag-bar-fill" style={`width: ${Math.min(100, (count / (sortedTags[0]?.[1] || 1)) * 100)}%`}></div>
+              </div>
+              <span class="tag-count">{count} 篇</span>
+            </a>
+          ))}
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container-wide">
+      <div class="footer-inner">
+        <span>© 2026 XTCer</span>
+        <div class="footer-links">
+          <a href="/privacy">隐私政策</a>
+          <a href="/tos">服务条款</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('nav-search')?.addEventListener('click', () => {
+      document.getElementById('search-modal')!.style.display = 'flex'
+      setTimeout(() => (document.getElementById('search-input') as HTMLInputElement)?.focus(), 50)
+    })
+  </script>
+</Layout>
+
+<style>
+  .tags-index-page { padding: 2rem 0 4rem; }
+  .breadcrumb ol { display: flex; gap: 0.5rem; list-style: none; padding: 0; margin-bottom: 1.5rem; font-size: 0.8125rem; color: var(--text-muted); }
+  .breadcrumb li::after { content: '/'; margin-left: 0.5rem; color: var(--border); }
+  .breadcrumb li:last-child::after { content: ''; }
+  .breadcrumb a { color: var(--text-muted); }
+  .breadcrumb a:hover { color: var(--primary); }
+  .breadcrumb li:last-child { color: var(--text); font-weight: 500; }
+
+  .page-header { margin-bottom: 2.5rem; }
+  .page-header h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.5rem; }
+  .page-desc { color: var(--text-muted); font-size: 0.9375rem; }
+
+  /* Tag Cloud */
+  .tags-cloud {
+    display: flex; flex-wrap: wrap; gap: 0.625rem; align-items: center;
+    padding: 2rem; margin-bottom: 3rem;
+    background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+  }
+  .tag-chip {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    padding: 0.375rem 0.875rem; border-radius: 999px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: var(--text-secondary); text-decoration: none;
+    transition: all 0.2s ease;
+  }
+  .tag-chip:hover {
+    background: color-mix(in srgb, var(--tag-color) 12%, transparent);
+    border-color: color-mix(in srgb, var(--tag-color) 30%, transparent);
+    color: var(--tag-color); transform: translateY(-1px);
+  }
+  .tag-chip .tag-name { font-weight: 500; }
+  .tag-chip .tag-count {
+    font-size: 0.625rem; padding: 0.0625rem 0.375rem;
+    background: rgba(255,255,255,0.06); border-radius: 999px;
+    color: var(--text-muted);
+  }
+
+  .tag-xs { font-size: 0.75rem; }
+  .tag-sm { font-size: 0.8125rem; }
+  .tag-md { font-size: 0.9375rem; }
+  .tag-lg { font-size: 1.0625rem; }
+  .tag-xl { font-size: 1.25rem; }
+  .tag-lg .tag-name, .tag-xl .tag-name { font-weight: 600; }
+
+  /* Tags Table */
+  .tags-table-section h2 { font-size: 1.25rem; font-weight: 600; margin-bottom: 1.25rem; }
+  .tags-table { display: flex; flex-direction: column; gap: 0.25rem; }
+  .tag-row {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 0.75rem 1rem; border-radius: 10px;
+    text-decoration: none; color: var(--text-secondary);
+    transition: all 0.15s;
+  }
+  .tag-row:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+  .tag-rank { font-size: 0.75rem; color: var(--text-muted); width: 2rem; text-align: right; font-variant-numeric: tabular-nums; }
+  .tag-row .tag-name { font-size: 0.875rem; font-weight: 500; min-width: 120px; }
+  .tag-bar { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+  .tag-bar-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); border-radius: 2px; transition: width 0.5s ease; }
+  .tag-row .tag-count { font-size: 0.75rem; color: var(--text-muted); min-width: 3rem; text-align: right; font-variant-numeric: tabular-nums; }
+
+  .footer { border-top: 1px solid var(--border); padding: 2rem 0; margin-top: 2rem; }
+  .footer-inner { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted); }
+  .footer-links { display: flex; gap: 1.5rem; }
+  .footer-links a { color: var(--text-muted); }
+  .footer-links a:hover { color: var(--text); }
+
+  .nav-links { display: flex; gap: 1.25rem; align-items: center; }
+  .nav-search-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0.375rem; border-radius: var(--radius-sm); transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+  .nav-search-btn:hover { color: var(--text); background: var(--surface); }
+
+  @media (max-width: 640px) {
+    .tags-cloud { padding: 1.25rem; }
+    .footer-inner { flex-direction: column; gap: 1rem; }
+    .tag-row { padding: 0.625rem 0.75rem; gap: 0.625rem; }
+    .tag-row .tag-name { min-width: 80px; }
+  }
+</style>
