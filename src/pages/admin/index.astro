@@ -139,8 +139,12 @@ CREATE TABLE IF NOT EXISTS posts (
   title TEXT NOT NULL,
   content TEXT,
   views INTEGER DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  author TEXT DEFAULT 'XTcer',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_posts_author ON posts(author);
+CREATE INDEX IF NOT EXISTS idx_posts_updated ON posts(updated_at DESC);
 ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS allow_all_posts ON posts;
 CREATE POLICY allow_all_posts ON posts FOR ALL USING (true) WITH CHECK (true);

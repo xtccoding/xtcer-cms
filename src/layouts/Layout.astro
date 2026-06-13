@@ -5,7 +5,7 @@ interface Props {
   title: string
   description?: string
   ogImage?: string
-  schema?: Record<string, any>
+  schema?: Record<string, any> | Record<string, any>[]
 }
 
 const { title, description: rawDescription = 'XTcer - 技术探索者，专注前沿技术洞察。AI情报、安全漏洞、云服务优惠、技术深度文章实时推送。', ogImage, schema } = Astro.props
@@ -53,8 +53,15 @@ const ogImageUrl = ogImage || new URL('/og-image.svg', 'https://xtcer.cn').href
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     
+    <!-- AI Search Hints -->
+    <meta name="ai-content-declaration" content="human-authored" />
+    <link rel="alternate" type="application/ld+json" href="/api/search?q=*&format=jsonld" />
+    
     <title>{title}</title>
-    {schema && <script type="application/ld+json" set:html={JSON.stringify(schema)} />}
+    {schema && (Array.isArray(schema) 
+      ? schema.map(s => <script type="application/ld+json" set:html={JSON.stringify(s)} />)
+      : <script type="application/ld+json" set:html={JSON.stringify(schema)} />
+    )}
     <script is:inline>
       (function() {
         const stored = localStorage.getItem('theme')

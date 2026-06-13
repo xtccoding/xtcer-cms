@@ -33,13 +33,15 @@ export async function PUT({ params, request, cookies, locals }: { params: { id: 
 
   const { id } = params
   const body = await request.json()
-  const { title, content, summary, tags } = body
+  const { title, content, summary, tags, author } = body
 
   const updateData: any = {}
   if (title !== undefined) updateData.title = title
   if (content !== undefined) updateData.content = content
   if (summary !== undefined) updateData.summary = summary
   if (tags !== undefined && Array.isArray(tags)) updateData.tags = tags
+  if (author !== undefined) updateData.author = author
+  updateData.updated_at = new Date().toISOString()
 
   const { data, error } = await supabase
     .from('posts')

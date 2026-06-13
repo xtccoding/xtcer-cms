@@ -2,15 +2,15 @@ import { supabase } from '../../lib/supabase'
 
 export async function GET({ url, request }: { url: URL; request: Request }) {
   const q = url.searchParams.get('q')?.trim()
-  const type = url.searchParams.get('type')?.trim() // post, feed, deal, all
+  const type = url.searchParams.get('type')?.trim()
   const page = parseInt(url.searchParams.get('page') || '1')
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100)
-  const sort = url.searchParams.get('sort') || 'time' // time, relevance
-  const order = url.searchParams.get('order') || 'desc' // asc, desc
+  const sort = url.searchParams.get('sort') || 'time'
+  const order = url.searchParams.get('order') || 'desc'
+  const format = url.searchParams.get('format') || 'json'
   
-  // Check if request is from Hermes bot
   const userAgent = request.headers.get('user-agent') || ''
-  const isBot = userAgent.includes('Hermes') || userAgent.includes('Junier') || userAgent.includes('bot')
+  const isBot = /bot|crawler|spider|GPTBot|ChatGPT|CCBot|anthropic|Claude|Perplexity|YouBot|Bytespider/i.test(userAgent)
   
   if (!q || q.length < 2) {
     return new Response(JSON.stringify({ 
@@ -30,11 +30,10 @@ export async function GET({ url, request }: { url: URL; request: Request }) {
     const results: any[] = []
     let totalCount = 0
 
-    // Search posts
     if (types.includes('post')) {
       const { data, count } = await supabase
         .from('posts')
-        .select('id, title, content, summary, created_at, views', { count: 'exact' })
+        .select('id, title, content, summary, created_at, views, tags', { count: 'exact' })
         .or(`title.ilike.${pattern},content.ilike.${pattern},summary.ilike.${pattern}`)
         .order('created_at', { ascending: order === 'asc' })
         .range(offset, offset + limit - 1)
@@ -48,17 +47,17 @@ export async function GET({ url, request }: { url: URL; request: Request }) {
           url: `/posts/${p.id}`,
           time: p.created_at,
           views: p.views || 0,
+          tags: p.tags || [],
           relevance: calculateRelevance(q, p.title, p.content)
         })))
         totalCount += count || 0
       }
     }
 
-    // Search feeds
     if (types.includes('feed')) {
       const { data, count } = await supabase
         .from('feeds')
-        .select('id, feed_type, title, url, summary, priority, published_at, created_at', { count: 'exact' })
+        .select('id, feed_type, title, url, summary, priority, published_at, created_at, tags', { count: 'exact' })
         .or(`title.ilike.${pattern},summary.ilike.${pattern},tags.cs.{${q}}`)
         .order('published_at', { ascending: order === 'asc', nullsFirst: false })
         .range(offset, offset + limit - 1)
@@ -73,13 +72,13 @@ export async function GET({ url, request }: { url: URL; request: Request }) {
           time: f.published_at || f.created_at,
           feed_type: f.feed_type,
           priority: f.priority,
+          tags: f.tags || [],
           relevance: calculateRelevance(q, f.title, f.summary)
         })))
         totalCount += count || 0
       }
     }
 
-    // Search deals
     if (types.includes('deal')) {
       const { data, count } = await supabase
         .from('deals')
@@ -106,11 +105,9 @@ export async function GET({ url, request }: { url: URL; request: Request }) {
       }
     }
 
-    // Sort by relevance if requested
     if (sort === 'relevance') {
       results.sort((a, b) => order === 'desc' ? b.relevance - a.relevance : a.relevance - b.relevance)
     } else {
-      // Sort by time
       results.sort((a, b) => {
         const timeA = a.time ? new Date(a.time).getTime() : 0
         const timeB = b.time ? new Date(b.time).getTime() : 0
@@ -118,34 +115,99 @@ export async function GET({ url, request }: { url: URL; request: Request }) {
       })
     }
 
-    // Format response for bot compatibility
+    const sliced = results.slice(0, limit)
+
+    // Structured JSON-LD response for AI crawlers
+    if (format === 'jsonld' || isBot) {
+      const jsonld = {
+        "@context": "https://schema.org",
+        "@type": "SearchResultsPage",
+        "query": q,
+        "totalResults": totalCount,
+        "currentPage": page,
+        "resultsPerPage": limit,
+        "dateModified": new Date().toISOString(),
+        "publisher": {
+          "@type": "Organization",
+          "name": "XTCer",
+          "url": "https://xtcer.cn"
+        },
+        "about": {
+          "@type": "Thing",
+          "name": q
+        },
+        "hasPart": sliced.map(r => {
+          if (r.type === 'post') {
+            return {
+              "@type": "Article",
+              "headline": r.title,
+              "description": r.desc,
+              "url": `https://xtcer.cn${r.url}`,
+              "datePublished": r.time,
+              "keywords": (r.tags || []).join(', '),
+              "interactionStatistic": {
+                "@type": "InteractionCounter",
+                "interactionType": "https://schema.org/ReadAction",
+                "userInteractionCount": r.views
+              }
+            }
+          }
+          if (r.type === 'feed') {
+            return {
+              "@type": "NewsArticle",
+              "headline": r.title,
+              "description": r.desc,
+              "url": r.url.startsWith('http') ? r.url : `https://xtcer.cn${r.url}`,
+              "datePublished": r.time,
+              "keywords": (r.tags || []).join(', '),
+              "articleSection": r.feed_type
+            }
+          }
+          return {
+            "@type": "Product",
+            "name": r.title,
+            "description": r.desc,
+            "url": r.url.startsWith('http') ? r.url : `https://xtcer.cn${r.url}`,
+            "offers": r.price ? {
+              "@type": "Offer",
+              "price": r.price_cny || 0,
+              "priceCurrency": "CNY",
+              "description": r.price
+            } : undefined
+          }
+        })
+      }
+
+      return new Response(JSON.stringify(jsonld), { 
+        headers: { 
+          'Content-Type': 'application/ld+json; charset=utf-8',
+          'Access-Control-Allow-Origin': '*'
+        } 
+      })
+    }
+
+    // Standard JSON response
     const response: any = {
-      results: results.slice(0, limit),
+      results: sliced,
       total: totalCount,
       page,
       limit,
       query: q,
       type: types,
       sort,
-      order
-    }
-
-    // Add summary for bot
-    if (isBot) {
-      response.summary = {
-        posts: results.filter(r => r.type === 'post').length,
-        feeds: results.filter(r => r.type === 'feed').length,
-        deals: results.filter(r => r.type === 'deal').length,
-        top_results: results.slice(0, 3).map(r => ({
-          type: r.type,
-          title: r.title,
-          url: r.url
-        }))
+      order,
+      _links: {
+        self: `/api/search?q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`,
+        next: sliced.length === limit ? `/api/search?q=${encodeURIComponent(q)}&page=${page + 1}&limit=${limit}` : null,
+        jsonld: `/api/search?q=${encodeURIComponent(q)}&page=${page}&limit=${limit}&format=jsonld`
       }
     }
 
     return new Response(JSON.stringify(response), { 
-      headers: { 'Content-Type': 'application/json; charset=utf-8' } 
+      headers: { 
+        'Content-Type': 'application/json; charset=utf-8',
+        'Access-Control-Allow-Origin': '*'
+      } 
     })
   } catch (err: any) {
     return new Response(JSON.stringify({ 
@@ -156,7 +218,6 @@ export async function GET({ url, request }: { url: URL; request: Request }) {
   }
 }
 
-// Calculate relevance score
 function calculateRelevance(query: string, title: string = '', content: string = ''): number {
   const q = query.toLowerCase()
   const t = title.toLowerCase()
@@ -164,17 +225,12 @@ function calculateRelevance(query: string, title: string = '', content: string =
   
   let score = 0
   
-  // Exact match in title (highest priority)
   if (t === q) score += 100
-  // Title starts with query
   else if (t.startsWith(q)) score += 80
-  // Title contains query
   else if (t.includes(q)) score += 60
   
-  // Content contains query
   if (c.includes(q)) score += 20
   
-  // Word boundary matches
   const words = q.split(/\s+/)
   words.forEach(word => {
     if (word && t.includes(word)) score += 10

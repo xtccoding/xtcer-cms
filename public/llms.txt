@@ -1,0 +1,61 @@
+# XTcer - 技术探索者
+
+> eXploring Tech, Delivering Value
+
+XTcer 是一个专注于前沿技术的内容平台，提供 AI 情报、安全漏洞、云服务优惠、技术深度文章等实时推送。
+
+## 站点信息
+
+- 网站: https://xtcer.cn
+- 语言: 中文 (zh-CN)
+- 更新频率: 每日
+- 内容许可: MIT License
+
+## 主要内容
+
+### 技术文章 (/posts/[id])
+原创技术文章，涵盖 AI、安全、云服务、开发工具等领域。每篇文章包含 Markdown 正文、标签、摘要、阅读时间、浏览量。
+
+### 情报流 (/feeds)
+8 类实时技术情报：
+- security: 安全漏洞动态
+- github_trending: GitHub 热门项目
+- ai_monetization: AI 工具与商业化
+- crypto_alpha: 加密货币动态
+- deal_hunt: 优惠信息
+- industry_move: 行业动向
+- devtool_launch: 开发工具发布
+- learn_alpha: 学习资源
+
+### 云服务优惠 (/deals)
+各大云服务商的优惠信息，包含产品名、价格、配置、区域等结构化数据。
+
+### 导航链接 (/)
+常用技术网站分组导航。
+
+## API 端点
+
+### 搜索 API
+`GET /api/search?q={query}&type={post|feed|deal}&sort={time|relevance}&page={n}&limit={n}`
+
+返回结构化 JSON 搜索结果，支持分页、排序、类型筛选。
+
+### 公开数据
+- `GET /api/deals` - 优惠列表
+- `GET /api/feeds` - 情报列表
+- `GET /api/settings` - 站点配置
+
+### RSS
+- `GET /rss.xml` - RSS 2.0 订阅源
+
+## 结构化数据
+
+所有页面均包含 Schema.org JSON-LD 结构化标记：
+- 文章: Article / TechArticle（含 BreadcrumbList、FAQPage、作者信息）
+- 情报: CollectionPage
+- 首页: WebSite + Organization
+
+## 联系方式
+
+- GitHub: https://github.com/xtccoding/xtcer-cms
+- Twitter: @xt_cer

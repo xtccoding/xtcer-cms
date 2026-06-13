@@ -9,7 +9,9 @@ export interface Database {
           content: string | null
           tags: string[]
           views: number
+          author: string | null
           created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
@@ -18,7 +20,9 @@ export interface Database {
           content?: string | null
           tags?: string[]
           views?: number
+          author?: string | null
           created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
@@ -27,7 +31,9 @@ export interface Database {
           content?: string | null
           tags?: string[]
           views?: number
+          author?: string | null
           created_at?: string
+          updated_at?: string
         }
       }
       deals: {

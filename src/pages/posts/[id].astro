@@ -76,23 +76,97 @@ const hasToc = tocItems.length > 0
 
 const isSecurity = postTags.some(t => /cve|vulnerability|exploit|security|漏洞|安全/i.test(t))
 const schemaType = isSecurity ? 'TechArticle' : 'Article'
+const postAuthor = post.author || 'XTcer'
+const updatedAt = post.updated_at || post.created_at
 
-const schema = {
+// Auto-extract FAQ from h2/h3 headings that look like questions
+const faqItems: { question: string; answer: string }[] = []
+const questionPattern = /[？?]|^(什么是|如何|怎么|为什么|怎样|是什么|哪些|哪个|什么时候|是否|能否|可以)/
+for (const item of tocItems) {
+  if (questionPattern.test(item.text)) {
+    // Find the content between this heading and the next heading
+    const headingRegex = new RegExp(`id="${item.slug}"[\\s\\S]*?>([\\s\\S]*?)</h[23]>`, 'i')
+    const match = htmlContent.match(headingRegex)
+    if (match) {
+      // Get text after this heading until next heading
+      const afterHeading = htmlContent.split(`id="${item.slug}"`)[1] || ''
+      const nextHeadingIdx = afterHeading.search(/<h[23][\s>]/i)
+      const answerHtml = nextHeadingIdx > 0 ? afterHeading.substring(0, nextHeadingIdx) : afterHeading.substring(0, 500)
+      const answerText = answerHtml.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().substring(0, 300)
+      if (answerText.length > 20) {
+        faqItems.push({ question: item.text, answer: answerText })
+      }
+    }
+  }
+}
+
+const schemas: Record<string, any>[] = []
+
+// Main Article schema
+schemas.push({
   "@context": "https://schema.org",
   "@type": schemaType,
   "headline": post.title,
   "description": description,
   "datePublished": new Date(post.created_at).toISOString(),
-  "dateModified": new Date(post.created_at).toISOString(),
-  "author": { "@type": "Organization", "name": "XTCer" },
-  "publisher": { "@type": "Organization", "name": "XTCer" },
-  "mainEntityOfPage": { "@type": "WebPage", "@id": `https://xtcer.cn/posts/${post.id}` },
+  "dateModified": new Date(updatedAt).toISOString(),
+  "author": {
+    "@type": "Person",
+    "name": postAuthor,
+    "url": "https://xtcer.cn/about",
+    "sameAs": [
+      "https://github.com/xtccoding",
+      "https://twitter.com/xt_cer"
+    ]
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "XTCer",
+    "url": "https://xtcer.cn",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://xtcer.cn/favicon.svg"
+    }
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": `https://xtcer.cn/posts/${post.id}`
+  },
   "wordCount": wordCount,
   "keywords": postTags.join(', '),
+  "inLanguage": "zh-CN",
+  "isAccessibleForFree": true,
+})
+
+// BreadcrumbList schema
+schemas.push({
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "首页", "item": "https://xtcer.cn" },
+    { "@type": "ListItem", "position": 2, "name": "文章", "item": "https://xtcer.cn" },
+    { "@type": "ListItem", "position": 3, "name": post.title, "item": `https://xtcer.cn/posts/${post.id}` }
+  ]
+})
+
+// FAQPage schema (auto-extracted)
+if (faqItems.length > 0) {
+  schemas.push({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faqItems.map(faq => ({
+      "@type": "Question",
+      "name": faq.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": faq.answer
+      }
+    }))
+  })
 }
 ---
 
-<Layout title={`${post.title} - XTCer`} description={description} schema={schema}>
+<Layout title={`${post.title} - XTCer`} description={description} schema={schemas}>
   <nav class="nav">
       <div class="nav-inner">
         <a href="/" class="nav-logo">XTCer</a>
@@ -122,6 +196,12 @@ const schema = {
         <h1>{post.title}</h1>
         <div class="article-meta">
           <time>{new Date(post.created_at).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</time>
+          {updatedAt !== post.created_at && (
+            <>
+              <span>·</span>
+              <span>更新于 <time>{new Date(updatedAt).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</time></span>
+            </>
+          )}
           <span>·</span>
           <span>{readTime} 分钟阅读</span>
           <span>·</span>
@@ -138,6 +218,20 @@ const schema = {
         )}
       </header>
       <div class="article-content markdown-body" set:html={htmlContent}></div>
+
+      {faqItems.length > 0 && (
+        <section class="faq-section">
+          <h2>常见问题</h2>
+          <div class="faq-list">
+            {faqItems.map(faq => (
+              <details class="faq-item">
+                <summary class="faq-question">{faq.question}</summary>
+                <p class="faq-answer">{faq.answer}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section class="comments-section">
         <h2>评论</h2>
@@ -377,6 +471,30 @@ const schema = {
     border-top: 1px solid var(--border);
   }
   .comments-section h2 { font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem; }
+
+  .faq-section {
+    max-width: 720px; margin-top: 2rem; padding-top: 2rem;
+    border-top: 1px solid var(--border);
+  }
+  .faq-section h2 { font-size: 1.25rem; font-weight: 600; margin-bottom: 1.25rem; }
+  .faq-list { display: flex; flex-direction: column; gap: 0.75rem; }
+  .faq-item {
+    background: var(--surface); border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm); padding: 0;
+    transition: border-color 0.15s;
+  }
+  .faq-item[open] { border-color: rgba(41,151,255,0.3); }
+  .faq-question {
+    padding: 1rem 1.25rem; font-size: 0.9375rem; font-weight: 600;
+    color: var(--text); cursor: pointer; list-style: none;
+    display: flex; align-items: center; gap: 0.75rem;
+  }
+  .faq-question::-webkit-details-marker { display: none; }
+  .faq-question::before { content: 'Q'; font-size: 0.75rem; font-weight: 700; color: var(--primary); background: rgba(41,151,255,0.1); padding: 0.125rem 0.5rem; border-radius: 4px; }
+  .faq-answer {
+    padding: 0 1.25rem 1rem; font-size: 0.875rem; color: var(--text-secondary);
+    line-height: 1.7; margin: 0;
+  }
 
   .related-section {
     max-width: 720px; margin-top: 2rem; padding-top: 2rem;

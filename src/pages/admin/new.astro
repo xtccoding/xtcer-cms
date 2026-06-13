@@ -85,6 +85,7 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
         <input type="text" id="post-title" class="input title-input" placeholder="输入标题..." autofocus />
         <div class="tags-row">
           <input type="text" id="post-tags" class="input tags-input" placeholder="标签（用逗号分隔，如：ai,llm,chatgpt）" />
+          <input type="text" id="post-author" class="input author-input" placeholder="作者（默认 XTcer）" />
           <button class="btn btn-ghost btn-sm" id="auto-tag-btn" title="AI 自动打标">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 014 4v1h1a3 3 0 013 3v1a3 3 0 01-3 3h-1v4a4 4 0 01-8 0v-4H7a3 3 0 01-3-3v-1a3 3 0 013-3h1V6a4 4 0 014-4z"/></svg>
             AI 打标
@@ -101,6 +102,7 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
     import { marked } from 'marked'
     const titleInput = document.getElementById('post-title') as HTMLInputElement
     const tagsInput = document.getElementById('post-tags') as HTMLInputElement
+    const authorInput = document.getElementById('post-author') as HTMLInputElement
     const summaryInput = document.getElementById('post-summary') as HTMLInputElement
     const contentInput = document.getElementById('post-content') as HTMLTextAreaElement
     const preview = document.getElementById('preview')!
@@ -264,7 +266,7 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
         const res = await fetch('/api/posts', { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify({ title, summary: summaryInput.value.trim(), content: contentInput.value.trim(), tags }),
+          body: JSON.stringify({ title, summary: summaryInput.value.trim(), content: contentInput.value.trim(), tags, author: authorInput.value.trim() || 'XTcer' }),
           credentials: 'include'
         })
         if (res.ok) {
@@ -390,6 +392,7 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
   .tags-row { display: flex; gap: 0.5rem; align-items: center; }
   .tags-row .tags-input { flex: 1; }
   .tags-input { font-size: 0.8125rem; padding: 0.5rem 1rem; color: var(--primary); }
+  .author-input { font-size: 0.8125rem; padding: 0.5rem 1rem; width: 160px; flex-shrink: 0; }
   .editor { width: 100%; min-height: 65vh; padding: 1rem; font-size: 0.875rem; line-height: 1.8; resize: none; }
   .preview { width: 100%; min-height: 65vh; padding: 1.5rem; background: var(--surface); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; overflow-y: auto; }
   .preview :global(h1) { font-size: 1.75rem; margin-bottom: 0.75rem; color: var(--text); }
