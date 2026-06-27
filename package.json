@@ -13,7 +13,7 @@
     "@astrojs/sitemap": "^3.7.3",
     "@aws-sdk/client-s3": "^3.1056.0",
     "@supabase/supabase-js": "^2.49.4",
-    "astro": "^5.7.10",
+    "astro": "^5.9.3",
     "marked": "^18.0.4"
   },
   "devDependencies": {
