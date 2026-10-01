@@ -612,6 +612,335 @@ const rules: Rule[] = [
     payments: ['wechat', 'alipay'],
     limits: ['免费版每月调用额度有上限，超出需付费', '2026 年起已移除 Claude 模型'],
   },
+  {
+    provider: 'Cursor',
+    difficulty: 'easy',
+    payments: ['card'],
+    limits: [
+      '免费档高级模型请求每月仅 50 次，很快用完',
+      '国内访问不稳定，需自备网络环境',
+    ],
+    promoNote: '学生认证可免费领 1 年 Pro',
+  },
+  {
+    provider: 'GitHub Copilot',
+    difficulty: 'easy',
+    payments: ['card'],
+    limits: ['免费档每月 2,000 次补全 + 50 次对话', '部分高级模型不在免费档内'],
+    promoNote: '学生 / 教师 / 热门开源维护者可免费申请 Pro',
+  },
+  {
+    provider: '腾讯云 CodeBuddy',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: ['个人免费版有每月调用上限', '高级模型与团队功能需订阅'],
+  },
+  {
+    provider: '文心快码 Comate',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: ['免费版有每月补全 / 对话次数上限', '需百度账号登录'],
+  },
+
+  // ---------- 免费 AI API / 模型额度 ----------
+  {
+    provider: '火山引擎 豆包',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: [
+      '「安心体验」额度按模型分别计算，用完即止',
+      '每日 200 万 Token 需参与协作奖励计划，且按天清零',
+      '超额后自动转为按量计费，注意关掉后付费',
+    ],
+    tips: ['手机号注册、国内直连，接口兼容 OpenAI 格式', '推理 / 视觉 / 语音模型都有独立免费额度'],
+  },
+  {
+    provider: 'Cerebras',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: [
+      '免费层每天 100 万 Token，速率受限',
+      '另有 $5 一次性试用额度，之后最低充值 $10',
+      '国内需自备网络环境访问',
+    ],
+    tips: ['推理速度极快，适合做实时补全与流式对话'],
+  },
+  {
+    provider: 'Mistral',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['免费层额度较小且不透明，随时可能调整', '国内需自备网络环境'],
+  },
+  {
+    provider: 'Hugging Face',
+    difficulty: 'easy',
+    limits: [
+      '免费额度极小（约 $0.10/月），只够试跑',
+      '免费层请求日志策略宽松，别传敏感数据',
+    ],
+  },
+  {
+    provider: 'Google Colab',
+    difficulty: 'easy',
+    limits: [
+      '免费 GPU 无配额保证，随机分配且可能排队',
+      '闲置会自动断开，运行时长有上限',
+      '国内需自备网络环境',
+    ],
+  },
+
+  // ---------- 免费 PaaS / 计算 ----------
+  {
+    provider: 'Deno Deploy',
+    difficulty: 'easy',
+    limits: [
+      '2026-09 起额度削减：CPU 15→10 小时/月、内存 350→150 GiB-小时、应用 20→10 个',
+      '持久卷存储已取消，只能存 KV / 对象存储',
+      '未绑定支付方式的组织额度会被进一步限制',
+      '超配额应用直接暂停，不会计费',
+    ],
+    tips: ['免服务器跑 TS/JS，适合 API 与轻量后端', '可搭配 Deno KV 做小体量持久化'],
+  },
+  {
+    provider: 'Railway',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: [
+      '$5 试用额度 30 天有效，用完降级到 $1/月 的 Free 档',
+      'Free 档在高峰期可能拒绝新部署',
+      '必须绑定支付方式才能长期使用',
+    ],
+  },
+  {
+    provider: 'Modal',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['$30 额度每月重置、不累积', '需绑定支付方式', '超出后按量计费'],
+    tips: ['跑 GPU 推理与批处理最省事，冷启动很快'],
+  },
+  {
+    provider: 'Freestyle',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: [
+      '额度按自然月重置：200 vCPU-小时 + 400 GiB 内存-小时',
+      '无持久化 VM 与快照，关机即丢数据',
+      '最多 10 个并发 / 保存的 VM',
+    ],
+  },
+  {
+    provider: 'Paperspace',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: [
+      '免费实例容量紧张时需要排队',
+      '单次会话上限 6 小时，存储仅 5GB',
+      '需绑定支付方式',
+    ],
+  },
+  {
+    provider: 'Lightning AI',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['每月 15 credits，GPU 需额外消耗', 'Studio 每 4 小时自动重启', '需手机号验证'],
+  },
+
+  // ---------- 免费数据库 / 存储 ----------
+  {
+    provider: 'TiDB Cloud',
+    difficulty: 'easy',
+    limits: [
+      '免费档仅 1 个集群，5GB 行存储 + 每月 5000 万请求单元',
+      '长期闲置可能被回收，重要数据记得导出',
+    ],
+    tips: ['兼容 MySQL 协议，迁移成本低'],
+  },
+  {
+    provider: 'Aiven',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['免费实例闲置会自动关机，需手动唤醒', '无 SLA，规格很小', '需绑定支付方式'],
+  },
+  {
+    provider: 'Qdrant Cloud',
+    difficulty: 'easy',
+    limits: ['1GB RAM / 4GB 磁盘，只够原型', '闲置一周挂起、四周后删除'],
+  },
+  {
+    provider: 'Pinecone',
+    difficulty: 'easy',
+    limits: ['免费档仅限 AWS us-east-1', '索引数与存储受限，读写有每月额度'],
+  },
+  {
+    provider: 'Redis Cloud',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['免费档仅 30MB 内存', '无持久化保障，别当主库用', '需绑定支付方式'],
+  },
+  {
+    provider: 'Tigris',
+    difficulty: 'easy',
+    limits: ['免费 5GB 存储', '服务较新，长期可用性需自行评估'],
+    tips: ['出网免费，适合做图床 / 静态资源站'],
+  },
+  {
+    provider: 'Cloudflare',
+    productIncludes: 'D1',
+    difficulty: 'easy',
+    payments: ['card'],
+    limits: [
+      '2026-09-01 起为硬上限：读满 500 万行或写满 10 万行后，当天查询直接失败直到 UTC 零点',
+      '共 5GB 存储，单库上限 10GB',
+    ],
+  },
+  {
+    provider: 'Cloudflare',
+    productIncludes: 'R2',
+    difficulty: 'easy',
+    payments: ['card'],
+    limits: ['需先绑定支付方式才启用', '免费 10GB-月，超出部分按量计费（出网仍免费）'],
+  },
+  {
+    provider: 'Cloudflare',
+    productIncludes: 'Workers',
+    difficulty: 'easy',
+    payments: ['card'],
+    limits: [
+      '硬上限：每天 10 万请求，超限直接拒绝而非计费',
+      '每请求 10ms CPU 时间、128MB 内存',
+    ],
+    tips: ['与 D1 / R2 / KV 组合，可以搭一套零成本后端'],
+  },
+
+  // ---------- 免费可观测 / 邮件 / 分析 ----------
+  {
+    provider: 'Grafana Cloud',
+    difficulty: 'easy',
+    limits: ['指标保留 14 天、日志 30 天', '超出免费额度需升级，注意别接高基数指标'],
+  },
+  {
+    provider: 'Better Stack',
+    difficulty: 'easy',
+    limits: ['检查间隔最短 3 分钟', '日志仅保留 3 天'],
+  },
+  {
+    provider: 'Sentry',
+    difficulty: 'easy',
+    limits: ['每月 5,000 错误 + 1 个用户', '超出后当月新事件被丢弃'],
+  },
+  {
+    provider: 'Axiom',
+    difficulty: 'easy',
+    limits: ['3 个数据集 / 25GB 存储 / 30 天保留', '查询计算量单独计量'],
+  },
+  {
+    provider: 'PostHog',
+    difficulty: 'easy',
+    limits: ['每月 100 万事件，超出后当月停止采集', '会话回放单独计量'],
+  },
+  {
+    provider: 'UptimeRobot',
+    difficulty: 'easy',
+    limits: ['免费档检查间隔最短 5 分钟', '仅 50 个监控，告警方式受限'],
+  },
+  {
+    provider: 'Resend',
+    difficulty: 'easy',
+    limits: ['每天 100 封 / 每月 3,000 封', '需自有域名并配置 SPF / DKIM 才能发信'],
+  },
+  {
+    provider: 'Brevo',
+    difficulty: 'easy',
+    limits: ['每天 300 封，超出当天停发', '需验证发信域名'],
+  },
+  {
+    provider: 'Clerk',
+    difficulty: 'easy',
+    limits: ['免费 50,000 MAU，超出按量计费', '生产环境需绑定支付方式'],
+  },
+  {
+    provider: 'Hookdeck',
+    difficulty: 'easy',
+    limits: ['每月 10,000 事件', '事件保留期有限'],
+  },
+
+  // ---------- 支付宝 / 微信友好的海外 VPS（国人商家为主）----------
+  {
+    provider: 'CloudCone',
+    difficulty: 'easy',
+    payments: ['alipay', 'wechat', 'paypal', 'card'],
+    limits: [
+      '需先给账户充值余额再下单，不是直接付款',
+      '促销套餐售罄即止，补货不定时',
+      '线路为普通 BGP，不是 CN2 GIA',
+    ],
+    tips: ['九周年套餐续费同价，长期持有划算', '支持支付宝，无需海外信用卡'],
+  },
+  {
+    provider: '狗云',
+    difficulty: 'easy',
+    payments: ['alipay', 'wechat'],
+    limits: ['弹性云按小时扣费，不用了要记得销毁', 'CN2 等优质线路需单独选购，价格更高'],
+    tips: ['弹性云适合短期测试，长期用选经典云年付'],
+  },
+  {
+    provider: '咸鱼云',
+    difficulty: 'medium',
+    payments: ['alipay', 'wechat'],
+    limits: ['2021 年成立的新商家，规模小', 'CN2 GIA 资源有限，常售罄', '建议先月付试水'],
+    tips: ['低价 CN2 GIA 里比较有代表性的一家，注意备份'],
+  },
+  {
+    provider: '六六云',
+    difficulty: 'medium',
+    payments: ['alipay', 'wechat'],
+    limits: ['主打双 ISP 原生 IP，价格偏高', '原生 IP 库存波动大', '小商家，注意续费与售后'],
+  },
+  {
+    provider: 'LisaHost',
+    difficulty: 'medium',
+    payments: ['alipay', 'wechat'],
+    limits: ['双 ISP 原生 IP 成本高，单价不便宜', '小商家，稳定性需自行评估'],
+    tips: ['需要原生 IP 做 TikTok / 流媒体解锁时值得考虑'],
+  },
+  {
+    provider: 'MoeCloud',
+    difficulty: 'medium',
+    payments: ['alipay', 'wechat'],
+    limits: ['韩国机房资源有限，常缺货', '小商家，建议短期试水'],
+  },
+  {
+    provider: 'UFOVPS',
+    difficulty: 'easy',
+    payments: ['alipay', 'wechat'],
+    limits: ['线路档位多，不同档价格与质量差异大', '注意区分 BGP 与 CN2 套餐'],
+    tips: ['2015 年起的老牌国人商家，售后相对稳定'],
+  },
+  {
+    provider: 'CUBECLOUD',
+    difficulty: 'easy',
+    payments: ['alipay', 'wechat'],
+    limits: ['CN2 GIA 带宽较小（常见 10-30Mbps）', '优质线路套餐价格会随行情波动'],
+    tips: ['CN2 GIA + NVMe，适合国内访问要求高的建站场景'],
+  },
+  {
+    provider: 'HostDare',
+    difficulty: 'easy',
+    payments: ['alipay', 'card', 'paypal'],
+    limits: ['CN2 GIA 套餐带宽较小', '年付为主，退订政策需提前确认'],
+    tips: ['2015 年成立，提供中文客服'],
+  },
+  {
+    provider: '搬瓦工',
+    difficulty: 'easy',
+    payments: ['alipay', 'unionpay', 'card', 'paypal'],
+    limits: [
+      'CN2 GIA 价格偏高，且续费同价',
+      '中国香港 / 日本机房比美国贵不少',
+      '热门套餐常年缺货，需蹲补货',
+    ],
+    tips: ['后台支持一键迁移机房，换 IP 成本低', '支持支付宝 / 银联，国内用户友好'],
+  },
 ]
 
 /** Resolve the curation for a deal. Unknown providers default to `easy`. */
