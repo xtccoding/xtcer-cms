@@ -150,7 +150,7 @@ const rules: Rule[] = [
     difficulty: 'easy',
     supplement: true,
     payments: ['wechat', 'alipay', 'unionpay'],
-    warning: '仅首年赠送，到期按标准价续费；需购买指定配置的云服务器。',
+    warning: '仅首年赠送，到期按标准价续费。',
   },
   {
     provider: '腾讯云',
@@ -158,7 +158,7 @@ const rules: Rule[] = [
     difficulty: 'easy',
     supplement: true,
     payments: ['wechat', 'alipay', 'unionpay'],
-    warning: '仅首年赠送；需选带「赠域名」标签的套餐，单独注册域名没有 0 元。',
+    warning: '需选带「赠域名」标签的套餐，单独注册域名没有 0 元。',
   },
   {
     provider: '华为云',
@@ -166,7 +166,7 @@ const rules: Rule[] = [
     difficulty: 'easy',
     supplement: true,
     payments: ['wechat', 'alipay', 'unionpay'],
-    warning: '云耀 L 实例推广期赠送，仅首年，次年起计费。',
+    warning: '仅首年赠送，次年起按标准价计费。',
   },
   {
     provider: 'Hostinger',
@@ -559,7 +559,6 @@ const rules: Rule[] = [
     difficulty: 'easy',
     payments: ['card', 'paypal'],
     limits: ['首年促销价需一次买满 48 个月', '续费价通常翻数倍'],
-    tips: ['送域名 + 邮箱，适合新手建站；长付前先算续费成本'],
   },
   {
     provider: 'Namecheap',
@@ -567,7 +566,6 @@ const rules: Rule[] = [
     difficulty: 'easy',
     payments: ['card', 'paypal'],
     limits: ['首年 $1.98/月起，续费跳涨', '不支持国内备案'],
-    tips: ['与域名同一家，管理方便'],
   },
 
   // ---------- AI 编程工具（国内友好，微信 / 支付宝可付）----------
@@ -927,7 +925,7 @@ const rules: Rule[] = [
       '中国香港 / 日本机房比美国贵不少',
       '热门套餐常年缺货，需蹲补货',
     ],
-    tips: ['后台支持一键迁移机房，换 IP 成本低', '支持支付宝 / 银联，国内用户友好'],
+    tips: ['后台一键迁移机房，换机房不用重装系统'],
   },
 ]
 
