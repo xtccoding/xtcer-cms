@@ -1,19 +1,12 @@
 ---
 import Layout from '../../layouts/Layout.astro'
 import Sidebar from '../../components/Sidebar.astro'
-import { supabase } from '../../lib/supabase'
-import { marked } from 'marked'
 
 const runtimeEnv = (Astro.locals as any)?.runtime?.env
 const ADMIN_PASSWORD = runtimeEnv?.ADMIN_PASSWORD || import.meta.env.ADMIN_PASSWORD
 if (!ADMIN_PASSWORD) return new Response('ADMIN_PASSWORD not configured', { status: 500 })
 const cookie = Astro.cookies.get('admin_auth')
 if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
-
-const { data: posts } = await supabase
-  .from('posts')
-  .select('*')
-  .order('created_at', { ascending: false })
 ---
 
 <Layout title="文章管理 - XTCer">
@@ -23,7 +16,7 @@ const { data: posts } = await supabase
       <header class="admin-header">
         <div>
           <h1>文章管理</h1>
-          <p class="admin-subtitle">{posts?.length || 0} 篇文章</p>
+          <p class="admin-subtitle" id="posts-count">加载中...</p>
         </div>
         <a href="/admin/new" class="btn btn-primary">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14m-7-7h14"/></svg>
@@ -34,41 +27,31 @@ const { data: posts } = await supabase
       <div class="search-box glass-card">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-muted)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input type="text" id="search" class="search-input" placeholder="搜索文章..." />
+        <button class="btn btn-ghost btn-sm" id="search-all-btn" title="跨全部页面搜索（服务端）">全库搜索</button>
+      </div>
+
+      <div class="bulk-bar glass-card" id="bulk-bar">
+        <label class="bulk-check">
+          <input type="checkbox" id="select-all" />
+          <span>全选本页</span>
+        </label>
+        <span class="bulk-count" id="bulk-count">已选 0 篇</span>
+        <div class="bulk-actions">
+          <button class="btn btn-ghost btn-sm" id="quick-test-btn" title="一键勾选标题为 test / 测试 的文章">选中 test</button>
+          <button class="btn btn-danger btn-sm" id="bulk-delete-btn" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            批量删除
+          </button>
+        </div>
       </div>
 
       <div class="posts-list" id="posts-list">
-        {posts && posts.length > 0 ? posts.map((post) => (
-          <div class="post-row glass-card" data-id={post.id} data-title={post.title.toLowerCase()}>
-            <div class="post-row-body">
-              <h3>{post.title}</h3>
-              <p>{post.summary || (post.content ? String(marked.parse(post.content)) : '').replace(/<[^>]*>/g, '').replace(/\n+/g, ' ').trim().substring(0, 100) || '暂无内容'}</p>
-              <div class="post-row-meta">
-                <time>{new Date(post.created_at).toLocaleDateString('zh-CN')}</time>
-                <span>·</span>
-                <span>{Math.ceil(((post.content ? String(marked.parse(post.content)).replace(/<[^>]*>/g, '').length : 0)) / 400)} 分钟阅读</span>
-                <span>·</span>
-                <span>{post.views || 0} 次浏览</span>
-              </div>
-            </div>
-            <div class="post-row-actions">
-              <a href={`/admin/edit/${post.id}`} class="btn btn-ghost btn-sm btn-icon" title="编辑">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              </a>
-              <a href={`/posts/${post.id}`} target="_blank" class="btn btn-ghost btn-sm btn-icon" title="查看">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              </a>
-              <button class="btn btn-danger btn-sm btn-icon delete-btn" data-id={post.id} data-title={post.title} title="删除">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-              </button>
-            </div>
-          </div>
-        )) : (
-          <div class="empty glass-card">
-            <p>还没有文章</p>
-            <a href="/admin/new" class="btn btn-primary">创建第一篇</a>
-          </div>
-        )}
+        <div class="empty glass-card" id="loading-state">
+          <p>加载中...</p>
+        </div>
       </div>
+
+      <div class="pagination" id="pagination"></div>
     </div>
   </div>
 
@@ -84,32 +67,327 @@ const { data: posts } = await supabase
     </div>
   </div>
 
+  <div id="bulk-modal" class="modal" style="display:none">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content glass-card">
+      <h3>批量删除</h3>
+      <p>即将删除 <strong id="bulk-modal-count">0</strong> 篇文章，此操作不可撤销。</p>
+      <div class="bulk-preview" id="bulk-preview"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="cancel-bulk">取消</button>
+        <button class="btn btn-danger" id="confirm-bulk">确认删除</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    let deleteId = ''
+    let currentPage = 1
+    let currentSearch = ''
+    let allPosts: any[] = []
+
+    function escapeHtml(str: string): string {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;')
+    }
+
+    function renderReadingTime(content: string): string {
+      if (!content) return '1 分钟阅读'
+      const text = content.replace(/<[^>]*>/g, '').replace(/\n+/g, ' ').trim()
+      const minutes = Math.ceil(text.length / 400) || 1
+      return `${minutes} 分钟阅读`
+    }
+
+    function renderSummary(post: any): string {
+      if (post.summary) return escapeHtml(post.summary)
+      if (!post.content) return '暂无内容'
+      const text = String(post.content).replace(/<[^>]*>/g, '').replace(/\n+/g, ' ').trim().substring(0, 100)
+      return escapeHtml(text) || '暂无内容'
+    }
+
+    async function loadPosts(page = 1) {
+      currentPage = page
+      const params = new URLSearchParams({ page: String(page), limit: '20' })
+
+      const res = await fetch(`/api/posts?${params}`)
+      const result = await res.json()
+
+      if (result.error) {
+        document.getElementById('posts-list')!.innerHTML = '<div class="empty glass-card"><p>加载失败</p></div>'
+        return
+      }
+
+      allPosts = result.data || []
+      const total = result.total || 0
+      const totalPages = result.totalPages || 1
+
+      document.getElementById('posts-count')!.textContent = `${total} 篇文章`
+
+      const listEl = document.getElementById('posts-list')!
+
+      if (allPosts.length === 0) {
+        listEl.innerHTML = `
+          <div class="empty glass-card">
+            <p>还没有文章</p>
+            <a href="/admin/new" class="btn btn-primary">创建第一篇</a>
+          </div>`
+        document.getElementById('pagination')!.innerHTML = ''
+        return
+      }
+
+      listEl.innerHTML = allPosts.map(post => `
+        <div class="post-row glass-card" data-id="${post.id}" data-title="${escapeHtml(post.title.toLowerCase())}">
+          <label class="row-check" title="选择">
+            <input type="checkbox" class="row-checkbox" data-id="${post.id}" data-title="${escapeHtml(post.title)}" />
+          </label>
+          <div class="post-row-body">
+            <h3>${escapeHtml(post.title)}</h3>
+            <p>${renderSummary(post)}</p>
+            <div class="post-row-meta">
+              <time>${new Date(post.created_at).toLocaleDateString('zh-CN')}</time>
+              <span>·</span>
+              <span>${renderReadingTime(post.content)}</span>
+              <span>·</span>
+              <span>${post.views || 0} 次浏览</span>
+            </div>
+          </div>
+          <div class="post-row-actions">
+            <a href="/admin/edit/${post.id}" class="btn btn-ghost btn-sm btn-icon" title="编辑">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </a>
+            <a href="/posts/${post.id}" target="_blank" class="btn btn-ghost btn-sm btn-icon" title="查看">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+            <button class="btn btn-danger btn-sm btn-icon delete-btn" data-id="${post.id}" data-title="${escapeHtml(post.title)}" title="删除">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            </button>
+          </div>
+        </div>
+      `).join('')
+
+      // Render pagination
+      const paginationEl = document.getElementById('pagination')!
+      if (totalPages <= 1) {
+        paginationEl.innerHTML = total > 0 ? `<span class="page-info">共 ${total} 条</span>` : ''
+        return
+      }
+
+      let paginationHtml = `<span class="page-info">第 ${result.page}/${totalPages} 页，共 ${total} 条</span><div class="page-btns">`
+      if (result.page > 1) {
+        paginationHtml += `<button class="btn btn-ghost btn-sm page-btn" data-page="1">首页</button>`
+        paginationHtml += `<button class="btn btn-ghost btn-sm page-btn" data-page="${result.page - 1}">上一页</button>`
+      }
+      if (result.page < totalPages) {
+        paginationHtml += `<button class="btn btn-ghost btn-sm page-btn" data-page="${result.page + 1}">下一页</button>`
+        paginationHtml += `<button class="btn btn-ghost btn-sm page-btn" data-page="${totalPages}">末页</button>`
+      }
+      paginationHtml += `</div>`
+      paginationEl.innerHTML = paginationHtml
+
+      // Re-bind delete buttons
+      bindDeleteButtons()
+      bindCheckboxes()
+    }
+
+    function bindDeleteButtons() {
+      document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = (btn as HTMLElement).dataset.id || ''
+          const title = (btn as HTMLElement).dataset.title || ''
+          document.getElementById('delete-title')!.textContent = title
+          ;(document.getElementById('delete-modal') as HTMLElement).style.display = 'flex'
+          ;(document.getElementById('delete-modal') as HTMLElement).dataset.deleteId = id
+        })
+      })
+    }
+
+    // ---- 批量选择 ----
+    function selectedIds(): string[] {
+      return Array.from(document.querySelectorAll('.row-checkbox:checked'))
+        .map(el => (el as HTMLElement).dataset.id || '')
+        .filter(Boolean)
+    }
+
+    function syncBulkBar() {
+      const ids = selectedIds()
+      const countEl = document.getElementById('bulk-count')
+      const delBtn = document.getElementById('bulk-delete-btn') as HTMLButtonElement
+      const all = document.querySelectorAll('.row-checkbox')
+      const allBox = document.getElementById('select-all') as HTMLInputElement
+      if (countEl) countEl.textContent = `已选 ${ids.length} 篇`
+      if (delBtn) delBtn.disabled = ids.length === 0
+      if (allBox) allBox.checked = all.length > 0 && ids.length === all.length
+    }
+
+    function bindCheckboxes() {
+      document.querySelectorAll('.row-checkbox').forEach(cb => {
+        cb.addEventListener('change', syncBulkBar)
+      })
+      syncBulkBar()
+    }
+
+    // Search (当前页内过滤) + 全库搜索（服务端）
     document.getElementById('search')?.addEventListener('input', (e) => {
       const q = (e.target as HTMLInputElement).value.toLowerCase()
       document.querySelectorAll('.post-row').forEach(el => {
         ;(el as HTMLElement).style.display = (el as HTMLElement).dataset.title!.includes(q) ? '' : 'none'
       })
     })
-    document.querySelectorAll('.delete-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        deleteId = (btn as HTMLElement).dataset.id || ''
-        document.getElementById('delete-title')!.textContent = (btn as HTMLElement).dataset.title || ''
-        document.getElementById('delete-modal')!.style.display = 'flex'
-      })
+
+    async function searchAll(q: string) {
+      const listEl = document.getElementById('posts-list')!
+      listEl.innerHTML = '<div class="empty glass-card"><p>全库搜索中...</p></div>'
+      document.getElementById('pagination')!.innerHTML = ''
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=200`)
+        const data = await res.json()
+        const hits = Array.isArray(data) ? data : (data.data || data.results || [])
+        if (hits.length === 0) {
+          listEl.innerHTML = '<div class="empty glass-card"><p>无匹配结果</p></div>'
+          return
+        }
+        allPosts = hits
+        listEl.innerHTML = `<div class="bulk-note">全库命中 ${hits.length} 条（跨页搜索，可批量选择删除）</div>` + hits.map((post: any) => `
+          <div class="post-row glass-card" data-id="${post.id}" data-title="${escapeHtml((post.title || '').toLowerCase())}">
+            <label class="row-check" title="选择">
+              <input type="checkbox" class="row-checkbox" data-id="${post.id}" data-title="${escapeHtml(post.title || '')}" />
+            </label>
+            <div class="post-row-body">
+              <h3>${escapeHtml(post.title || '')}</h3>
+              <p>${renderSummary(post)}</p>
+              <div class="post-row-meta">
+                <time>${post.created_at ? new Date(post.created_at).toLocaleDateString('zh-CN') : ''}</time>
+                <span>·</span>
+                <span>${post.views || 0} 次浏览</span>
+              </div>
+            </div>
+            <div class="post-row-actions">
+              <a href="/admin/edit/${post.id}" class="btn btn-ghost btn-sm btn-icon" title="编辑">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </a>
+              <button class="btn btn-danger btn-sm btn-icon delete-btn" data-id="${post.id}" data-title="${escapeHtml(post.title || '')}" title="删除">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+              </button>
+            </div>
+          </div>
+        `).join('')
+        bindDeleteButtons()
+        bindCheckboxes()
+      } catch (err) {
+        listEl.innerHTML = '<div class="empty glass-card"><p>搜索失败</p></div>'
+      }
+    }
+
+    document.getElementById('search-all-btn')?.addEventListener('click', () => {
+      const q = (document.getElementById('search') as HTMLInputElement).value.trim()
+      if (!q) { loadPosts(1); return }
+      searchAll(q)
     })
-    document.getElementById('cancel-delete')?.addEventListener('click', () => { document.getElementById('delete-modal')!.style.display = 'none' })
-    document.querySelector('.modal-backdrop')?.addEventListener('click', () => { document.getElementById('delete-modal')!.style.display = 'none' })
+
+    // 一键勾选 test
+    document.getElementById('quick-test-btn')?.addEventListener('click', () => {
+      let n = 0
+      document.querySelectorAll('.row-checkbox').forEach(cb => {
+        const t = ((cb as HTMLElement).dataset.title || '').trim().toLowerCase()
+        const isTest = t === 'test' || t === '测试' || t === 'test_cookie_auth' || t.startsWith('test_') || t.startsWith('test-')
+        ;(cb as HTMLInputElement).checked = isTest
+        if (isTest) n++
+      })
+      syncBulkBar()
+      if (n === 0) alert('本页没有标题以 test 开头的文章')
+    })
+
+    // 全选
+    document.getElementById('select-all')?.addEventListener('change', (e) => {
+      const checked = (e.target as HTMLInputElement).checked
+      document.querySelectorAll('.post-row').forEach(row => {
+        if ((row as HTMLElement).style.display === 'none') return
+        const cb = row.querySelector('.row-checkbox') as HTMLInputElement
+        if (cb) cb.checked = checked
+      })
+      syncBulkBar()
+    })
+
+    // 批量删除弹窗
+    document.getElementById('bulk-delete-btn')?.addEventListener('click', () => {
+      const ids = selectedIds()
+      if (ids.length === 0) return
+      document.getElementById('bulk-modal-count')!.textContent = String(ids.length)
+      const preview = document.getElementById('bulk-preview')!
+      const titles = Array.from(document.querySelectorAll('.row-checkbox:checked'))
+        .map(cb => (cb as HTMLElement).dataset.title || '')
+      preview.innerHTML = titles.slice(0, 8).map(t => `<div>· ${escapeHtml(t.slice(0, 40))}</div>`).join('')
+        + (titles.length > 8 ? `<div class="muted">… 等共 ${titles.length} 篇</div>` : '')
+      ;(document.getElementById('bulk-modal') as HTMLElement).style.display = 'flex'
+    })
+
+    document.getElementById('cancel-bulk')?.addEventListener('click', () => {
+      ;(document.getElementById('bulk-modal') as HTMLElement).style.display = 'none'
+    })
+    document.querySelector('#bulk-modal .modal-backdrop')?.addEventListener('click', () => {
+      ;(document.getElementById('bulk-modal') as HTMLElement).style.display = 'none'
+    })
+
+    document.getElementById('confirm-bulk')?.addEventListener('click', async () => {
+      const ids = selectedIds()
+      if (ids.length === 0) return
+      const btn = document.getElementById('confirm-bulk') as HTMLButtonElement
+      btn.disabled = true
+      btn.textContent = '删除中...'
+      try {
+        let deleted = 0
+        // 分片，每 100 条一次请求
+        for (let i = 0; i < ids.length; i += 100) {
+          const chunk = ids.slice(i, i + 100)
+          const res = await fetch('/api/posts/batch-delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: chunk }),
+          })
+          const out = await res.json()
+          if (out.error) throw new Error(out.error)
+          deleted += out.deleted || 0
+        }
+        ;(document.getElementById('bulk-modal') as HTMLElement).style.display = 'none'
+        alert(`已删除 ${deleted} 篇文章`)
+        loadPosts(currentPage)
+      } catch (err: any) {
+        alert('删除失败：' + (err?.message || err))
+      } finally {
+        btn.disabled = false
+        btn.textContent = '确认删除'
+      }
+    })
+
+    // Pagination clicks
+    document.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement
+      if (target.classList.contains('page-btn')) {
+        const page = parseInt(target.dataset.page || '1')
+        loadPosts(page)
+        document.querySelector('.posts-list')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+    })
+
+    // Delete modal
+    document.getElementById('cancel-delete')?.addEventListener('click', () => {
+      ;(document.getElementById('delete-modal') as HTMLElement).style.display = 'none'
+    })
+    document.querySelector('.modal-backdrop')?.addEventListener('click', () => {
+      ;(document.getElementById('delete-modal') as HTMLElement).style.display = 'none'
+    })
     document.getElementById('confirm-delete')?.addEventListener('click', async () => {
+      const modal = document.getElementById('delete-modal') as HTMLElement
+      const deleteId = modal.dataset.deleteId || ''
       if (!deleteId) return
       const res = await fetch(`/api/posts/${deleteId}`, { method: 'DELETE' })
       if (res.ok) {
         document.querySelector(`[data-id="${deleteId}"]`)?.remove()
-        document.getElementById('delete-modal')!.style.display = 'none'
-        deleteId = ''
+        modal.style.display = 'none'
+        // Reload current page to update counts
+        loadPosts(currentPage)
       }
     })
+
+    loadPosts()
   </script>
 </Layout>
 
@@ -145,6 +423,18 @@ const { data: posts } = await supabase
   .search-input { flex: 1; background: none; border: none; color: var(--text); font-size: 0.8125rem; outline: none; font-family: inherit; }
   .search-input::placeholder { color: var(--text-muted); }
 
+  .bulk-bar { display: flex; align-items: center; gap: 1rem; padding: 0.625rem 0.875rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+  .bulk-check { display: flex; align-items: center; gap: 0.375rem; font-size: 0.8125rem; color: var(--text-secondary); cursor: pointer; user-select: none; }
+  .bulk-check input { cursor: pointer; }
+  .bulk-count { font-size: 0.75rem; color: var(--text-muted); }
+  .bulk-actions { display: flex; gap: 0.5rem; margin-left: auto; }
+  .bulk-note { font-size: 0.75rem; color: var(--text-muted); padding: 0.25rem 0.25rem 0.5rem; }
+  .bulk-preview { max-height: 180px; overflow-y: auto; margin-bottom: 1.25rem; padding: 0.625rem 0.75rem; background: rgba(255,255,255,0.04); border-radius: 8px; font-size: 0.75rem; color: var(--text-secondary); line-height: 1.7; }
+  .bulk-preview .muted { color: var(--text-muted); }
+
+  .row-check { display: flex; align-items: center; padding-right: 0.25rem; cursor: pointer; flex-shrink: 0; }
+  .row-check input { cursor: pointer; width: 15px; height: 15px; }
+
   .posts-list { display: flex; flex-direction: column; gap: 0.5rem; }
   .post-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.25rem; }
   .post-row-body { flex: 1; min-width: 0; }
@@ -155,6 +445,10 @@ const { data: posts } = await supabase
 
   .empty { display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 4rem; text-align: center; }
   .empty p { color: var(--text-muted); }
+
+  .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+  .page-info { font-size: 0.6875rem; color: var(--text-muted); }
+  .page-btns { display: flex; gap: 0.375rem; }
 
   .modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
   .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); }
@@ -169,5 +463,6 @@ const { data: posts } = await supabase
     .post-row { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
     .post-row-actions { align-self: flex-end; }
     .search-box { margin-bottom: 0.75rem; }
+    .pagination { flex-direction: column; gap: 0.375rem; }
   }
 </style>

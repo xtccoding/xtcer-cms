@@ -9,22 +9,34 @@ function isAuthenticated(cookies: any, request: Request, env: any): boolean {
   return false
 }
 
-export async function GET({ cookies }: { cookies: any }) {
+export async function GET({ cookies, url }: { cookies: any; url: URL }) {
   const auth = cookies.get('admin_auth')
   if (!auth) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
+  const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'))
+  const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '20')))
+  const offset = (page - 1) * limit
+
+  const { count } = await supabase
+    .from('posts')
+    .select('id', { count: 'exact', head: true })
+
   const { data, error } = await supabase
     .from('posts')
     .select('*')
     .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1)
 
   if (error) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 })
   }
 
-  return new Response(JSON.stringify(data), {
+  const total = count || 0
+  const totalPages = Math.ceil(total / limit)
+
+  return new Response(JSON.stringify({ data, total, page, totalPages }), {
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
   })
 }
