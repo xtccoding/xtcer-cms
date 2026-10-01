@@ -1,19 +1,51 @@
 ---
 import Layout from '../layouts/Layout.astro'
 import DealCard from '../components/DealCard.astro'
+import DealsTable from '../components/DealsTable.astro'
+import Pagination from '../components/Pagination.astro'
 import FeedbackBox from '../components/FeedbackBox.astro'
 import { supabase } from '../lib/supabase'
 import { isTableMissing, resolveSalt } from '../lib/interactions'
+import { monthlyCny } from '../lib/price.mjs'
 import {
   resolveCuration,
   DIFFICULTY_RANK,
   DIFFICULTY_META,
-  SUPPLEMENT_META,
   REFERENCE_META,
   paymentRank,
   type Difficulty,
 } from '../data/deal-curation'
 
+// ---------------------------------------------------------------- 查询参数
+// 分页 / 视图 / 排序 / 分类全部走 URL（服务端渲染）：
+// 每页有独立地址 → 可分享、可前进后退、可被搜索引擎抓；
+// 也避免了「只对当前页做前端筛选」这种和分页互相打架的做法。
+//
+// 为什么不干脆一次全渲染（332 张卡 ≈ 711 KB HTML / 热态约 1s）：
+// 分页同时省 CPU 和带宽，比去顶 Cloudflare 的 CPU 上限划算得多。
+const PAGE_SIZE = 24
+
+const SORT_OPTIONS = [
+  { key: 'difficulty', label: '难度优先', hint: '容易成功、国内能付款的排前面' },
+  { key: 'price', label: '价格', hint: '按月付人民币从低到高，解析不出价格的沉底' },
+  { key: 'payment', label: '支付方式', hint: '完全免费 → 微信 → 支付宝 → 银联 → 信用卡 → PayPal' },
+  { key: 'provider', label: '厂商', hint: '按厂商名分组，方便同厂比价' },
+] as const
+
+const VIEWS: readonly string[] = ['card', 'table']
+const SORTS: readonly string[] = SORT_OPTIONS.map(o => o.key)
+
+const sp = Astro.url.searchParams
+const pick = (v: string | null, allowed: readonly string[], fallback: string) =>
+  v && allowed.includes(v) ? v : fallback
+
+const view = pick(sp.get('view'), VIEWS, 'card')
+const sort = pick(sp.get('sort'), SORTS, 'difficulty')
+const catRaw = (sp.get('cat') || '').trim()
+const pageParam = Number.parseInt(sp.get('page') || '1', 10)
+const requestedPage = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1
+
+// ---------------------------------------------------------------- 取数
 const { data: dealsRaw } = await supabase
   .from('deals')
   .select('*')
@@ -22,71 +54,20 @@ const { data: dealsRaw } = await supabase
   // expiry 统一存 YYYY-MM-DD，按字符串比较即可。
   .or(`expiry.is.null,expiry.gte.${new Date().toISOString().slice(0, 10)}`)
 
-// 附上人工整理层（难度 / 风险 / 优惠码 / 教程），再排序：
-//   1. 难度：容易成功的排最前，Oracle / Azure / GCP / AWS 这类高难度沉到最后
-//   2. 支付：同一难度内「国内友好」优先 —— 微信 → 支付宝 → 银联 → 信用卡 → PayPal
-//   3. 价格：同为国内友好（或无支付信息）时，便宜的排前面
-// 「买其他送域名」这类补充权益单独抽出来，放到最后一块。
-const deals = (dealsRaw || [])
-  .map(d => ({ ...d, curation: resolveCuration(d.provider, d.product) }))
-  .sort((a, b) => {
-    const byDifficulty =
-      DIFFICULTY_RANK[a.curation.difficulty] - DIFFICULTY_RANK[b.curation.difficulty]
-    if (byDifficulty !== 0) return byDifficulty
-    const byPayment =
-      paymentRank(a.curation.payments, a.curation.freeNoCard) -
-      paymentRank(b.curation.payments, b.curation.freeNoCard)
-    if (byPayment !== 0) return byPayment
-    return (a.price_cny ?? Number.MAX_SAFE_INTEGER) - (b.price_cny ?? Number.MAX_SAFE_INTEGER)
-  })
+const deals = (dealsRaw || []).map(d => ({
+  ...d,
+  curation: resolveCuration(d.provider, d.product),
+}))
 
-const mainDeals = deals.filter(d => !d.curation.supplement && !d.curation.reference)
-const supplementItems = deals.filter(d => d.curation.supplement)
-// 大厂标准价参考卡：不是优惠，单独一块放最后，且不参与「便宜优先」排序。
-// 按分类归堆，同类里便宜的排前面，方便和上面的优惠逐档对照。
-const referenceItems = deals
-  .filter(d => d.curation.reference)
-  .sort((a, b) => {
-    const byCat = a.category.localeCompare(b.category)
-    if (byCat !== 0) return byCat
-    return (a.price_cny ?? Number.MAX_SAFE_INTEGER) - (b.price_cny ?? Number.MAX_SAFE_INTEGER)
-  })
+// 大厂标准价参考卡不是优惠，是基准线 —— 单独一个 Tab，不混进主列表。
+const referenceDeals = deals.filter(d => d.curation.reference)
+// 主列表 = 普通优惠 + 「买赠」补充权益（补充卡在卡片上有 🧩 徽标区分）
+const mainDeals = deals.filter(d => !d.curation.reference)
 
-// 一次性拉取全站点赞数，在 JS 里聚合成 { target: count }，再传给每张 DealCard，
-// 避免 332 张卡各发一次请求。表不存在（用户还没执行 interactions.sql）时按 0 处理。
-// 已知限制：PostgREST 默认 max-rows=1000，点赞记录超过 1000 行后计数会静默少算，
-// 接近上限时需改为视图 / RPC 聚合。
-const likeCounts: Record<string, number> = {}
-// 表就绪标记：只有真正取到数据才算 ready；捕获到「表缺失」时保持 false，
-// 这样在站长执行 interactions.sql 之前，服务端就不会渲染点赞按钮。
-let likesTableReady = false
-try {
-  const { data: likeRows, error: likeError } = await supabase.from('deal_likes').select('target')
-  if (!likeError && likeRows) {
-    likesTableReady = true
-    for (const row of likeRows) {
-      const target = (row as { target?: unknown }).target
-      if (typeof target === 'string') likeCounts[target] = (likeCounts[target] || 0) + 1
-    }
-  } else if (likeError && !isTableMissing(likeError)) {
-    console.error('[deals] like counts fetch failed:', likeError.message)
-  }
-} catch (err) {
-  console.error('[deals] like counts fetch threw:', err)
-}
+const isReferenceTab = catRaw === 'reference'
 
-// 功能总开关：点赞需要「表就绪 + 盐已配置」两者都满足，缺一就不渲染按钮，
-// 避免线上出现一个点了没反应的「死按钮」（本站 push 即自动部署）。
-const runtimeEnv = (Astro.locals as any)?.runtime?.env
-const saltReady = resolveSalt(runtimeEnv) !== null
-const likesEnabled = likesTableReady && saltReady
-
-const sectionOrder: Difficulty[] = ['easy', 'medium', 'hard']
-const sections = sectionOrder
-  .map(key => ({ key, items: mainDeals.filter(d => d.curation.difficulty === key) }))
-  .filter(s => s.items.length > 0)
-
-const allCategories = [...new Set(deals.map(d => d.category))]
+// ---------------------------------------------------------------- 分类
+const allCategories = [...new Set(mainDeals.map(d => d.category))]
 const categoryMap: Record<string, string> = {
   'compute': '云服务器',
   'nat': 'NAT VPS',
@@ -109,9 +90,117 @@ const categoryOrder = [
   'storage', 'database', 'domain', 'ai', 'ai_tool', 'api', 'other',
 ]
 const sortedCategories = categoryOrder.filter(c => allCategories.includes(c))
-const remaining = allCategories.filter(c => !categoryOrder.includes(c))
-const categories = [...sortedCategories, ...remaining]
+const remainingCats = allCategories.filter(c => !categoryOrder.includes(c))
+const categories = [...sortedCategories, ...remainingCats]
 
+const cat = isReferenceTab || allCategories.includes(catRaw) ? catRaw : ''
+
+// ---------------------------------------------------------------- 过滤 + 排序
+const baseList = isReferenceTab ? referenceDeals : mainDeals
+const filtered =
+  cat && !isReferenceTab ? baseList.filter(d => d.category === cat) : baseList
+
+/**
+ * 排序用的价格键。
+ * **不能直接用 price_cny** —— 它是人工录入的，口径不统一（同样 €4.5/月，
+ * 有人按 39.15 月租录，有人按 427.68 年付录）。统一从 price 文本重解析成月付人民币。
+ * 归不出月租口径的（赠额 / 搭售 / 模糊价 / 按量）一律排到最后，不猜。
+ */
+const priceKey = (d: (typeof deals)[number]) =>
+  monthlyCny(d.price) ?? Number.MAX_SAFE_INTEGER
+
+const payKey = (d: (typeof deals)[number]) =>
+  paymentRank(d.curation.payments, d.curation.freeNoCard)
+
+const sorted = [...filtered].sort((a, b) => {
+  switch (sort) {
+    case 'price':
+      return priceKey(a) - priceKey(b)
+    case 'payment': {
+      const byPay = payKey(a) - payKey(b)
+      return byPay !== 0 ? byPay : priceKey(a) - priceKey(b)
+    }
+    case 'provider': {
+      const byName = a.provider.localeCompare(b.provider, 'zh-Hans-CN')
+      return byName !== 0 ? byName : priceKey(a) - priceKey(b)
+    }
+    default: {
+      const byDifficulty =
+        DIFFICULTY_RANK[a.curation.difficulty] - DIFFICULTY_RANK[b.curation.difficulty]
+      if (byDifficulty !== 0) return byDifficulty
+      const byPay = payKey(a) - payKey(b)
+      return byPay !== 0 ? byPay : priceKey(a) - priceKey(b)
+    }
+  }
+})
+
+// ---------------------------------------------------------------- 分页
+const total = sorted.length
+const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+// 页码越界时钳到最后一页（例如从 13 页切到分类只剩 2 页）
+const page = Math.min(requestedPage, totalPages)
+const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+/** 生成 URL：只写非默认值，保持地址干净。切换分类/排序/视图时把 page 归 1。 */
+function makeUrl(overrides: {
+  view?: string
+  sort?: string
+  cat?: string
+  page?: number
+} = {}) {
+  const v = overrides.view ?? view
+  const s = overrides.sort ?? sort
+  const c = overrides.cat ?? cat
+  const p = overrides.page ?? page
+  const qs = new URLSearchParams()
+  if (v !== 'card') qs.set('view', v)
+  if (s !== 'difficulty') qs.set('sort', s)
+  if (c) qs.set('cat', c)
+  if (p > 1) qs.set('page', String(p))
+  const str = qs.toString()
+  return str ? `/deals?${str}` : '/deals'
+}
+
+// ---------------------------------------------------------------- 卡片分组
+// 只有「难度优先」这一种排序下，按难度分区才有意义；其它排序一律平铺网格。
+const sectionOrder: Difficulty[] = ['easy', 'medium', 'hard']
+const groupedSections =
+  sort === 'difficulty' && !isReferenceTab
+    ? sectionOrder
+        .map(key => ({ key, items: pageItems.filter(d => d.curation.difficulty === key) }))
+        .filter(s => s.items.length > 0)
+    : null
+
+const sortHint = SORT_OPTIONS.find(o => o.key === sort)?.hint || ''
+
+// ---------------------------------------------------------------- 点赞
+// 一次性拉取全站点赞数，在 JS 里聚合成 { target: count }，再传给每张 DealCard，
+// 避免每张卡各发一次请求。表不存在（还没执行 interactions.sql）时按 0 处理。
+// 已知限制：PostgREST 默认 max-rows=1000，点赞记录超过 1000 行后计数会静默少算。
+const likeCounts: Record<string, number> = {}
+let likesTableReady = false
+try {
+  const { data: likeRows, error: likeError } = await supabase.from('deal_likes').select('target')
+  if (!likeError && likeRows) {
+    likesTableReady = true
+    for (const row of likeRows) {
+      const target = (row as { target?: unknown }).target
+      if (typeof target === 'string') likeCounts[target] = (likeCounts[target] || 0) + 1
+    }
+  } else if (likeError && !isTableMissing(likeError)) {
+    console.error('[deals] like counts fetch failed:', likeError.message)
+  }
+} catch (err) {
+  console.error('[deals] like counts fetch threw:', err)
+}
+
+const runtimeEnv = (Astro.locals as any)?.runtime?.env
+const saltReady = resolveSalt(runtimeEnv) !== null
+const likesEnabled = likesTableReady && saltReady
+
+// ---------------------------------------------------------------- SEO
+// 结构化数据只在第 1 页铺全量，其余页只放当前页，避免 13 份重复的大 JSON-LD。
+const schemaDeals = page === 1 && !cat ? deals : pageItems
 const schema = {
   "@context": "https://schema.org",
   "@type": "CollectionPage",
@@ -120,7 +209,7 @@ const schema = {
   "url": "https://xtcer.cn/deals",
   "isPartOf": { "@type": "WebSite", "name": "XTCer", "url": "https://xtcer.cn" },
   "about": { "@type": "Thing", "name": "云服务优惠" },
-  "hasPart": deals.map(deal => ({
+  "hasPart": schemaDeals.map(deal => ({
     "@type": "Offer",
     "name": deal.product,
     "description": deal.notes || `${deal.provider} ${deal.product}`,
@@ -131,9 +220,12 @@ const schema = {
     ...(deal.url ? { "url": deal.url } : {}),
   })),
 }
+
+const pageTitle =
+  page > 1 ? `云服务优惠 第 ${page} 页 - XTCer` : '云服务优惠 - XTCer'
 ---
 
-<Layout title="云服务优惠 - XTCer" description="精选云服务器、AI Token、域名、存储等优惠信息，按上手难度与价格排序" schema={schema}>
+<Layout title={pageTitle} description="精选云服务器、AI Token、域名、存储等优惠信息，按上手难度与价格排序" schema={schema}>
   <nav class="nav">
     <div class="nav-inner">
       <a href="/" class="nav-logo">XTCer</a>
@@ -154,8 +246,9 @@ const schema = {
         <div class="page-header-main">
           <h1>云服务优惠</h1>
           <p class="page-desc">
-            排序规则：<strong>上手难度</strong> → <strong>国内支付友好度</strong> → 价格。
+            默认排序：<strong>上手难度</strong> → <strong>国内支付友好度</strong> → 价格。
             容易成功、能微信 / 支付宝付款的排前面，只能刷海外信用卡、风控严格的沉到最后。
+            每页 {PAGE_SIZE} 条，右上角可切换<strong>卡片 / 表格</strong>视图与排序方式。
           </p>
         </div>
         {/* 支付优先级：压成一行小字，放在标题块右侧的空白处，不额外占高度 */}
@@ -166,69 +259,122 @@ const schema = {
         </p>
       </header>
 
-      <div class="tabs">
-        <button class="tab active" data-cat="">全部</button>
-        {categories.map(cat => (
-          <button class="tab" data-cat={cat}>{catLabel(cat)}</button>
-        ))}
+      {/* 工具条：视图切换 + 排序。都是链接，切换即刷新（服务端渲染）。 */}
+      <div class="toolbar">
+        <div class="view-switch" role="group" aria-label="展示方式">
+          <a
+            class:list={['view-btn', view === 'card' && 'active']}
+            href={makeUrl({ view: 'card', page: 1 })}
+            aria-current={view === 'card' ? 'true' : undefined}
+          >▦ 卡片</a>
+          <a
+            class:list={['view-btn', view === 'table' && 'active']}
+            href={makeUrl({ view: 'table', page: 1 })}
+            aria-current={view === 'table' ? 'true' : undefined}
+          >☰ 表格</a>
+        </div>
+
+        <div class="sort-inline">
+          <span class="sort-label">排序</span>
+          {SORT_OPTIONS.map(o => (
+            <a
+              class:list={['sort-btn', sort === o.key && 'active']}
+              href={makeUrl({ sort: o.key, page: 1 })}
+              title={o.hint}
+              aria-current={sort === o.key ? 'true' : undefined}
+            >{o.label}</a>
+          ))}
+        </div>
+
+        <span class="result-count">{total} 条</span>
       </div>
 
-      {sections.map(section => (
-        <section class="diff-section" data-diff={section.key}>
-          <div class="section-head">
-            <h2 class="section-title">
-              <span class="section-icon">{DIFFICULTY_META[section.key].icon}</span>
-              {DIFFICULTY_META[section.key].label}
-              <span class="section-count">{section.items.length}</span>
-            </h2>
-            <p class="section-desc">{DIFFICULTY_META[section.key].desc}</p>
-          </div>
+      <p class="sort-hint">{sortHint}</p>
 
-          <div class="deals-grid">
-            {section.items.map(deal => <DealCard deal={deal} categoryLabel={catLabel(deal.category)} likeCount={likeCounts[deal.id] || 0} likesEnabled={likesEnabled} />)}
-          </div>
-        </section>
-      ))}
+      {/* 分类 Tab：服务端筛选（分页之后前端筛选只能筛到当前页，所以必须走 URL） */}
+      <div class="tabs">
+        <a class:list={['tab', !cat && 'active']} href={makeUrl({ cat: '', page: 1 })}>全部</a>
+        {categories.map(c => (
+          <a class:list={['tab', cat === c && 'active']} href={makeUrl({ cat: c, page: 1 })}>{catLabel(c)}</a>
+        ))}
+        <a
+          class:list={['tab', 'tab-ref', isReferenceTab && 'active']}
+          href={makeUrl({ cat: 'reference', page: 1 })}
+        >{REFERENCE_META.icon} 大厂标准价</a>
+      </div>
 
-      {supplementItems.length > 0 && (
-        <section class="diff-section supplement" data-diff="supplement">
-          <div class="section-head">
-            <h2 class="section-title">
-              <span class="section-icon">{SUPPLEMENT_META.icon}</span>
-              {SUPPLEMENT_META.label}
-              <span class="section-count">{supplementItems.length}</span>
-            </h2>
-            <p class="section-desc">{SUPPLEMENT_META.desc}</p>
-          </div>
-
-          <div class="deals-grid">
-            {supplementItems.map(deal => <DealCard deal={deal} categoryLabel={catLabel(deal.category)} likeCount={likeCounts[deal.id] || 0} likesEnabled={likesEnabled} />)}
-          </div>
-        </section>
-      )}
-
-      {referenceItems.length > 0 && (
-        <section class="diff-section reference" id="reference" data-diff="reference">
-          <div class="section-head">
-            <h2 class="section-title">
-              <span class="section-icon">{REFERENCE_META.icon}</span>
-              {REFERENCE_META.label}
-              <span class="section-count">{referenceItems.length}</span>
-            </h2>
-            <p class="section-desc">{REFERENCE_META.desc}</p>
-          </div>
-
-          <div class="deals-grid">
-            {referenceItems.map(deal => <DealCard deal={deal} categoryLabel={catLabel(deal.category)} likeCount={likeCounts[deal.id] || 0} likesEnabled={likesEnabled} />)}
-          </div>
-        </section>
-      )}
-
-      {deals.length === 0 && (
-        <div class="empty">
-          <p>暂无优惠信息，敬请期待</p>
+      {isReferenceTab && (
+        <div class="section-head standalone">
+          <h2 class="section-title">
+            <span class="section-icon">{REFERENCE_META.icon}</span>
+            {REFERENCE_META.label}
+            <span class="section-count">{total}</span>
+          </h2>
+          <p class="section-desc">{REFERENCE_META.desc}</p>
         </div>
       )}
+
+      {view === 'table' && (
+        <DealsTable
+          items={pageItems}
+          catLabel={catLabel}
+          sort={sort}
+          hrefForSort={(s: string) => makeUrl({ sort: s, page: 1 })}
+        />
+      )}
+
+      {view === 'card' && groupedSections && (
+        groupedSections.map(section => (
+          <section class="diff-section" data-diff={section.key}>
+            <div class="section-head">
+              <h2 class="section-title">
+                <span class="section-icon">{DIFFICULTY_META[section.key].icon}</span>
+                {DIFFICULTY_META[section.key].label}
+                <span class="section-count">{section.items.length}</span>
+              </h2>
+              <p class="section-desc">{DIFFICULTY_META[section.key].desc}</p>
+            </div>
+
+            <div class="deals-grid">
+              {section.items.map(deal => (
+                <DealCard
+                  deal={deal}
+                  categoryLabel={catLabel(deal.category)}
+                  likeCount={likeCounts[deal.id] || 0}
+                  likesEnabled={likesEnabled}
+                />
+              ))}
+            </div>
+          </section>
+        ))
+      )}
+
+      {view === 'card' && !groupedSections && pageItems.length > 0 && (
+        <div class="deals-grid">
+          {pageItems.map(deal => (
+            <DealCard
+              deal={deal}
+              categoryLabel={catLabel(deal.category)}
+              likeCount={likeCounts[deal.id] || 0}
+              likesEnabled={likesEnabled}
+            />
+          ))}
+        </div>
+      )}
+
+      {total === 0 && (
+        <div class="empty">
+          <p>该分类下暂无优惠信息</p>
+        </div>
+      )}
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={PAGE_SIZE}
+        hrefFor={(p: number) => makeUrl({ page: p })}
+      />
 
       <p class="disclaimer">
         优惠信息与价格会变动，下单前请以官网为准。标注「高难度」的免费额度
@@ -256,26 +402,6 @@ const schema = {
   </footer>
 
   <script>
-    // 分类筛选：命中后隐藏不匹配的卡片，并隐藏空掉的难度分区。
-    function applyFilter(cat: string) {
-      document.querySelectorAll<HTMLElement>('.deal-card').forEach(card => {
-        card.style.display = (!cat || card.dataset.cat === cat) ? '' : 'none'
-      })
-      document.querySelectorAll<HTMLElement>('.diff-section').forEach(section => {
-        const anyVisible = [...section.querySelectorAll<HTMLElement>('.deal-card')]
-          .some(c => c.style.display !== 'none')
-        section.style.display = anyVisible ? '' : 'none'
-      })
-    }
-
-    document.querySelectorAll<HTMLElement>('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
-        tab.classList.add('active')
-        applyFilter(tab.dataset.cat || '')
-      })
-    })
-
     // 点击复制优惠码
     document.querySelectorAll<HTMLElement>('.promo-chip').forEach(chip => {
       chip.addEventListener('click', async () => {
@@ -311,7 +437,7 @@ const schema = {
   /* 标题块 + 支付优先级：并排。支付优先级塞进标题右侧的空白里，不额外占高度 */
   .page-header {
     display: flex; align-items: flex-end; justify-content: space-between;
-    flex-wrap: wrap; gap: 0.5rem 2rem; margin-bottom: 1.25rem;
+    flex-wrap: wrap; gap: 0.5rem 2rem; margin-bottom: 0.875rem;
   }
   .page-header-main { min-width: 0; flex: 1 1 22rem; }
   .page-header h1 {
@@ -332,6 +458,40 @@ const schema = {
   .pay-order-intl { color: var(--text-muted); }
   .pay-order-cn::after { content: ' › '; color: var(--text-muted); font-weight: 400; }
 
+  /* ---- 工具条：视图切换 + 排序 ---- */
+  .toolbar {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem 1rem;
+    margin-bottom: 0.375rem;
+  }
+  .view-switch {
+    display: inline-flex; gap: 0.125rem; padding: 0.125rem;
+    border: 1px solid var(--glass-border); border-radius: 999px;
+    background: var(--surface);
+  }
+  .view-btn {
+    padding: 0.3125rem 0.75rem; border-radius: 999px;
+    font-size: 0.8125rem; color: var(--text-muted); white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .view-btn:hover { color: var(--text); }
+  .view-btn.active { background: var(--primary); color: #fff; font-weight: 600; }
+
+  .sort-inline { display: flex; align-items: center; flex-wrap: wrap; gap: 0.375rem; }
+  .sort-label { font-size: 0.75rem; color: var(--text-muted); }
+  .sort-btn {
+    font-size: 0.75rem; color: var(--text-muted);
+    padding: 0.1875rem 0.5rem; border-radius: var(--radius-sm);
+    transition: all 0.15s;
+  }
+  .sort-btn:hover { color: var(--text); background: var(--surface); }
+  .sort-btn.active { color: var(--primary); font-weight: 700; }
+
+  .result-count {
+    margin-left: auto; font-size: 0.75rem; color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .sort-hint { font-size: 0.6875rem; color: var(--text-muted); margin: 0 0 0.75rem; }
+
   /* 分类 Tab：始终**一行**横向滑动。滚动条隐藏（默认那条灰条太突兀），
      也不做渐隐 —— 右缘被切掉半个 chip 本身就是"还能滑"的提示。 */
   .tabs {
@@ -344,12 +504,14 @@ const schema = {
   }
   .tabs::-webkit-scrollbar { display: none; height: 0; }
   .tab {
+    display: inline-block;
     padding: 0.5rem 1rem; border: 1px solid var(--glass-border); border-radius: 999px;
     background: var(--surface); color: var(--text-muted); font-size: 0.8125rem;
     cursor: pointer; white-space: nowrap; transition: all 0.15s;
   }
   .tab:hover { color: var(--text); border-color: var(--glass-border-hover); }
   .tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+  .tab-ref { border-style: dashed; }
 
   /* 大块（难度分区）之间收紧，卡片内部也收紧 —— 纯信息展示，密集优先 */
   .diff-section { margin-bottom: 1.5rem; }
@@ -357,6 +519,7 @@ const schema = {
     display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.125rem 0.625rem;
     margin-bottom: 0.625rem; padding-bottom: 0.375rem; border-bottom: 1px solid var(--border);
   }
+  .section-head.standalone { margin-bottom: 1rem; }
   .section-title {
     display: flex; align-items: center; gap: 0.375rem;
     font-size: 1.0625rem; font-weight: 700; letter-spacing: -0.01em;
@@ -368,11 +531,6 @@ const schema = {
     border-radius: 999px; padding: 0.0625rem 0.5rem;
   }
   .section-desc { color: var(--text-muted); font-size: 0.75rem; margin: 0; }
-  .diff-section.supplement .section-head { border-bottom-style: dashed; }
-  /* 参考区是基准线，不是优惠 —— 用虚线 + 灰标题，视觉上降一级 */
-  .diff-section.reference .section-head { border-bottom-style: dashed; }
-  .diff-section.reference .section-title { color: var(--text-secondary); }
-  .diff-section.reference .deals-grid { opacity: 0.88; }
 
   .deals-grid {
     display: grid;
@@ -409,5 +567,6 @@ const schema = {
   @media (max-width: 640px) {
     .deals-grid { grid-template-columns: 1fr; }
     .footer-inner { flex-direction: column; gap: 1rem; }
+    .result-count { margin-left: 0; }
   }
 </style>

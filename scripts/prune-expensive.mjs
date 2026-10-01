@@ -21,111 +21,17 @@
 //   node scripts/prune-expensive.mjs --restore       # 把上次下线的卡片恢复
 import { readFileSync } from 'node:fs'
 import { resolveCuration } from '../src/data/deal-curation.ts'
+// 价格归一化只有这一份实现（站内排序也用它），别再在这里复制一份。
+import { parsePrice } from '../src/lib/price.mjs'
 
 const BASE = 'https://xtcer.cn'
 const COOKIE = 'admin_auth=ctooctooctoo'
-
-// 与站内既有 price_cny 保持同一套汇率，便于「解析值 vs 录入值」的比对有意义。
-const FX = { CNY: 1, USD: 7.2, EUR: 7.92 }
 
 // 粗筛绝对阈值（人民币）
 const MONTHLY_T = 150
 const ANNUAL_T = 1000
 
 // ---------------------------------------------------------------- price parse
-
-const FULLWIDTH = { '￥': '¥', '．': '.', '，': ',', '（': '(', '）': ')' }
-const clean = s =>
-  (s || '')
-    .replace(/[￥．，（）]/g, ch => FULLWIDTH[ch] || ch)
-    .trim()
-
-const CURRENCY = [
-  ['¥', 'CNY'],
-  ['$', 'USD'],
-  ['€', 'EUR'],
-]
-
-function parseAmount(text) {
-  const m = clean(text).match(/([¥$€])\s*([\d.]+)/)
-  if (!m) return null
-  const currency = (CURRENCY.find(c => c[0] === m[1]) || [, 'CNY'])[1]
-  const amount = parseFloat(m[2])
-  if (!Number.isFinite(amount)) return null
-  return { amount, currency }
-}
-
-/**
- * @returns {{monthlyCny:number|null, annualCny:number|null, period:string, promo:boolean, reason?:string}}
- */
-export function parsePrice(raw) {
-  const text = clean(raw)
-  const promo = /首年|首月|试用|折后|起/.test(text)
-
-  if (!text) return { monthlyCny: null, annualCny: null, period: 'empty', promo }
-  // 免费（允许后面跟额度描述，如「免费10GB」「免费 + $200 试用金」）
-  if (/免费|free/i.test(text)) {
-    return { monthlyCny: 0, annualCny: 0, period: 'free', promo: false }
-  }
-  // 搭售：赠域名 / 赠主机，本身没有独立标价
-  if (/随套餐|随服务器|随主机|赠域名|赠主机/.test(text)) {
-    return { monthlyCny: null, annualCny: null, period: 'bundled', promo: false, reason: '搭售赠品，无独立标价' }
-  }
-  // 模糊价 vs 滚动促销：「秒杀中」是真模糊；「秒杀价（每日 17:55 开抢）」口径是清楚的
-  if (/秒杀|极低价|超低价|待定|咨询/.test(text)) {
-    const descriptive = /每日|每周|周末|开抢|官网|限量|抢购/.test(text)
-    if (!descriptive) {
-      return { monthlyCny: null, annualCny: null, period: 'vague', promo, reason: '价格模糊，无法归一' }
-    }
-    return { monthlyCny: null, annualCny: null, period: 'rolling', promo: true, reason: '滚动促销，无固定月租' }
-  }
-  // 额度 / 赠金 / 按量付费，不是标价
-  if (/额度|余额|抵扣|赠金|credits?|按量|按需付费/i.test(text)) {
-    return { monthlyCny: null, annualCny: null, period: 'credit', promo: false, reason: '赠额/按量，非月租标价' }
-  }
-
-  const amt = parseAmount(text)
-  if (!amt) return { monthlyCny: null, annualCny: null, period: 'unparsed', promo, reason: '未解析出金额' }
-  if (amt.amount === 0) return { monthlyCny: 0, annualCny: 0, period: 'free', promo: false }
-  const rate = FX[amt.currency] ?? 1
-
-  // 计量价（按 GB / TB / 百万 token）：无法折算成月租，跳过
-  if (/\/\s*(GB|TB|G|T|M|百万)\b/i.test(text) || /token/i.test(text)) {
-    return { monthlyCny: null, annualCny: null, period: 'metered', promo, reason: '计量价（按量），不参与月租比较' }
-  }
-
-  // 按小时：优先取括号里的「≈$X/月」
-  if (/\/\s*小时/.test(text)) {
-    const monthlyHint = text.match(/≈\s*([¥$€])\s*([\d.]+)\s*\/\s*月/)
-    if (monthlyHint) {
-      const r = FX[(CURRENCY.find(c => c[0] === monthlyHint[1]) || [, 'CNY'])[1]] ?? 1
-      const m = parseFloat(monthlyHint[2]) * r
-      return { monthlyCny: m, annualCny: m * 12, period: 'hour', promo: false }
-    }
-    const m = amt.amount * 730 * rate
-    return { monthlyCny: m, annualCny: m * 12, period: 'hour', promo: false }
-  }
-
-  // 多个月一付，如「$2.49/6个月」
-  const multiMonth = text.match(/\/\s*(\d+)\s*个?月/)
-  if (multiMonth) {
-    const n = parseInt(multiMonth[1], 10) || 1
-    const total = amt.amount * rate
-    return { monthlyCny: total / n, annualCny: (total / n) * 12, period: 'multi-month', promo }
-  }
-
-  if (/\/\s*首?年|每年/.test(text)) {
-    const annual = amt.amount * rate
-    return { monthlyCny: annual / 12, annualCny: annual, period: 'year', promo }
-  }
-  if (/\/\s*首?月|每月/.test(text)) {
-    const monthly = amt.amount * rate
-    return { monthlyCny: monthly, annualCny: monthly * 12, period: 'month', promo }
-  }
-
-  // 只有金额没有周期 —— 常见于「¥199 起」这类，按年处理太激进，标记待确认
-  return { monthlyCny: null, annualCny: null, period: 'noperiod', promo, reason: '缺计费周期' }
-}
 
 // compare 块里的价格形如 '¥45/月'、'¥0.12/GB/月'、'$0.023/GB/月'
 function refMonthly(priceText) {

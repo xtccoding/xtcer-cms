@@ -1,0 +1,105 @@
+---
+/**
+ * 服务端分页条 —— 纯链接，无 JS。
+ * 用 <a> 而不是 <button>，这样每页都有独立 URL：可分享、可前进后退、可被搜索引擎抓。
+ */
+interface Props {
+  page: number
+  totalPages: number
+  total: number
+  pageSize: number
+  /** 由页面提供：给定页码生成完整 URL（会保留 view / sort / cat 等参数）。 */
+  hrefFor: (page: number) => string
+}
+
+const { page, totalPages, total, pageSize, hrefFor } = Astro.props
+
+const from = total === 0 ? 0 : (page - 1) * pageSize + 1
+const to = Math.min(page * pageSize, total)
+
+// 页码窗口：1 … p-1 p p+1 … N（相邻两页之间用省略号）
+const keep: number[] = [1]
+for (let n = page - 1; n <= page + 1; n++) {
+  if (n > 1 && n < totalPages) keep.push(n)
+}
+if (totalPages > 1) keep.push(totalPages)
+keep.sort((a, b) => a - b)
+
+const seq: (number | 'gap')[] = []
+keep.forEach((n, i) => {
+  if (i > 0 && n - keep[i - 1] > 1) seq.push('gap')
+  seq.push(n)
+})
+---
+
+{totalPages > 1 && (
+  <nav class="pager" aria-label="分页">
+    <span class="pager-info">
+      第 <strong>{from}–{to}</strong> 条 / 共 {total} 条 · 第 {page}/{totalPages} 页
+    </span>
+
+    <div class="pager-btns">
+      <a
+        class:list={['pager-btn', page <= 1 && 'is-disabled']}
+        href={page <= 1 ? undefined : hrefFor(page - 1)}
+        aria-disabled={page <= 1 ? 'true' : undefined}
+        rel="prev"
+      >‹ 上一页</a>
+
+      {seq.map(n =>
+        n === 'gap' ? (
+          <span class="pager-gap">…</span>
+        ) : (
+          <a
+            class:list={['pager-btn', 'pager-num', n === page && 'is-active']}
+            href={hrefFor(n)}
+            aria-current={n === page ? 'page' : undefined}
+          >{n}</a>
+        ),
+      )}
+
+      <a
+        class:list={['pager-btn', page >= totalPages && 'is-disabled']}
+        href={page >= totalPages ? undefined : hrefFor(page + 1)}
+        aria-disabled={page >= totalPages ? 'true' : undefined}
+        rel="next"
+      >下一页 ›</a>
+    </div>
+  </nav>
+)}
+
+<style>
+  .pager {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 0.5rem 1rem;
+    margin: 1.25rem 0 0.25rem;
+    padding-top: 0.875rem;
+    border-top: 1px solid var(--border);
+  }
+  .pager-info { font-size: 0.75rem; color: var(--text-muted); }
+  .pager-info strong { color: var(--text-secondary); }
+
+  .pager-btns { display: flex; align-items: center; gap: 0.25rem; }
+  .pager-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 2rem; height: 2rem; padding: 0 0.625rem;
+    border: 1px solid var(--glass-border); border-radius: var(--radius-sm);
+    background: var(--surface); color: var(--text-muted);
+    font-size: 0.8125rem; white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .pager-btn:hover { color: var(--text); border-color: var(--glass-border-hover); }
+  .pager-num { padding: 0 0.4375rem; }
+  .pager-btn.is-active {
+    background: var(--primary); border-color: var(--primary);
+    color: #fff; font-weight: 600;
+  }
+  .pager-btn.is-disabled { opacity: 0.4; pointer-events: none; }
+  .pager-gap { color: var(--text-muted); font-size: 0.8125rem; padding: 0 0.125rem; }
+
+  @media (max-width: 640px) {
+    .pager { flex-direction: column; align-items: stretch; }
+    .pager-info { text-align: center; }
+    .pager-btns { justify-content: center; flex-wrap: wrap; }
+  }
+</style>

@@ -39,11 +39,12 @@ interface Props {
 const { deal, categoryLabel, likeCount = 0, likesEnabled = false } = Astro.props
 ---
 
-<div class="deal-card glass-card" data-cat={deal.category} data-diff={deal.curation.difficulty} data-ref={deal.curation.reference ? 'true' : undefined}>
+<div class="deal-card glass-card" data-cat={deal.category} data-diff={deal.curation.difficulty} data-ref={deal.curation.reference ? 'true' : undefined} data-supplement={deal.curation.supplement ? 'true' : undefined}>
   <div class="deal-header">
     <span class="deal-provider">{deal.provider}</span>
     <span class="deal-badges">
       {deal.curation.reference && <span class="ref-chip">📊 标准价</span>}
+      {deal.curation.supplement && <span class="supp-chip">🧩 补充 · 买赠</span>}
       {deal.curation.difficulty !== 'easy' && !deal.curation.reference && (
         <span class:list={['diff-chip', deal.curation.difficulty]}>
           {DIFFICULTY_META[deal.curation.difficulty].icon}
@@ -294,6 +295,14 @@ const { deal, categoryLabel, likeCount = 0, likesEnabled = false } = Astro.props
     background: rgba(120,120,128,0.12); color: var(--text-secondary);
     border: 1px solid var(--glass-border);
   }
+  /* 补充权益卡（买其他送域名）：现在混在主列表里分页，靠这枚徽标自证身份 */
+  .supp-chip {
+    padding: 0.125rem 0.5rem; border-radius: 999px;
+    font-size: 0.6875rem; font-weight: 600; white-space: nowrap;
+    background: rgba(255,159,10,0.12); color: #b26a00;
+    border: 1px solid rgba(255,159,10,0.3);
+  }
+  .deal-card[data-supplement='true'] { border-left: 3px solid rgba(255,159,10,0.5); }
   /* 参考卡不是优惠，价格不用「便宜绿」，避免误读成好价 */
   .deal-card[data-ref='true'] { border-left: 3px solid var(--border); }
   .deal-card[data-ref='true'] .price-value { color: var(--text-secondary); }
