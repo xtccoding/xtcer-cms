@@ -1,5 +1,11 @@
 ---
-import { DIFFICULTY_META, TLD_TAG_META, type DealCuration } from '../data/deal-curation'
+import {
+  DIFFICULTY_META,
+  TLD_TAG_META,
+  PAYMENT_META,
+  isCnFriendly,
+  type DealCuration,
+} from '../data/deal-curation'
 
 interface Deal {
   provider: string
@@ -50,6 +56,18 @@ const { deal, categoryLabel } = Astro.props
     {deal.bandwidth && <span class="spec">📡 {deal.bandwidth}</span>}
     {deal.region && <span class="spec">🌍 {deal.region}</span>}
   </div>
+
+  {deal.curation.payments && deal.curation.payments.length > 0 && (
+    <div class="pay-row">
+      {isCnFriendly(deal.curation.payments) && <span class="pay-cn">国内友好</span>}
+      {deal.curation.payments.map(p => (
+        <span class:list={['pay-chip', isCnFriendly([p]) ? 'cn' : 'intl']}>
+          <span class="pay-icon">{PAYMENT_META[p].icon}</span>
+          {PAYMENT_META[p].label}
+        </span>
+      ))}
+    </div>
+  )}
 
   {deal.curation.tlds && deal.curation.tlds.length > 0 && (
     <div class="tld-block">
@@ -104,6 +122,15 @@ const { deal, categoryLabel } = Astro.props
 
   {deal.curation.warning && <p class="deal-warning">⚠️ {deal.curation.warning}</p>}
 
+  {deal.curation.limits && deal.curation.limits.length > 0 && (
+    <div class="deal-limits">
+      <div class="limits-head">⛔ 限制 / 雷点</div>
+      <ul>
+        {deal.curation.limits.map(l => <li>{l}</li>)}
+      </ul>
+    </div>
+  )}
+
   {deal.notes && <p class="deal-notes">{deal.notes}</p>}
 
   {deal.curation.tips && deal.curation.tips.length > 0 && (
@@ -157,6 +184,37 @@ const { deal, categoryLabel } = Astro.props
 
   .deal-specs { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .spec { font-size: 0.75rem; color: var(--text-secondary); }
+
+  /* ---- 支付方式徽标 ---- */
+  .pay-row { display: flex; flex-wrap: wrap; gap: 0.3125rem; align-items: center; }
+  .pay-cn {
+    padding: 0.125rem 0.4375rem; border-radius: 999px;
+    font-size: 0.625rem; font-weight: 700; letter-spacing: 0.02em;
+    background: rgba(52,199,89,0.14); color: #1a8f3c;
+    border: 1px solid rgba(52,199,89,0.32);
+  }
+  .pay-chip {
+    display: inline-flex; align-items: center; gap: 0.1875rem;
+    padding: 0.125rem 0.4375rem; border-radius: 999px;
+    font-size: 0.6875rem; font-weight: 500;
+    border: 1px solid var(--glass-border);
+    background: var(--surface); color: var(--text-secondary);
+  }
+  .pay-chip.cn { border-color: rgba(52,199,89,0.3); color: #1a8f3c; background: rgba(52,199,89,0.06); }
+  .pay-chip.intl { color: var(--text-muted); }
+  .pay-icon { font-size: 0.625rem; line-height: 1; }
+
+  /* ---- 限制 / 雷点 ---- */
+  .deal-limits {
+    padding: 0.5rem 0.75rem; border-radius: var(--radius-sm);
+    background: rgba(255,90,60,0.06); border-left: 2px solid #d94a2b;
+  }
+  .limits-head { font-size: 0.6875rem; font-weight: 700; color: #d94a2b; margin-bottom: 0.25rem; }
+  .deal-limits ul {
+    margin: 0; padding-left: 0.9375rem;
+    display: flex; flex-direction: column; gap: 0.1875rem;
+  }
+  .deal-limits li { font-size: 0.6875rem; color: var(--text-secondary); line-height: 1.45; }
 
   /* ---- TLD pricing ---- */
   .tld-block { display: flex; flex-direction: column; gap: 0.5rem; }
