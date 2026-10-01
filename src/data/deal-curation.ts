@@ -162,6 +162,7 @@ const rules: Rule[] = [
   },
   {
     provider: '华为云',
+    productIncludes: '赠',
     difficulty: 'easy',
     supplement: true,
     payments: ['wechat', 'alipay', 'unionpay'],
@@ -169,6 +170,7 @@ const rules: Rule[] = [
   },
   {
     provider: 'Hostinger',
+    productIncludes: '赠',
     difficulty: 'easy',
     supplement: true,
     payments: ['card', 'paypal'],
@@ -176,6 +178,7 @@ const rules: Rule[] = [
   },
   {
     provider: 'Bluehost',
+    productIncludes: '赠',
     difficulty: 'easy',
     supplement: true,
     payments: ['card', 'paypal'],
