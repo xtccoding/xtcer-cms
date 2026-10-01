@@ -57,16 +57,23 @@ const { deal, categoryLabel } = Astro.props
     {deal.region && <span class="spec">🌍 {deal.region}</span>}
   </div>
 
-  {deal.curation.payments && deal.curation.payments.length > 0 && (
+  {deal.curation.freeNoCard ? (
     <div class="pay-row">
-      {isCnFriendly(deal.curation.payments) && <span class="pay-cn">国内友好</span>}
-      {deal.curation.payments.map(p => (
-        <span class:list={['pay-chip', isCnFriendly([p]) ? 'cn' : 'intl']}>
-          <span class="pay-icon">{PAYMENT_META[p].icon}</span>
-          {PAYMENT_META[p].label}
-        </span>
-      ))}
+      <span class="pay-free">🆓 完全免费 · 无需绑卡</span>
     </div>
+  ) : (
+    deal.curation.payments &&
+    deal.curation.payments.length > 0 && (
+      <div class="pay-row">
+        {isCnFriendly(deal.curation.payments) && <span class="pay-cn">国内友好</span>}
+        {deal.curation.payments.map(p => (
+          <span class:list={['pay-chip', isCnFriendly([p]) ? 'cn' : 'intl']}>
+            <span class="pay-icon">{PAYMENT_META[p].icon}</span>
+            {PAYMENT_META[p].label}
+          </span>
+        ))}
+      </div>
+    )
   )}
 
   {deal.curation.tlds && deal.curation.tlds.length > 0 && (
@@ -203,6 +210,12 @@ const { deal, categoryLabel } = Astro.props
   .pay-chip.cn { border-color: rgba(52,199,89,0.3); color: #1a8f3c; background: rgba(52,199,89,0.06); }
   .pay-chip.intl { color: var(--text-muted); }
   .pay-icon { font-size: 0.625rem; line-height: 1; }
+  .pay-free {
+    padding: 0.125rem 0.5rem; border-radius: 999px;
+    font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.01em;
+    background: rgba(52,199,89,0.14); color: #1a8f3c;
+    border: 1px solid rgba(52,199,89,0.34);
+  }
 
   /* ---- 限制 / 雷点 ---- */
   .deal-limits {
