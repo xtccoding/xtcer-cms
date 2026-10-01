@@ -229,7 +229,6 @@ const rules: Rule[] = [
       { tld: '.cn', price: '曾 ¥8 活动', tag: 'promo', note: '不定期，需盯活动页' },
     ],
     tldNote: '价格随活动大幅波动，属于「时不时捡漏」型，值得关注但不稳定。',
-    tips: ['曾不定期搞 .cn 8 元级活动，值得盯一下活动页'],
   },
   {
     provider: 'Cloudflare',
@@ -243,7 +242,7 @@ const rules: Rule[] = [
       { tld: '.app', price: '$13.20/年', tag: 'cheap' },
     ],
     tldNote: '没有任何首年促销，全部按注册局成本价 —— 短期不便宜，长期最省。',
-    tips: ['必须把域名的 DNS 托管到 Cloudflare', '首年与续费同价，长期最省'],
+    tips: ['首年与续费同价，长期持有最省'],
   },
   {
     provider: 'Porkbun',
@@ -260,7 +259,7 @@ const rules: Rule[] = [
       { tld: '.dev', price: '$12.34/年', tag: 'cheap' },
     ],
     tldNote: `${CHEAP_TLDS_NOTE}。.io / .ai 首年价常为全网最低。`,
-    tips: ['送免费 WHOIS 隐私 / SSL / 邮件转发', '一口价后缀续费不涨'],
+    tips: ['一口价后缀续费不涨，长期持有最省'],
   },
   {
     provider: 'Spaceship',
@@ -277,7 +276,7 @@ const rules: Rule[] = [
     ],
     tldNote:
       '首年最狠的一家；纯数字 .xyz 首年+续费都约 $0.99，是全站唯一「续费不涨」的极低价后缀。',
-    tips: ['首年最便宜，5 年总成本也最低', '想极致省钱：注册纯数字 .xyz'],
+    tips: ['想极致省钱：注册 6-9 位纯数字 .xyz'],
   },
   {
     provider: 'Namecheap',
@@ -336,7 +335,6 @@ const rules: Rule[] = [
     provider: 'Oracle',
     difficulty: 'hard',
     payments: ['card'],
-    limits: ['与 Always Free 共用同一套账号体系'],
     warning: '与 Always Free 共用同一套账号体系，注册难度相同。',
     tutorialUrl: TUTORIAL,
   },
@@ -475,8 +473,8 @@ const rules: Rule[] = [
   {
     provider: 'EthernetServers',
     difficulty: 'easy',
-    payments: ['card', 'paypal'],
-    tips: ['OpenVZ 架构，不能自定义内核；注意续费价'],
+    payments: ['alipay', 'card', 'paypal', 'crypto'],
+    tips: ['续费价会跳涨，长期使用要提前算成本'],
   },
   {
     provider: 'BuyVM',
@@ -499,11 +497,7 @@ const rules: Rule[] = [
     ],
     promo: 'BV2026',
     promoNote: '结算页可试 BV2026（年付 8 折）/ WELCOME25（首购 75 折），失效以官网为准',
-    tips: [
-      '先跑 curl -6 ifconfig.co 确认本地网络支持 IPv6',
-      '国内访问优先选香港 / 东京机房',
-      'KVM 可改内核、跑 Docker；LXC 更便宜但共享内核',
-    ],
+    tips: ['LXC 更便宜但共享内核，需要自定义内核时选 KVM'],
   },
 
   // ---------- 容器托管（Serverless 容器，免费额度）----------
@@ -549,7 +543,7 @@ const rules: Rule[] = [
     provider: 'cpolar',
     difficulty: 'easy',
     payments: ['wechat', 'alipay'],
-    limits: ['免费版隧道数与带宽有限，域名随机且会变'],
+    limits: ['免费版隧道数与带宽有限，域名随机且每次重启会变'],
   },
   {
     provider: 'Cloudflare',
@@ -594,17 +588,16 @@ const rules: Rule[] = [
     difficulty: 'easy',
     payments: ['wechat', 'alipay'],
     limits: [
-      '3 亿 GLM-5.3-Flash token 为周末限时活动，过期清零',
-      '活动是否继续、额度是否发放以官网为准',
+      '3 亿 GLM-5.3-Flash token 为周末限时活动，发放后周日 23:00 清零',
+      '先到先得，不是长期权益；活动是否继续以官网为准',
     ],
-    warning: '周末限时额度：发放后周日 23:00 清零，先到先得，不是长期权益。',
   },
   {
     provider: 'WorkBuddy',
     difficulty: 'easy',
     payments: ['wechat', 'alipay', 'unionpay'],
     limits: ['免费体验额度有限，长期使用需订阅', '个人版 99 / 199 / 999 元/月三档'],
-    promoNote: '新用户注册可领 5000 积分体验',
+    promoNote: '新用户注册自动发放，无需绑卡',
   },
   {
     provider: 'Trae',
@@ -652,7 +645,7 @@ const rules: Rule[] = [
       '每日 200 万 Token 需参与协作奖励计划，且按天清零',
       '超额后自动转为按量计费，注意关掉后付费',
     ],
-    tips: ['手机号注册、国内直连，接口兼容 OpenAI 格式', '推理 / 视觉 / 语音模型都有独立免费额度'],
+    tips: ['推理 / 视觉 / 语音模型各有独立免费额度，可分别领取'],
   },
   {
     provider: 'Cerebras',
@@ -699,7 +692,6 @@ const rules: Rule[] = [
       '未绑定支付方式的组织额度会被进一步限制',
       '超配额应用直接暂停，不会计费',
     ],
-    tips: ['免服务器跑 TS/JS，适合 API 与轻量后端', '可搭配 Deno KV 做小体量持久化'],
   },
   {
     provider: 'Railway',
@@ -753,7 +745,7 @@ const rules: Rule[] = [
       '免费档仅 1 个集群，5GB 行存储 + 每月 5000 万请求单元',
       '长期闲置可能被回收，重要数据记得导出',
     ],
-    tips: ['兼容 MySQL 协议，迁移成本低'],
+    tips: ['从 MySQL 迁移基本只改连接串'],
   },
   {
     provider: 'Aiven',
@@ -781,7 +773,6 @@ const rules: Rule[] = [
     provider: 'Tigris',
     difficulty: 'easy',
     limits: ['免费 5GB 存储', '服务较新，长期可用性需自行评估'],
-    tips: ['出网免费，适合做图床 / 静态资源站'],
   },
   {
     provider: 'Cloudflare',
@@ -809,7 +800,6 @@ const rules: Rule[] = [
       '硬上限：每天 10 万请求，超限直接拒绝而非计费',
       '每请求 10ms CPU 时间、128MB 内存',
     ],
-    tips: ['与 D1 / R2 / KV 组合，可以搭一套零成本后端'],
   },
 
   // ---------- 免费可观测 / 邮件 / 分析 ----------
@@ -874,7 +864,7 @@ const rules: Rule[] = [
       '促销套餐售罄即止，补货不定时',
       '线路为普通 BGP，不是 CN2 GIA',
     ],
-    tips: ['九周年套餐续费同价，长期持有划算', '支持支付宝，无需海外信用卡'],
+    promoNote: '支持支付宝 / 微信 / PayPal，无需海外信用卡',
   },
   {
     provider: '狗云',
@@ -901,7 +891,6 @@ const rules: Rule[] = [
     difficulty: 'medium',
     payments: ['alipay', 'wechat'],
     limits: ['双 ISP 原生 IP 成本高，单价不便宜', '小商家，稳定性需自行评估'],
-    tips: ['需要原生 IP 做 TikTok / 流媒体解锁时值得考虑'],
   },
   {
     provider: 'MoeCloud',
@@ -928,7 +917,6 @@ const rules: Rule[] = [
     difficulty: 'easy',
     payments: ['alipay', 'card', 'paypal'],
     limits: ['CN2 GIA 套餐带宽较小', '年付为主，退订政策需提前确认'],
-    tips: ['2015 年成立，提供中文客服'],
   },
   {
     provider: '搬瓦工',
