@@ -6,6 +6,9 @@ const { data: deals } = await supabase
   .from('deals')
   .select('*')
   .eq('is_active', true)
+  // 过期即隐藏：expiry 为空 = 长期有效；有值则必须 >= 今天。
+  // expiry 统一存 YYYY-MM-DD，按字符串比较即可。
+  .or(`expiry.is.null,expiry.gte.${new Date().toISOString().slice(0, 10)}`)
   .order('price_cny', { ascending: true, nullsFirst: false })
 
 const allCategories = [...new Set(deals?.map(d => d.category) || [])]

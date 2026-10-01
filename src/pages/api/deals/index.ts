@@ -17,7 +17,13 @@ export async function GET({ url }: { url: URL }) {
     .from('deals')
     .select('*')
     .eq('is_active', true)
+    // 过期即隐藏：expiry 为空 = 长期有效；有值则必须 >= 今天（YYYY-MM-DD 字符串比较）。
+    // 传 ?include_expired=1 可绕过，供后台/核对使用。
     .order('price_cny', { ascending: true, nullsFirst: false })
+
+  if (url.searchParams.get('include_expired') !== '1') {
+    query = query.or(`expiry.is.null,expiry.gte.${new Date().toISOString().slice(0, 10)}`)
+  }
 
   if (category) query = query.eq('category', category)
   if (region) query = query.eq('region', region)
