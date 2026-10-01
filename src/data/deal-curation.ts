@@ -1607,6 +1607,806 @@ const rules: Rule[] = [
     freeNoCard: true,
     limits: ['只镜像开源公共库，不能托管私有文件', '偶发国内 DNS 污染或证书过期'],
   },
+    // ================= 2026-10-02 批次（免费 CDN / 穿透 / 组网 / 存储 / 低价小机）=================
+  {
+    provider: '七牛云',
+    productIncludes: 'CDN 免费额度',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: [
+      '免费额度按月赠送，超出按量计费',
+      '需实名认证',
+    ],
+  },
+  {
+    provider: '七牛云',
+    productIncludes: 'Kodo 对象存储',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: [
+      '免费额度有有效期，过期清零',
+      '需实名认证',
+    ],
+  },
+  {
+    provider: '腾讯云',
+    productIncludes: 'COS 对象存储',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: [
+      '免费额度仅限新用户，6 个月后按量计费',
+    ],
+  },
+  {
+    provider: '腾讯云',
+    productIncludes: '轻量应用服务器',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: [
+      '内地节点需备案才能绑定域名',
+    ],
+  },
+  {
+    provider: '腾讯云 TokenHub',
+    productIncludes: '新用户每模型 100万 token',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '仅新用户一次性赠送，用完即止',
+    ],
+  },
+  {
+    provider: '三丰云',
+    productIncludes: '免费虚拟主机',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '需实名认证',
+      '免费机型资源紧张，常开不出来',
+    ],
+  },
+  {
+    provider: '三丰云',
+    productIncludes: '免费云服务器',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '需实名认证',
+      '免费机型资源紧张，常开不出来',
+    ],
+  },
+  {
+    provider: '西部数码',
+    productIncludes: '虚拟主机',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: [
+      '首年优惠，续费按标准价',
+    ],
+  },
+  {
+    provider: '亿速互联',
+    productIncludes: '虚拟主机',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: [
+      '首年低价，续费涨价明显',
+    ],
+  },
+  {
+    provider: '景安网络',
+    productIncludes: '个人A型 虚拟主机',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: [
+      '国内主机需备案',
+    ],
+  },
+  {
+    provider: '蓝队云',
+    productIncludes: '适配型云服务器',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay'],
+    limits: [
+      '年付套餐为主，续费价格需自行确认',
+    ],
+  },
+  {
+    provider: '慈云数据',
+    productIncludes: '香港特惠 CN2 B型',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay'],
+    limits: [
+      '香港 CN2 线路，带宽较小',
+    ],
+  },
+  {
+    provider: '华为云',
+    productIncludes: 'Flexus',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: [
+      '内地节点需备案',
+      '促销价仅首年',
+    ],
+  },
+  {
+    provider: '火山引擎',
+    productIncludes: '云服务器',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: [
+      '新用户首年特价，续费按标准价',
+    ],
+  },
+  {
+    provider: '智谱 GLM',
+    productIncludes: 'GLM-4-Flash 免费',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费模型有并发与速率限制',
+    ],
+  },
+  {
+    provider: '硅基流动',
+    productIncludes: 'SiliconFlow 免费模型',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '仅部分模型免费，速率受限',
+    ],
+  },
+  {
+    provider: 'Kimi 月之暗面',
+    productIncludes: '新用户约 800万 token',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '赠送额度有有效期',
+    ],
+  },
+  {
+    provider: '小米',
+    productIncludes: 'MiMo Token Plan',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '限时活动，额度用完即止',
+    ],
+  },
+  {
+    provider: '阿里云百炼',
+    productIncludes: 'DashScope 免费 token',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '各模型免费额度独立计算',
+      '免费额度有效期 180 天',
+    ],
+  },
+  {
+    provider: 'DeepSeek',
+    productIncludes: '新用户免费额度',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '赠送额度有有效期',
+    ],
+  },
+  {
+    provider: 'DeepSeek',
+    productIncludes: 'DeepSeek API',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay'],
+    limits: [
+      '按 token 计费，需先充值',
+    ],
+  },
+  {
+    provider: 'jsDelivr',
+    productIncludes: 'CDN',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '只能托管开源 / 公开仓库的文件',
+      '单文件与单仓库有大小上限',
+    ],
+  },
+  {
+    provider: 'GitHub',
+    productIncludes: 'Pages',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '仓库 1GB，每月 100GB 软流量上限',
+    ],
+  },
+  {
+    provider: 'Statically',
+    productIncludes: '免费 CDN',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '只镜像 GitHub / npm 上的公开资源',
+    ],
+  },
+  {
+    provider: 'unpkg',
+    productIncludes: '免费 CDN',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '直接映射 npm 包，生产环境建议自建',
+    ],
+  },
+  {
+    provider: 'esm.sh',
+    productIncludes: '免费 ESM CDN',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '按需编译 ESM，首次请求较慢',
+    ],
+  },
+  {
+    provider: 'cdnjs',
+    productIncludes: '免费 CDN',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '只镜像开源库，不能托管私有文件',
+    ],
+  },
+  {
+    provider: 'BootstrapCDN',
+    productIncludes: '免费 CDN',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '只镜像 Bootstrap 等固定库',
+    ],
+  },
+  {
+    provider: 'Staticfile',
+    productIncludes: 'Staticfile CDN',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '只镜像开源公共库',
+    ],
+  },
+  {
+    provider: '360 前端静态资源库',
+    productIncludes: '免费 CDN',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '只镜像开源公共库',
+    ],
+  },
+  {
+    provider: 'Google Fonts',
+    productIncludes: '免费字体 CDN',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '国内访问建议走镜像站',
+    ],
+  },
+  {
+    provider: 'Font Awesome',
+    productIncludes: 'Free 计划',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费版仅含部分图标',
+    ],
+  },
+  {
+    provider: 'Cloudflare',
+    productIncludes: '免费版 CDN',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费版不含高级 WAF 与图片优化',
+    ],
+  },
+  {
+    provider: 'Tencent EdgeOne',
+    productIncludes: '免费版',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '需腾讯云实名认证',
+      '免费版不含高级安全防护',
+    ],
+  },
+  {
+    provider: 'Amazon CloudFront',
+    productIncludes: 'Free 计划',
+    difficulty: 'easy',
+    payments: ['card'],
+    limits: [
+      '每月 100GB 出网 + 100 万请求',
+    ],
+  },
+  {
+    provider: 'Cloudflare R2',
+    productIncludes: '免费额度',
+    difficulty: 'easy',
+    payments: ['card'],
+    limits: [
+      '免费 10GB 存储，出网免费',
+      '需绑定支付方式才启用',
+    ],
+  },
+  {
+    provider: 'KeyCDN',
+    productIncludes: '按量计费',
+    difficulty: 'medium',
+    payments: ['card', 'paypal'],
+    limits: [
+      '无免费额度，最低充值 $5',
+    ],
+  },
+  {
+    provider: 'InfinityFree',
+    productIncludes: '免费虚拟主机',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '不支持对外发信',
+      '有并发限制与强制广告',
+    ],
+  },
+  {
+    provider: 'AwardSpace',
+    productIncludes: 'Free Hosting',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费档仅 1GB 空间，页面带广告',
+    ],
+  },
+  {
+    provider: 'Tailscale',
+    productIncludes: 'Personal 免费版',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费档限 3 用户 / 100 台设备',
+    ],
+  },
+  {
+    provider: 'ZeroTier',
+    productIncludes: 'Personal',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费档限 25 个节点',
+    ],
+  },
+  {
+    provider: 'NetBird',
+    productIncludes: 'Free',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费档限 100 台设备',
+    ],
+  },
+  {
+    provider: 'Twingate',
+    productIncludes: 'Starter',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费档限 5 用户',
+    ],
+  },
+  {
+    provider: 'remote.it',
+    productIncludes: 'Personal',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费档限少量设备',
+    ],
+  },
+  {
+    provider: 'Microsoft Dev Tunnels',
+    productIncludes: 'Dev Tunnels',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '需微软账号',
+      '隧道为临时地址，重启即变',
+    ],
+  },
+  {
+    provider: 'ngrok',
+    productIncludes: 'Free',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费版为随机域名，重启换地址',
+    ],
+  },
+  {
+    provider: 'localhost.run',
+    productIncludes: 'Free Tunnel',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费隧道为临时随机地址',
+    ],
+  },
+  {
+    provider: 'Pinggy',
+    productIncludes: 'Free',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费隧道单次有效期 60 分钟',
+    ],
+  },
+  {
+    provider: 'LocalXpose',
+    productIncludes: 'Starter',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费隧道为随机域名且限速',
+    ],
+  },
+  {
+    provider: 'zrok',
+    productIncludes: 'Free',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费额度有限，超出需升级',
+    ],
+  },
+  {
+    provider: 'playit.gg',
+    productIncludes: 'Free',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费隧道带宽与并发受限',
+    ],
+  },
+  {
+    provider: 'tunnelto',
+    productIncludes: 'Free',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '开源工具，也可自建服务端',
+    ],
+  },
+  {
+    provider: 'OpenFrp',
+    productIncludes: '免费公益',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '公益节点不稳定，随时可能停服',
+    ],
+  },
+  {
+    provider: 'SakuraFrp 樱花内网穿透',
+    productIncludes: '普通用户',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费隧道限速，需每日签到领流量',
+    ],
+  },
+  {
+    provider: 'natapp',
+    productIncludes: '免费隧道',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费隧道为随机域名，会定时断开',
+    ],
+  },
+  {
+    provider: 'Hax.co.id',
+    productIncludes: 'Free IPv6 VPS',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '仅 IPv6 出口，需自备 IPv6 网络',
+      '资源紧张，常开不出来',
+    ],
+  },
+  {
+    provider: 'Woiden.id',
+    productIncludes: 'Free NAT VPS',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      'NAT 共享 IPv4，无独立 IP',
+      '需定期续期，否则回收',
+    ],
+  },
+  {
+    provider: 'MongoDB Atlas',
+    productIncludes: 'M0 Free',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      'M0 免费档上限 512MB 存储',
+    ],
+  },
+  {
+    provider: 'Neon',
+    productIncludes: 'Serverless PostgreSQL',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费 0.5GB 存储，闲置会挂起',
+    ],
+  },
+  {
+    provider: 'CockroachDB',
+    productIncludes: 'Serverless Free',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费 5GB 存储 + 每月 5000 万 RU',
+    ],
+  },
+  {
+    provider: 'Upstash',
+    productIncludes: 'Serverless Redis',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费档每天 1 万次命令',
+    ],
+  },
+  {
+    provider: 'Supabase',
+    productIncludes: 'Storage',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '项目闲置 7 天会被自动暂停',
+    ],
+  },
+  {
+    provider: 'Supabase',
+    productIncludes: 'PostgreSQL',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '项目闲置 7 天会被自动暂停',
+    ],
+  },
+  {
+    provider: 'Vercel',
+    productIncludes: 'Hobby 免费版',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费档仅限非商业用途',
+      '国内访问偶有不稳定',
+    ],
+  },
+  {
+    provider: 'Netlify',
+    productIncludes: 'Free Plan',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '每月 100GB 流量，超出需付费',
+    ],
+  },
+  {
+    provider: 'Northflank',
+    productIncludes: 'nf-compute-10 容器',
+    difficulty: 'easy',
+    payments: ['card'],
+    limits: [
+      '免费额度有限，超出按量计费',
+    ],
+  },
+  {
+    provider: 'Sealos',
+    productIncludes: '免费试用实例',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '7 天试用，到期需付费续用',
+    ],
+  },
+  {
+    provider: 'ClawCloud Run',
+    productIncludes: '每月免费额度',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '每月 $5 额度',
+      '需 GitHub 账号注册满 180 天',
+    ],
+  },
+  {
+    provider: 'IBM Cloud',
+    productIncludes: 'Free Tier',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '部分 Lite 服务 30 天后需手动重建',
+    ],
+  },
+  {
+    provider: 'Groq',
+    productIncludes: '免费推理档',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '免费档有每分钟 token 限制',
+    ],
+  },
+  {
+    provider: 'OpenRouter',
+    productIncludes: ':free 免费模型',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      ':free 模型有每日请求上限',
+    ],
+  },
+  {
+    provider: 'Backblaze',
+    productIncludes: 'B2 对象存储',
+    difficulty: 'easy',
+    payments: ['card'],
+    limits: [
+      '免费 10GB 存储，出网按量计费',
+    ],
+  },
+  {
+    provider: 'Backblaze B2',
+    productIncludes: 'B2 Cloud Storage',
+    difficulty: 'easy',
+    payments: ['card'],
+    limits: [
+      '免费 10GB 存储，搭配 Cloudflare 出网免费',
+    ],
+  },
+  {
+    provider: 'Scaleway',
+    productIncludes: 'Object Storage',
+    difficulty: 'easy',
+    payments: ['card'],
+    limits: [
+      '按量计费，需先绑卡',
+    ],
+  },
+  {
+    provider: 'Wasabi',
+    productIncludes: 'Hot Cloud Storage',
+    difficulty: 'easy',
+    payments: ['card'],
+    limits: [
+      '按 $6.99/TB/月 计费，最低 1TB 起',
+    ],
+  },
+  {
+    provider: 'iDrive e2',
+    productIncludes: 'S3 对象存储',
+    difficulty: 'easy',
+    payments: ['card'],
+    limits: [
+      '最低 1TB 起购',
+    ],
+  },
+  {
+    provider: 'C-Servers',
+    productIncludes: 'NanoVPS-II',
+    difficulty: 'medium',
+    payments: ['card', 'paypal'],
+    limits: [
+      'NAT 共享 IPv4，无独立 IP',
+      '小内存机型只够跑轻量服务',
+    ],
+  },
+  {
+    provider: 'C-Servers',
+    productIncludes: 'JumboDisk',
+    difficulty: 'medium',
+    payments: ['card', 'paypal'],
+    limits: [
+      '大容量存储型，NAT 共享 IPv4',
+    ],
+  },
+  {
+    provider: 'Gullo\'s Hosting',
+    productIncludes: 'NAT IPv4 128MB',
+    difficulty: 'medium',
+    payments: ['card', 'paypal'],
+    limits: [
+      'NAT 共享 IPv4，无独立 IP',
+    ],
+  },
+  {
+    provider: 'NATVPS.net',
+    productIncludes: 'VPS - NAT512',
+    difficulty: 'medium',
+    payments: ['card', 'paypal'],
+    limits: [
+      'NAT 共享 IP，需自行做端口转发',
+    ],
+  },
+  {
+    provider: 'MrVM',
+    productIncludes: 'LXC-256',
+    difficulty: 'medium',
+    payments: ['card', 'paypal'],
+    limits: [
+      'LXC 容器，不能跑 Docker',
+    ],
+  },
+  {
+    provider: 'HostHatch',
+    productIncludes: '入门 NVMe VPS',
+    difficulty: 'medium',
+    payments: ['card', 'paypal'],
+    limits: [
+      '特价机型常年缺货',
+    ],
+  },
+  {
+    provider: 'GreenGeeks',
+    productIncludes: 'Lite 共享主机',
+    difficulty: 'easy',
+    payments: ['card', 'paypal'],
+    limits: [
+      '首年低价，续费涨数倍',
+    ],
+  },
+  {
+    provider: 'SiteGround',
+    productIncludes: 'StartUp 共享主机',
+    difficulty: 'easy',
+    payments: ['card', 'paypal'],
+    limits: [
+      '续费价格远高于首年',
+    ],
+  },
+  {
+    provider: 'A2 Hosting',
+    productIncludes: 'Fast Shared 入门版',
+    difficulty: 'easy',
+    payments: ['card', 'paypal'],
+    limits: [
+      '续费涨价明显',
+    ],
+  },
+  {
+    provider: 'Bluehost',
+    productIncludes: 'Starter',
+    difficulty: 'easy',
+    payments: ['card', 'paypal'],
+    limits: [
+      '首年特价，续费翻数倍',
+    ],
+  },
+  {
+    provider: 'GoDaddy',
+    productIncludes: 'Web Hosting Basic',
+    difficulty: 'easy',
+    payments: ['card', 'paypal'],
+    limits: [
+      '续费价格高，且常被搭售增值服务',
+    ],
+  },
 ]
 
 /** Resolve the curation for a deal. Unknown providers default to `easy`. */
