@@ -1,10 +1,11 @@
 import { supabase } from '../../../lib/supabase'
 import { isAdminRequest } from '../../../lib/admin-auth'
 
-const CEREBRAS_KEY = 'csk-j8f8wmwhehryvm54ke95d388rmnnjm5nwvr2ckf6jmj2rv32'
+const CEREBRAS_KEY = import.meta.env.CEREBRAS_API_KEY || ''
 const MODELS = ['gpt-oss-120b', 'zai-glm-4.7', 'qwen-3-235b-a22b-instruct-2507', 'llama3.1-8b']
 
 async function callCerebras(model: string, prompt: string, content: string) {
+  if (!CEREBRAS_KEY) throw new Error('CEREBRAS_API_KEY not configured')
   const res = await fetch('https://api.cerebras.ai/v1/chat/completions', {
     method: 'POST',
     headers: {
