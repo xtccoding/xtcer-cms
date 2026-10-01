@@ -31,3 +31,4 @@ npm-debug.log*
 # agent scratch
 tmpwork/
 .opencode/node_modules/
+.shots/
