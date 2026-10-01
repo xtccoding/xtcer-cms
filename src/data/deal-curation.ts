@@ -908,7 +908,6 @@ const rules: Rule[] = [
     difficulty: 'easy',
     payments: ['alipay', 'wechat'],
     limits: ['CN2 GIA 带宽较小（常见 10-30Mbps）', '优质线路套餐价格会随行情波动'],
-    tips: ['CN2 GIA + NVMe，适合国内访问要求高的建站场景'],
   },
   {
     provider: 'HostDare',
