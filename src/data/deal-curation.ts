@@ -72,8 +72,18 @@ export const PAYMENT_RANK: Record<PaymentMethod, number> = {
 /** 没有支付信息时排在有信息之后（避免「未知」被误排到最前）。 */
 export const UNKNOWN_PAYMENT_RANK = 90
 
+/**
+ * 「完全免费、连付款方式都不需要」—— 对国内用户来说这比「能微信付款」更友好，
+ * 所以给它一个比微信（0）还靠前的排序键。用 `freeNoCard: true` 标记。
+ */
+export const NO_PAYMENT_RANK = -1
+
 /** 取一家支持的最「国内友好」的支付方式作为排序键；无信息返回 90。 */
-export function paymentRank(payments?: PaymentMethod[]): number {
+export function paymentRank(
+  payments?: PaymentMethod[],
+  freeNoCard?: boolean,
+): number {
+  if (freeNoCard) return NO_PAYMENT_RANK
   if (!payments || payments.length === 0) return UNKNOWN_PAYMENT_RANK
   return Math.min(...payments.map(p => PAYMENT_RANK[p]))
 }
@@ -106,6 +116,11 @@ export interface DealCuration {
   tldNote?: string
   /** 支持的支付方式 —— 决定「国内友好」徽标与排序，只写已核实的 */
   payments?: PaymentMethod[]
+  /**
+   * 完全免费、不需要任何付款方式（无信用卡、无充值）。
+   * 排序时比「微信」还靠前 —— 对国内用户来说不用付钱才是最友好的。
+   */
+  freeNoCard?: boolean
   /** 使用限制 / 雷点（最低充值、仅信用卡、仅 IPv6、限速、按月清零…） */
   limits?: string[]
 }
@@ -504,6 +519,7 @@ const rules: Rule[] = [
   {
     provider: 'Render',
     difficulty: 'easy',
+    freeNoCard: true,
     limits: [
       '空闲 15 分钟强制休眠，冷启动 30-60 秒',
       '仅 0.1 vCPU / 512MB，最多 1 个并发服务',
@@ -514,6 +530,7 @@ const rules: Rule[] = [
   {
     provider: 'Koyeb',
     difficulty: 'easy',
+    freeNoCard: true,
     limits: [
       '无流量时自动休眠',
       '最多 1 个活跃服务，0.1 vCPU / 512MB',
@@ -549,7 +566,7 @@ const rules: Rule[] = [
     provider: 'Cloudflare',
     productIncludes: 'Tunnel',
     difficulty: 'easy',
-    payments: ['card', 'paypal'],
+    freeNoCard: true,
     limits: ['需自有域名并把 NS 托管到 Cloudflare'],
   },
 
@@ -616,7 +633,7 @@ const rules: Rule[] = [
   {
     provider: 'GitHub Copilot',
     difficulty: 'easy',
-    payments: ['card'],
+    freeNoCard: true,
     limits: ['免费档每月 2,000 次补全 + 50 次对话', '部分高级模型不在免费档内'],
     promoNote: '学生 / 教师 / 热门开源维护者可免费申请 Pro',
   },
@@ -665,6 +682,7 @@ const rules: Rule[] = [
   {
     provider: 'Hugging Face',
     difficulty: 'easy',
+    freeNoCard: true,
     limits: [
       '免费额度极小（约 $0.10/月），只够试跑',
       '免费层请求日志策略宽松，别传敏感数据',
@@ -673,6 +691,7 @@ const rules: Rule[] = [
   {
     provider: 'Google Colab',
     difficulty: 'easy',
+    freeNoCard: true,
     limits: [
       '免费 GPU 无配额保证，随机分配且可能排队',
       '闲置会自动断开，运行时长有上限',
@@ -684,6 +703,7 @@ const rules: Rule[] = [
   {
     provider: 'Deno Deploy',
     difficulty: 'easy',
+    freeNoCard: true,
     limits: [
       '2026-09 起额度削减：CPU 15→10 小时/月、内存 350→150 GiB-小时、应用 20→10 个',
       '持久卷存储已取消，只能存 KV / 对象存储',
@@ -739,6 +759,7 @@ const rules: Rule[] = [
   {
     provider: 'TiDB Cloud',
     difficulty: 'easy',
+    freeNoCard: true,
     limits: [
       '免费档仅 1 个集群，5GB 行存储 + 每月 5000 万请求单元',
       '长期闲置可能被回收，重要数据记得导出',
@@ -754,11 +775,13 @@ const rules: Rule[] = [
   {
     provider: 'Qdrant Cloud',
     difficulty: 'easy',
+    freeNoCard: true,
     limits: ['1GB RAM / 4GB 磁盘，只够原型', '闲置一周挂起、四周后删除'],
   },
   {
     provider: 'Pinecone',
     difficulty: 'easy',
+    freeNoCard: true,
     limits: ['免费档仅限 AWS us-east-1', '索引数与存储受限，读写有每月额度'],
   },
   {
@@ -770,6 +793,7 @@ const rules: Rule[] = [
   {
     provider: 'Tigris',
     difficulty: 'easy',
+    freeNoCard: true,
     limits: ['免费 5GB 存储', '服务较新，长期可用性需自行评估'],
   },
   {
@@ -804,51 +828,61 @@ const rules: Rule[] = [
   {
     provider: 'Grafana Cloud',
     difficulty: 'easy',
+    freeNoCard: true,
     limits: ['指标保留 14 天、日志 30 天', '超出免费额度需升级，注意别接高基数指标'],
   },
   {
     provider: 'Better Stack',
     difficulty: 'easy',
+    freeNoCard: true,
     limits: ['检查间隔最短 3 分钟', '日志仅保留 3 天'],
   },
   {
     provider: 'Sentry',
     difficulty: 'easy',
+    freeNoCard: true,
     limits: ['每月 5,000 错误 + 1 个用户', '超出后当月新事件被丢弃'],
   },
   {
     provider: 'Axiom',
     difficulty: 'easy',
+    freeNoCard: true,
     limits: ['3 个数据集 / 25GB 存储 / 30 天保留', '查询计算量单独计量'],
   },
   {
     provider: 'PostHog',
     difficulty: 'easy',
+    freeNoCard: true,
     limits: ['每月 100 万事件，超出后当月停止采集', '会话回放单独计量'],
   },
   {
     provider: 'UptimeRobot',
     difficulty: 'easy',
+    freeNoCard: true,
     limits: ['免费档检查间隔最短 5 分钟', '仅 50 个监控，告警方式受限'],
   },
   {
     provider: 'Resend',
     difficulty: 'easy',
+    freeNoCard: true,
     limits: ['每天 100 封 / 每月 3,000 封', '需自有域名并配置 SPF / DKIM 才能发信'],
   },
   {
     provider: 'Brevo',
     difficulty: 'easy',
+    freeNoCard: true,
     limits: ['每天 300 封，超出当天停发', '需验证发信域名'],
   },
   {
     provider: 'Clerk',
     difficulty: 'easy',
+    freeNoCard: true,
     limits: ['免费 50,000 MAU，超出按量计费', '生产环境需绑定支付方式'],
   },
   {
     provider: 'Hookdeck',
     difficulty: 'easy',
+    freeNoCard: true,
     limits: ['每月 10,000 事件', '事件保留期有限'],
   },
 
@@ -925,6 +959,655 @@ const rules: Rule[] = [
       '热门套餐常年缺货，需蹲补货',
     ],
     tips: ['后台一键迁移机房，换机房不用重装系统'],
+  },
+
+  // ---------- 免费静态托管 ----------
+  {
+    provider: 'Surge.sh',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费层不支持自定义 SSL，绑自定义域名只能走 HTTP', '只做静态托管，没有后端能力'],
+  },
+  {
+    provider: 'GitHub Pages',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['通常要求公开仓库', '不支持 SSR 与边缘函数', '仓库 1GB 上限、每月 100GB 流量'],
+  },
+  {
+    provider: 'GitLab Pages',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费档每月 400 CI 分钟，5 人以上组织已收紧', '必须用 CI 流水线产出构建物才能发布'],
+  },
+  {
+    provider: 'Firebase Hosting',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['每天约 360MB 免费传输，超出需升级 Blaze 按量计费', '全栈能力仍需依赖 Cloud Functions / Cloud Run'],
+  },
+  {
+    provider: 'Azure Static Web Apps',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['每订阅仅 10 个应用', '超出 100GB 后站点会立即停用', '需 Azure 账号并绑定支付方式'],
+  },
+  {
+    provider: 'deployment.io',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费档每月仅 10 次任务执行', '限 1 个用户'],
+  },
+  {
+    provider: 'Cloud 66',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费仅 1 台部署服务器 + 1 个静态站', '仅限个人项目'],
+  },
+  {
+    provider: 'Catalyst by Zoho',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费额度按项目与调用量计，超出需升级', '需注册 Zoho 账号'],
+  },
+  {
+    provider: 'Solo',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['模板与自定义能力有限，只适合落地页', '生成内容不能导出为完整工程'],
+  },
+  {
+    provider: 'Karbon Sites',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费档每月仅 5 次生成', '自带 Gemini API Key 才能解锁不限次'],
+  },
+
+  // ---------- 免费容器 / 函数 ----------
+  {
+    provider: 'Hugging Face Spaces',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      '空闲 48 小时后休眠',
+      '免费 Space 不支持绑定自定义域名',
+      '共享 vCPU，不适合当生产 API',
+    ],
+  },
+  {
+    provider: 'AWS Lambda',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['需绑定信用卡', '超出免费额度按量计费，缺少限流时容易被流量放大账单', '低频调用有冷启动'],
+  },
+  {
+    provider: 'Azure Functions',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['需绑定信用卡', '依赖配套存储账号，可能产生少量费用', 'Linux v3 运行时已到生命周期末期'],
+  },
+  {
+    provider: '阿里云函数计算',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: ['国内版仅前 3 个月免费，之后自动转按量计费', '需实名认证'],
+  },
+  {
+    provider: '腾讯云函数 SCF',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: ['仅前 3 个月免费试用', '试用后需购买最低订阅包（约 9.9 元/月）', '需实名认证'],
+  },
+  {
+    provider: 'Netlify Functions',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['每月 12.5 万次请求 + 100 小时计算', '额度耗尽后站点会直接返回 502'],
+  },
+  {
+    provider: 'StackBlitz',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['私有协作与组织仓库需付费', '单项目上传上限 1MB'],
+  },
+  {
+    provider: 'CodeSandbox',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费档每月 40 小时 VM credits，用完即停', '限 5 名成员'],
+  },
+  {
+    provider: 'GitHub Codespaces',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['个人账号每月 120 core-hours + 15GB-month，用尽会阻断', '组织账号额度不与个人共享'],
+  },
+
+  // ---------- 免费数据库 / 存储 / CDN ----------
+  {
+    provider: 'Google Firestore',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['每天 5 万读 / 2 万写，超出后当日请求被拒', '仅 1GB 存储'],
+  },
+  {
+    provider: 'BigQuery',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['需绑定结算账号', '每月 1TB 查询免费，超出按扫描数据量计费', '沙盒模式有额外限制'],
+  },
+  {
+    provider: 'AWS DynamoDB',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['需绑定信用卡', '25GB 仅限标准表存储，超出按量计费'],
+  },
+  {
+    provider: 'Azure Cosmos DB',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['需绑定信用卡', '1000 RU/s 仅够轻量负载，超出按量计费'],
+  },
+  {
+    provider: 'Oracle Database',
+    difficulty: 'hard',
+    payments: ['card'],
+    limits: ['与 Oracle 云账号同一套体系，注册风控极严', '2 个自治数据库各 20GB，闲置可能被回收'],
+    tutorialUrl: TUTORIAL,
+  },
+  {
+    provider: 'IBM Cloudant',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['需绑定信用卡', '仅 1GB 存储，超出按量计费'],
+  },
+  {
+    provider: 'IBM Db2',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['需绑定信用卡', '仅 100MB 存储，只够学习验证'],
+  },
+  {
+    provider: 'Momento Cache',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['单条 TTL 硬上限 24 小时，不能当持久存储', '最大 100 RPS'],
+  },
+  {
+    provider: 'Neo4j Aura',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费实例闲置会暂停，需手动唤醒', '单实例，不适合生产'],
+  },
+  {
+    provider: 'Weaviate Cloud',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费沙盒有资源上限', '长期闲置会被回收'],
+  },
+  {
+    provider: 'Zilliz Cloud',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费 Serverless 集群有容量与索引上限', '超出需升级付费档'],
+  },
+  {
+    provider: 'Meilisearch Cloud',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费实例规格很小', '中文分词需自行配置，默认对中文不友好'],
+  },
+  {
+    provider: 'ClickHouse Cloud',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['试用额度有有效期，到期必须绑卡否则实例停用'],
+  },
+  {
+    provider: 'Timescale Cloud',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['试用额度有有效期，到期后自动按量计费'],
+  },
+  {
+    provider: 'Xata',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费档有存储与请求上限', '超出需升级付费档'],
+  },
+  {
+    provider: 'Nhost',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费项目闲置会暂停，需手动唤醒', '有存储与请求上限'],
+  },
+  {
+    provider: 'Appwrite',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['Cloud 免费档有项目数与请求上限', '只有自托管才真正不限量'],
+  },
+  {
+    provider: 'Turso',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['硬上限：5GB 存储 / 每月 5 亿行读 / 1000 万行写，超出直接拒绝', '边缘副本有同步流量限制'],
+  },
+  {
+    provider: 'Google Cloud Storage',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['需绑定结算账号', '超出 5GB 存储或 1GB 出网后按量计费'],
+  },
+  {
+    provider: 'Cloudflare Workers KV',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: [
+      '最终一致性，写入全球传播最长约 60 秒 —— 不能用于锁 / 计数 / 权限',
+      '每天写入仅 1000 次',
+      '需绑定支付方式才启用',
+    ],
+  },
+  {
+    provider: 'Cloudflare Queues',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['每月 100 万次操作，超出按量计费', '需绑定支付方式才启用'],
+  },
+  {
+    provider: 'Storj',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费 25GB 存储 + 25GB 出网/月', '超出按约 $4/TB 计费'],
+  },
+  {
+    provider: 'Filebase',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费 5GB 存储 + 每月 100GB 出网', '超出按量计费'],
+  },
+  {
+    provider: 'Cloudinary',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['每月 25 credits，用尽后媒体处理直接停止', '免费层输出带品牌标识'],
+  },
+  {
+    provider: 'ImageKit',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['每月 20GB 带宽 + 3GB 存储', '超出后按量计费'],
+  },
+  {
+    provider: 'Gcore',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['每月 1TB 流量触顶后立刻失去分发能力或产生计费', '需注册账号并绑卡'],
+  },
+
+  // ---------- 监控 / 分析 ----------
+  {
+    provider: 'Mixpanel',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['每月 100 万事件 + 5 个保存报表', '免费档报表数与回放次数偏少'],
+  },
+  {
+    provider: 'Amplitude',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['Starter 限 1 万 MTU + 200 万事件', '超出后按 MTU 计费'],
+  },
+  {
+    provider: 'Umami',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['Hobby 仅 3 个网站 / 每月 10 万事件 / 6 个月数据保留'],
+  },
+  {
+    provider: 'Cloudflare Web Analytics',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['只做流量统计，没有漏斗与产品分析能力', '需把站点接入 Cloudflare'],
+  },
+  {
+    provider: 'Google Analytics',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['大数据量会触发数据采样', '隐私与 Cookie 同意需自行配置合规'],
+  },
+  {
+    provider: 'New Relic',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['每月 100GB 数据摄入', '免费档仅 1 个全功能用户'],
+  },
+  {
+    provider: 'Checkly',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费档检查频率与运行次数有限', '浏览器检查消耗更多额度'],
+  },
+  {
+    provider: 'Otterwatch',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['仅 5 个域名', '只做证书与域名到期监控，不含可用性探测'],
+  },
+
+  // ---------- 邮件 / 认证 / 消息 ----------
+  {
+    provider: 'Zoho Mail',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费版不含 IMAP / POP，桌面客户端通常要升级', '单域名 5 用户、每人 5GB'],
+  },
+  {
+    provider: '阿里企业邮箱',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: [
+      '2026-03-04 后新申请的免费版不支持开启三方客户端登录',
+      '需阿里云实名认证，且申请后 7 天内完成域名解析',
+      '外发限 2000 收件人/天/企业',
+    ],
+  },
+  {
+    provider: '腾讯企业邮箱',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: ['基础版 VIP 账号数为 0，高级功能需购买账号', '每个腾讯云账号最多 5 个基础版实例'],
+  },
+  {
+    provider: 'Cloudflare Email Routing',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['只能收信转发，不提供托管邮箱', '需把域名 NS 托管到 Cloudflare'],
+  },
+  {
+    provider: 'ImprovMX',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费版只能收信转发，发信（SMTP）需付费'],
+  },
+  {
+    provider: 'Forward Email',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费版 DNS 记录公开可见', '私密 SMTP 转发需付费'],
+  },
+  {
+    provider: 'Mailgun',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['每月 1,000 封', '注册需信用卡验证，风控较严，容易因自动审查被封禁'],
+  },
+  {
+    provider: 'AWS SES',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['仅前 6 个月每月 3,000 条，之后按量计费', '新账号默认在沙盒中，需申请解除才能发给任意收件人'],
+  },
+  {
+    provider: '腾讯云短信',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: ['免费包仅 100-200 条', '正式使用需备案 + 签名与模板审核'],
+  },
+  {
+    provider: 'Twilio',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['试用短信会附带醒目标识，只能本地调试', '需绑卡才能正式发送'],
+  },
+  {
+    provider: 'Logto Cloud',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费云版不支持绑定自定义域名（需付费附加包）', '50,000 MAU 上限'],
+  },
+  {
+    provider: 'Kinde',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费档 7,500 MAU，是主流方案里余量最小的', '超限后价格跃迁明显'],
+  },
+  {
+    provider: 'Firebase Auth',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: [
+      'Spark 档每天 3,000 活跃用户',
+      'SAML / OIDC 仅 2 DAU',
+      '宣传的 5 万 MAU 需升级 Blaze 付费档',
+    ],
+  },
+  {
+    provider: 'Firebase Cloud Messaging',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['推送本身免费，但触发逻辑需自建后端或 Cloud Functions'],
+  },
+  {
+    provider: 'Svix',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['每月 50,000 条消息', '超出需升级付费档'],
+  },
+  {
+    provider: 'Inngest',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['每月 5 万次执行 + 5 个并发步骤 + 50 万事件'],
+  },
+  {
+    provider: 'Trigger.dev',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['每月 $5 计算额度，用完即停', '20 个并发运行、5 名团队成员上限'],
+  },
+
+  // ---------- 免费 AI API ----------
+  {
+    provider: 'Google AI Studio',
+    difficulty: 'medium',
+    limits: [
+      '免费层有速率与每日请求上限',
+      '免费层内容可能被用于改进 Google 产品，别传敏感数据',
+      '国内需自备网络环境',
+    ],
+  },
+  {
+    provider: 'Kaggle',
+    difficulty: 'medium',
+    limits: [
+      'GPU 时长需手机验证，每周 30 GPU 小时',
+      'TPU 需身份验证',
+      '免费 GPU 不保证可用性，高峰需排队',
+    ],
+  },
+  {
+    provider: 'Weights & Biases',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['100GB 存储', '仅个人项目免费，团队与商用需付费'],
+  },
+  {
+    provider: 'Comet ML',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['个人与学术用途免费', '商用与团队协作需付费'],
+  },
+  {
+    provider: 'Deepnote',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费档 5GB 内存 / 2 vCPU', '团队最多 3 位编辑'],
+  },
+  {
+    provider: 'Tavily',
+    difficulty: 'medium',
+    limits: ['每月 1,000 次请求', '国内需自备网络环境'],
+  },
+  {
+    provider: 'Firecrawl',
+    difficulty: 'medium',
+    limits: ['每月 1,000 credits', '复杂站点与深层抓取会消耗更多 credit', '国内需自备网络环境'],
+  },
+  {
+    provider: 'Cohere',
+    difficulty: 'medium',
+    limits: ['Trial Key 每月 1,000 次调用、限速 20 次/分', '仅限评估用途，商用需付费 Key'],
+  },
+  {
+    provider: 'Together AI',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['赠送额度用完即止，之后需充值', '需绑定支付方式', '国内需自备网络环境'],
+  },
+  {
+    provider: 'DeepInfra',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['赠送额度用完即止', '之后按 token 计费', '国内需自备网络环境'],
+  },
+  {
+    provider: 'Replicate',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['赠送额度很少', '跑图像 / 视频模型消耗极快，几小时就能烧完'],
+  },
+  {
+    provider: 'NVIDIA NIM',
+    difficulty: 'medium',
+    limits: ['注册赠送 1,000 credits，用完即止', '国内需自备网络环境'],
+  },
+  {
+    provider: 'GitHub Models',
+    difficulty: 'medium',
+    limits: ['额度按 GitHub 账号等级分配', '有速率限制，适合实验不适合生产'],
+  },
+  {
+    provider: 'Perplexity',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['需订阅 Pro 才每月赠 $5 API 额度', '额度不累积、按月清零'],
+  },
+
+  // ---------- AI 编程工具 ----------
+  {
+    provider: 'v0.dev',
+    difficulty: 'medium',
+    payments: ['card'],
+    limits: ['免费额度用完即止', '只生成前端界面代码，后端仍需自己接'],
+  },
+  {
+    provider: 'Supermaven',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['免费档只含行内补全，不含对话与 Agent 功能'],
+  },
+
+  // ---------- 支付宝友好的 VPS（续）----------
+  {
+    provider: 'HostKVM',
+    difficulty: 'easy',
+    payments: ['alipay', 'card', 'paypal'],
+    limits: ['折扣为夏季活动价，随时恢复原价', '微信支付未核实，下单前以官网结算页为准'],
+    tips: ['移动 CMI 直连延迟可低到 35ms，移动宽带用户优先考虑'],
+  },
+  {
+    provider: '椰草云',
+    difficulty: 'easy',
+    payments: ['alipay', 'paypal'],
+    limits: ['首年 5 折为活动价，续费回原价', '微信支付未核实'],
+    tips: ['人民币计价，原生支持 ChatGPT / Gemini 等 AI 站点访问'],
+  },
+  {
+    provider: 'DMIT',
+    difficulty: 'medium',
+    payments: ['alipay', 'card', 'paypal'],
+    limits: ['高端三网优化线路单价偏高', '热门套餐常年缺货，需蹲补货'],
+  },
+  {
+    provider: 'GreenCloud',
+    difficulty: 'medium',
+    payments: ['alipay', 'card', 'paypal'],
+    limits: ['特价套餐常售罄', '小商家，建议先短期试水再考虑年付'],
+  },
+  {
+    provider: 'GigsGigsCloud',
+    difficulty: 'medium',
+    payments: ['alipay', 'card', 'paypal'],
+    limits: ['不同机房的价格与线路质量差异很大', '促销多为限时，过期回原价'],
+  },
+  {
+    provider: 'V.PS',
+    difficulty: 'medium',
+    payments: ['alipay', 'card', 'paypal'],
+    limits: ['三网优化线路成本高，单价偏贵', '小商家，稳定性需自行评估'],
+  },
+  {
+    provider: 'Megalayer',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: ['免备案线路资源有限，常缺货', '注意续费价与首年促销价的差距'],
+  },
+  {
+    provider: 'Liteserver',
+    difficulty: 'medium',
+    payments: ['card', 'paypal'],
+    limits: ['HDD 存储型 IO 低，不适合跑数据库', '仅荷兰机房，国内访问延迟高'],
+  },
+  {
+    provider: 'UpCloud',
+    difficulty: 'medium',
+    payments: ['card', 'paypal'],
+    limits: ['需绑定信用卡', '机房以欧洲为主，国内访问一般'],
+  },
+  {
+    provider: 'Akamai Linode',
+    difficulty: 'medium',
+    payments: ['card', 'paypal'],
+    limits: ['需绑定信用卡', '国内访问需自行优化线路', '新客试用金有有效期'],
+  },
+  {
+    provider: 'OVHcloud',
+    difficulty: 'medium',
+    payments: ['card', 'paypal'],
+    limits: ['需绑定信用卡，部分地区注册风控较严', '机房以欧洲为主'],
+    tips: ['同价位配置最猛的一档：4 vCore / 8GB / 75GB NVMe'],
+  },
+  {
+    provider: 'VirMach',
+    difficulty: 'medium',
+    payments: ['card', 'paypal'],
+    limits: ['历史上稳定性与售后口碑一般', '只建议放可随时重建的数据', '超售较严重'],
+  },
+  {
+    provider: 'Bunny.net',
+    difficulty: 'medium',
+    payments: ['card', 'paypal'],
+    limits: ['按量付费、没有免费额度，需先充值', '用多少扣多少，忘关流量会持续计费'],
+  },
+  {
+    provider: '又拍云',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: ['赠送额度有有效期，过期清零', '需实名认证'],
+  },
+  {
+    provider: '多吉云',
+    difficulty: 'easy',
+    payments: ['wechat', 'alipay', 'unionpay'],
+    limits: ['免费额度按月赠送，超出需充值', '需实名认证'],
+  },
+  {
+    provider: 'BootCDN',
+    difficulty: 'easy',
+    freeNoCard: true,
+    limits: ['只镜像开源公共库，不能托管私有文件', '偶发国内 DNS 污染或证书过期'],
   },
 ]
 

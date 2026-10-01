@@ -30,7 +30,9 @@ const deals = (dealsRaw || [])
     const byDifficulty =
       DIFFICULTY_RANK[a.curation.difficulty] - DIFFICULTY_RANK[b.curation.difficulty]
     if (byDifficulty !== 0) return byDifficulty
-    const byPayment = paymentRank(a.curation.payments) - paymentRank(b.curation.payments)
+    const byPayment =
+      paymentRank(a.curation.payments, a.curation.freeNoCard) -
+      paymentRank(b.curation.payments, b.curation.freeNoCard)
     if (byPayment !== 0) return byPayment
     return (a.price_cny ?? Number.MAX_SAFE_INTEGER) - (b.price_cny ?? Number.MAX_SAFE_INTEGER)
   })
@@ -51,6 +53,7 @@ const categoryMap: Record<string, string> = {
   'shared': '虚拟主机',
   'hosting': '静态托管',
   'tunnel': '内网穿透',
+  'cdn': 'CDN 加速',
   'storage': '存储',
   'database': '数据库',
   'domain': '域名',
@@ -61,7 +64,7 @@ const categoryMap: Record<string, string> = {
 }
 const catLabel = (c: string) => categoryMap[c] || c
 const categoryOrder = [
-  'compute', 'nat', 'container', 'shared', 'hosting', 'tunnel',
+  'compute', 'nat', 'container', 'shared', 'hosting', 'tunnel', 'cdn',
   'storage', 'database', 'domain', 'ai', 'ai_tool', 'api', 'other',
 ]
 const sortedCategories = categoryOrder.filter(c => allCategories.includes(c))
