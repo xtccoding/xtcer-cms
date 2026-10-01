@@ -8,6 +8,7 @@ import {
 } from '../data/deal-curation'
 
 interface Deal {
+  id: string
   provider: string
   product: string
   price: string
@@ -26,9 +27,16 @@ interface Deal {
 interface Props {
   deal: Deal
   categoryLabel: string
+  /** 该卡片的点赞数，由 deals.astro 一次性拉取后传入，避免每张卡各发一次请求。 */
+  likeCount?: number
+  /**
+   * 点赞功能是否就绪（表已建 + 盐已配置）。默认 false ——
+   * 宁可少渲染，也不渲染一个点了没反应的「死按钮」。
+   */
+  likesEnabled?: boolean
 }
 
-const { deal, categoryLabel } = Astro.props
+const { deal, categoryLabel, likeCount = 0, likesEnabled = false } = Astro.props
 ---
 
 <div class="deal-card glass-card" data-cat={deal.category} data-diff={deal.curation.difficulty} data-ref={deal.curation.reference ? 'true' : undefined}>
@@ -180,11 +188,69 @@ const { deal, categoryLabel } = Astro.props
       {deal.type && <span class="deal-type">{deal.type}</span>}
       {deal.expiry && <span class="deal-expiry">截止: {deal.expiry}</span>}
     </div>
-    {deal.curation.tutorialUrl && (
-      <a class="tutorial-link" href={deal.curation.tutorialUrl}>注册教程 →</a>
-    )}
+    <div class="deal-footer-right">
+      {deal.curation.tutorialUrl && (
+        <a class="tutorial-link" href={deal.curation.tutorialUrl}>注册教程 →</a>
+      )}
+      {likesEnabled && deal.id && (
+        <button
+          type="button"
+          class="like-btn"
+          data-target={deal.id}
+          data-liked="false"
+          title="这条优惠有用吗？">
+          <span class="like-icon" aria-hidden="true">👍</span>
+          <span class="like-label">有用</span>
+          <span class="like-count" data-count>{likeCount}</span>
+        </button>
+      )}
+    </div>
   </div>
 </div>
+
+<script>
+  // 点赞：事件委托，一次性处理页面内所有卡片。
+  // 数字更新只用 textContent（不用 innerHTML），杜绝 XSS。
+  // 表不存在时后端返回 { disabled: true }，此处静默隐藏按钮，不报错、不白屏。
+  document.addEventListener('click', async (event) => {
+    const el = event.target as HTMLElement | null
+    const btn = el?.closest?.('.like-btn') as HTMLButtonElement | null
+    if (!btn) return
+    if (btn.dataset.busy === 'true' || btn.dataset.liked === 'true') return
+
+    const target = btn.dataset.target
+    if (!target) return
+
+    btn.dataset.busy = 'true'
+    btn.disabled = true
+    try {
+      const res = await fetch('/api/likes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target }),
+      })
+      if (!res.ok) throw new Error('request failed')
+
+      const data = await res.json()
+      if (data?.disabled) {
+        btn.style.display = 'none'
+        return
+      }
+
+      const countEl = btn.querySelector('.like-count')
+      if (countEl) {
+        countEl.textContent = String(typeof data.count === 'number' ? data.count : 0)
+      }
+      btn.dataset.liked = 'true'
+      btn.classList.add('liked')
+    } catch {
+      // 静默失败：保持原状，不弹错、不破坏页面。
+    } finally {
+      btn.dataset.busy = 'false'
+      if (btn.dataset.liked !== 'true') btn.disabled = false
+    }
+  })
+</script>
 
 <style>
   .deal-card {
@@ -386,8 +452,26 @@ const { deal, categoryLabel } = Astro.props
     margin-top: auto; padding-top: 0.5rem; border-top: 1px solid var(--border);
   }
   .deal-footer-left { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+  .deal-footer-right { display: flex; gap: 0.75rem; align-items: center; flex-shrink: 0; }
   .deal-type { font-size: 0.6875rem; color: var(--text-muted); }
   .deal-expiry { font-size: 0.6875rem; color: var(--orange); }
   .tutorial-link { font-size: 0.75rem; font-weight: 600; color: var(--primary); white-space: nowrap; }
   .tutorial-link:hover { text-decoration: underline; }
+
+  /* ---- 点赞按钮：与 .tutorial-link / .pay-chip 同为小圆角 pill 风格 ---- */
+  .like-btn {
+    display: inline-flex; align-items: center; gap: 0.25rem;
+    padding: 0.1875rem 0.5rem; border-radius: 999px;
+    border: 1px solid var(--glass-border); background: var(--surface);
+    color: var(--text-secondary); font-size: 0.6875rem; font-weight: 500;
+    line-height: 1.4; cursor: pointer; white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .like-btn:hover { color: var(--text); border-color: var(--glass-border-hover); }
+  .like-btn:disabled { cursor: default; }
+  .like-btn.liked {
+    background: rgba(41,151,255,0.1); border-color: rgba(41,151,255,0.35); color: var(--primary);
+  }
+  .like-icon { font-size: 0.6875rem; line-height: 1; }
+  .like-count { font-weight: 700; }
 </style>

@@ -1,0 +1,164 @@
+---
+// 提意见入口：默认折叠成一个按钮，点开是纯文本 textarea + 提交。
+//
+// 安全要点（务必保持）：
+// - 只负责「提交」，页面永不回显任何用户输入（消除存储型 XSS）。
+// - 更新 DOM 一律用 textContent，绝不使用 innerHTML / set:html。
+//
+// enabled 说明：为 false 时整个组件不渲染任何 DOM（连「💬 提意见」入口按钮都不出现）。
+// 可用性只以「盐是否配置」为准，**不探 feedback 表是否存在** —— 因为 anon 对 feedback
+// 表没有 SELECT 权限（上一轮特意收窄），服务端无法探测。万一表没建，提交时会走 API 的
+// 503 分支提示「暂不可用」。这是刻意的取舍，不是漏判。
+interface Props {
+  enabled?: boolean
+}
+const { enabled = false } = Astro.props
+---
+
+{enabled && (
+  <div class="feedback-box">
+    <button type="button" class="feedback-toggle" id="feedback-toggle" aria-expanded="false">
+      💬 提意见
+    </button>
+
+    <form class="feedback-form" id="feedback-form" hidden>
+      <label class="feedback-label" for="feedback-message">有什么建议或问题？</label>
+      <textarea
+        id="feedback-message"
+        class="feedback-textarea"
+        rows="3"
+        maxlength="500"
+        placeholder="纯文本反馈，最多 500 字。请勿粘贴代码或隐私信息。"></textarea>
+
+      <div class="feedback-actions">
+        <input
+          id="feedback-contact"
+          class="feedback-contact"
+          type="text"
+          maxlength="128"
+          autocomplete="off"
+          placeholder="联系方式（选填）" />
+        <button type="submit" class="feedback-submit" id="feedback-submit">提交</button>
+      </div>
+
+      <p class="feedback-status" id="feedback-status" role="status" aria-live="polite"></p>
+    </form>
+  </div>
+)}
+
+<script>
+  const toggle = document.getElementById('feedback-toggle') as HTMLButtonElement | null
+  const form = document.getElementById('feedback-form') as HTMLFormElement | null
+  const statusEl = document.getElementById('feedback-status') as HTMLParagraphElement | null
+  const submitBtn = document.getElementById('feedback-submit') as HTMLButtonElement | null
+  const messageEl = document.getElementById('feedback-message') as HTMLTextAreaElement | null
+  const contactEl = document.getElementById('feedback-contact') as HTMLInputElement | null
+
+  // 状态文案只用 textContent 写入，杜绝任何 HTML 注入。
+  function setStatus(text: string, ok: boolean) {
+    if (!statusEl) return
+    statusEl.textContent = text
+    statusEl.dataset.state = ok ? 'ok' : 'error'
+  }
+
+  toggle?.addEventListener('click', () => {
+    if (!form) return
+    const willShow = form.hidden
+    form.hidden = !willShow
+    toggle.setAttribute('aria-expanded', willShow ? 'true' : 'false')
+    if (willShow) messageEl?.focus()
+  })
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault()
+    if (!messageEl || !submitBtn) return
+
+    const message = messageEl.value.trim()
+    if (!message) {
+      setStatus('请先写点什么再提交～', false)
+      return
+    }
+    if (message.length > 500) {
+      setStatus('内容太长啦，请控制在 500 字以内', false)
+      return
+    }
+
+    // 前端节流：提交中禁用按钮，防止重复提交。
+    submitBtn.disabled = true
+    setStatus('提交中…', true)
+
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          contact: contactEl?.value.trim() || undefined,
+          path: window.location.pathname,
+        }),
+      })
+      if (!res.ok) throw new Error('request failed')
+
+      messageEl.value = ''
+      if (contactEl) contactEl.value = ''
+      setStatus('收到，谢谢反馈 🙏', true)
+    } catch {
+      setStatus('提交失败，请稍后再试', false)
+    } finally {
+      submitBtn.disabled = false
+    }
+  })
+</script>
+
+<style>
+  /* 页面底是 #f5f5f7，这里刻意不用 var(--surface) 白盒子，只留极轻的描边。 */
+  .feedback-box {
+    margin-top: 1.5rem;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 0.625rem;
+  }
+  .feedback-toggle {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    padding: 0.5rem 1rem; border-radius: 999px;
+    border: 1px solid var(--glass-border); background: var(--surface);
+    color: var(--text-secondary); font-size: 0.8125rem; font-weight: 600;
+    cursor: pointer; transition: color 0.15s, border-color 0.15s;
+  }
+  .feedback-toggle:hover { color: var(--text); border-color: var(--glass-border-hover); }
+
+  .feedback-form {
+    width: 100%; max-width: 40rem;
+    display: flex; flex-direction: column; gap: 0.5rem;
+    padding: 0.875rem 1rem; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: transparent;
+  }
+  .feedback-label { font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); }
+
+  .feedback-textarea {
+    width: 100%; resize: vertical; min-height: 4.5rem;
+    padding: 0.5rem 0.625rem; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); font-size: 0.8125rem; font-family: inherit; line-height: 1.5;
+  }
+  .feedback-textarea:focus { outline: none; border-color: var(--primary); }
+
+  .feedback-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+  .feedback-contact {
+    flex: 1 1 12rem; min-width: 0;
+    padding: 0.4375rem 0.625rem; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); font-size: 0.8125rem; font-family: inherit;
+  }
+  .feedback-contact:focus { outline: none; border-color: var(--primary); }
+
+  .feedback-submit {
+    padding: 0.4375rem 1.25rem; border-radius: var(--radius-sm);
+    border: 1px solid var(--primary); background: var(--primary); color: #fff;
+    font-size: 0.8125rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s;
+  }
+  .feedback-submit:hover { opacity: 0.9; }
+  .feedback-submit:disabled { opacity: 0.5; cursor: default; }
+
+  .feedback-status { margin: 0; min-height: 1em; font-size: 0.75rem; color: var(--text-muted); }
+  .feedback-status[data-state='ok'] { color: #1a8f3c; }
+  .feedback-status[data-state='error'] { color: #d94a2b; }
+</style>

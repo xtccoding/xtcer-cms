@@ -230,6 +230,52 @@ export interface Database {
           created_at?: string
         }
       }
+      deal_likes: {
+        Row: {
+          id: string
+          target: string
+          ip_hash: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          target: string
+          ip_hash: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          target?: string
+          ip_hash?: string
+          created_at?: string
+        }
+      }
+      feedback: {
+        Row: {
+          id: string
+          message: string
+          contact: string | null
+          ip_hash: string | null
+          path: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          message: string
+          contact?: string | null
+          ip_hash?: string | null
+          path?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          message?: string
+          contact?: string | null
+          ip_hash?: string | null
+          path?: string | null
+          created_at?: string
+        }
+      }
     }
   }
 }

@@ -1,7 +1,9 @@
 ---
 import Layout from '../layouts/Layout.astro'
 import DealCard from '../components/DealCard.astro'
+import FeedbackBox from '../components/FeedbackBox.astro'
 import { supabase } from '../lib/supabase'
+import { isTableMissing, resolveSalt } from '../lib/interactions'
 import {
   resolveCuration,
   DIFFICULTY_RANK,
@@ -49,6 +51,35 @@ const referenceItems = deals
     if (byCat !== 0) return byCat
     return (a.price_cny ?? Number.MAX_SAFE_INTEGER) - (b.price_cny ?? Number.MAX_SAFE_INTEGER)
   })
+
+// 一次性拉取全站点赞数，在 JS 里聚合成 { target: count }，再传给每张 DealCard，
+// 避免 332 张卡各发一次请求。表不存在（用户还没执行 interactions.sql）时按 0 处理。
+// 已知限制：PostgREST 默认 max-rows=1000，点赞记录超过 1000 行后计数会静默少算，
+// 接近上限时需改为视图 / RPC 聚合。
+const likeCounts: Record<string, number> = {}
+// 表就绪标记：只有真正取到数据才算 ready；捕获到「表缺失」时保持 false，
+// 这样在站长执行 interactions.sql 之前，服务端就不会渲染点赞按钮。
+let likesTableReady = false
+try {
+  const { data: likeRows, error: likeError } = await supabase.from('deal_likes').select('target')
+  if (!likeError && likeRows) {
+    likesTableReady = true
+    for (const row of likeRows) {
+      const target = (row as { target?: unknown }).target
+      if (typeof target === 'string') likeCounts[target] = (likeCounts[target] || 0) + 1
+    }
+  } else if (likeError && !isTableMissing(likeError)) {
+    console.error('[deals] like counts fetch failed:', likeError.message)
+  }
+} catch (err) {
+  console.error('[deals] like counts fetch threw:', err)
+}
+
+// 功能总开关：点赞需要「表就绪 + 盐已配置」两者都满足，缺一就不渲染按钮，
+// 避免线上出现一个点了没反应的「死按钮」（本站 push 即自动部署）。
+const runtimeEnv = (Astro.locals as any)?.runtime?.env
+const saltReady = resolveSalt(runtimeEnv) !== null
+const likesEnabled = likesTableReady && saltReady
 
 const sectionOrder: Difficulty[] = ['easy', 'medium', 'hard']
 const sections = sectionOrder
@@ -154,7 +185,7 @@ const schema = {
           </div>
 
           <div class="deals-grid">
-            {section.items.map(deal => <DealCard deal={deal} categoryLabel={catLabel(deal.category)} />)}
+            {section.items.map(deal => <DealCard deal={deal} categoryLabel={catLabel(deal.category)} likeCount={likeCounts[deal.id] || 0} likesEnabled={likesEnabled} />)}
           </div>
         </section>
       ))}
@@ -171,7 +202,7 @@ const schema = {
           </div>
 
           <div class="deals-grid">
-            {supplementItems.map(deal => <DealCard deal={deal} categoryLabel={catLabel(deal.category)} />)}
+            {supplementItems.map(deal => <DealCard deal={deal} categoryLabel={catLabel(deal.category)} likeCount={likeCounts[deal.id] || 0} likesEnabled={likesEnabled} />)}
           </div>
         </section>
       )}
@@ -188,7 +219,7 @@ const schema = {
           </div>
 
           <div class="deals-grid">
-            {referenceItems.map(deal => <DealCard deal={deal} categoryLabel={catLabel(deal.category)} />)}
+            {referenceItems.map(deal => <DealCard deal={deal} categoryLabel={catLabel(deal.category)} likeCount={likeCounts[deal.id] || 0} likesEnabled={likesEnabled} />)}
           </div>
         </section>
       )}
@@ -207,6 +238,8 @@ const schema = {
         长期持有请优先看续费价。国内注册商（阿里云 / 腾讯云 / 百度智能云）需实名认证，
         <strong>要备案就必须用国内注册商</strong>。
       </p>
+
+      <FeedbackBox enabled={saltReady} />
     </div>
   </main>
 
