@@ -1,5 +1,5 @@
 ---
-import { DIFFICULTY_META, type DealCuration } from '../data/deal-curation'
+import { DIFFICULTY_META, TLD_TAG_META, type DealCuration } from '../data/deal-curation'
 
 interface Deal {
   provider: string
@@ -50,6 +50,49 @@ const { deal, categoryLabel } = Astro.props
     {deal.bandwidth && <span class="spec">📡 {deal.bandwidth}</span>}
     {deal.region && <span class="spec">🌍 {deal.region}</span>}
   </div>
+
+  {deal.curation.tlds && deal.curation.tlds.length > 0 && (
+    <div class="tld-block">
+      <div class="tld-hot">
+        {deal.curation.tlds
+          .filter(t => t.tag === 'hot')
+          .slice(0, 4)
+          .map(t => (
+            <span class="tld-chip">
+              <code>{t.tld}</code>
+              <span class="tld-chip-price">{t.price}</span>
+            </span>
+          ))}
+      </div>
+      <details class="tld-details">
+        <summary>
+          查看全部 {deal.curation.tlds.length} 个后缀价格
+          （含 {deal.curation.tlds.filter(t => t.tag === 'promo' || t.tag === 'cheap').length} 个首年低价）
+        </summary>
+        <table class="tld-table">
+          <tbody>
+            {deal.curation.tlds.map(t => (
+              <tr>
+                <td class="tld-name"><code>{t.tld}</code></td>
+                <td class="tld-tag">
+                  {t.tag && (
+                    <span class:list={['tag', TLD_TAG_META[t.tag].cls]}>
+                      {TLD_TAG_META[t.tag].label}
+                    </span>
+                  )}
+                </td>
+                <td class="tld-price-cell">
+                  <span>{t.price}</span>
+                  {t.note && <span class="tld-note">{t.note}</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {deal.curation.tldNote && <p class="tld-foot">{deal.curation.tldNote}</p>}
+      </details>
+    </div>
+  )}
 
   {deal.curation.promo && (
     <button class="promo-chip" data-code={deal.curation.promo} title="点击复制优惠码">
@@ -114,6 +157,52 @@ const { deal, categoryLabel } = Astro.props
 
   .deal-specs { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .spec { font-size: 0.75rem; color: var(--text-secondary); }
+
+  /* ---- TLD pricing ---- */
+  .tld-block { display: flex; flex-direction: column; gap: 0.5rem; }
+  .tld-hot { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+  .tld-chip {
+    display: inline-flex; align-items: baseline; gap: 0.3125rem;
+    padding: 0.1875rem 0.5rem; border-radius: var(--radius-sm);
+    background: rgba(41,151,255,0.05); border: 1px solid var(--glass-border);
+    font-size: 0.6875rem;
+  }
+  .tld-chip code { font-weight: 700; color: var(--text); }
+  .tld-chip-price { color: var(--text-muted); }
+
+  .tld-details { border-top: 1px dashed var(--border); padding-top: 0.5rem; }
+  .tld-details > summary {
+    cursor: pointer; font-size: 0.75rem; font-weight: 600; color: var(--primary);
+    list-style: none; user-select: none;
+  }
+  .tld-details > summary::-webkit-details-marker { display: none; }
+  .tld-details > summary::before { content: '▸ '; }
+  .tld-details[open] > summary::before { content: '▾ '; }
+  .tld-details > summary:hover { text-decoration: underline; }
+
+  .tld-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+  .tld-table tr { border-bottom: 1px solid var(--border); }
+  .tld-table tr:last-child { border-bottom: none; }
+  .tld-table td { padding: 0.3125rem 0; vertical-align: middle; font-size: 0.6875rem; }
+  .tld-name code { font-weight: 700; color: var(--text); }
+  .tld-tag { width: 2.75rem; }
+  .tld-price-cell { text-align: right; color: var(--text-secondary); }
+  .tld-price-cell > span:first-child { display: block; }
+  .tld-note { display: block; color: var(--text-muted); font-size: 0.625rem; margin-top: 0.0625rem; }
+
+  .tag {
+    display: inline-block; padding: 0.0625rem 0.375rem; border-radius: 999px;
+    font-size: 0.5625rem; font-weight: 600; white-space: nowrap;
+  }
+  .tag.hot { background: rgba(255,90,60,0.1); color: #d94a2b; }
+  .tag.promo { background: rgba(41,151,255,0.1); color: var(--primary); }
+  .tag.cheap { background: rgba(52,199,89,0.12); color: #1a8f3c; }
+
+  .tld-foot {
+    margin-top: 0.5rem; font-size: 0.625rem; line-height: 1.5; color: var(--text-muted);
+    padding: 0.4375rem 0.625rem; background: rgba(255,255,255,0.02);
+    border-radius: var(--radius-sm);
+  }
 
   .promo-chip {
     display: flex; align-items: center; gap: 0.5rem; width: 100%;

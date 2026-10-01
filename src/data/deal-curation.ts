@@ -15,6 +15,29 @@
 
 export type Difficulty = 'easy' | 'medium' | 'hard'
 
+/** 'hot' = 热门后缀（卡片正面展示）；'promo' = 促销价；'cheap' = 低价冷门后缀 */
+export type TldTag = 'hot' | 'promo' | 'cheap'
+
+export interface TldPrice {
+  /** e.g. '.com' */
+  tld: string
+  /** e.g. '$9.08 首年' */
+  price: string
+  tag?: TldTag
+  /** e.g. '续费 $9.98' */
+  note?: string
+}
+
+export const TLD_TAG_META: Record<TldTag, { label: string; cls: string }> = {
+  hot: { label: '热门', cls: 'hot' },
+  promo: { label: '促销', cls: 'promo' },
+  cheap: { label: '低价', cls: 'cheap' },
+}
+
+/** 首年极低的后缀（2026-10 核实，续费普遍会涨）。 */
+export const CHEAP_TLDS_NOTE =
+  '冷门后缀首年低至 $0.98：.online / .top / .xyz / .site / .space / .shop / .fun / .icu —— 首年便宜，续费通常回到 $10+'
+
 export interface DealCuration {
   difficulty: Difficulty
   /** one-line risk note; rendered as a ⚠️ callout */
@@ -32,6 +55,10 @@ export interface DealCuration {
    * "补充" block — used for secondary perks like "buy hosting, get a domain".
    */
   supplement?: boolean
+  /** per-TLD pricing (domain registrars); 'hot' ones also show on the card face */
+  tlds?: TldPrice[]
+  /** footnote under the TLD table (verification date, renewal traps, …) */
+  tldNote?: string
 }
 
 interface Rule extends Partial<DealCuration> {
@@ -107,34 +134,115 @@ const rules: Rule[] = [
     productIncludes: '域名注册',
     difficulty: 'easy',
     promoNote: '.cn 首年 ¥38 / .com 首年 ¥85；新用户有 ¥1 首年活动，优惠口令可再打折',
-    tips: ['.cn 需实名认证', '不定期有低价活动，值得盯一下'],
+    tlds: [
+      { tld: '.cn', price: '¥38 首年', tag: 'hot', note: '续费 ¥42，需实名' },
+      { tld: '.com', price: '¥85 首年', tag: 'hot', note: '续费 ¥95' },
+      { tld: '.xyz', price: '¥1 起 首年', tag: 'promo', note: '续费回到 ¥15-25' },
+      { tld: '.top', price: '¥1-3 首年', tag: 'promo', note: '续费回到 ¥15-25' },
+      { tld: '.xin', price: '¥18 首年', tag: 'cheap' },
+    ],
+    tldNote: '国内注册商，备案必须用它。首年 1 元级活动频繁，但续费是坑。',
+    tips: ['.cn 需实名认证', '想备案必须在国内注册商买'],
   },
   {
     provider: '腾讯云',
     productIncludes: '域名注册',
     difficulty: 'easy',
     promoNote: '.cn 首年 ¥35 / .com 首年 ¥83；续费 .cn ¥39，优惠口令可降',
+    tlds: [
+      { tld: '.cn', price: '¥35 首年', tag: 'hot', note: '续费 ¥39，需实名' },
+      { tld: '.com', price: '¥83 首年', tag: 'hot', note: '续费 ¥90（口令可降）' },
+      { tld: '.cc', price: '¥29 首年', tag: 'promo', note: '续费 ¥75' },
+      { tld: '.top', price: '首年促销', tag: 'promo' },
+      { tld: '.xyz', price: '首年促销', tag: 'promo' },
+    ],
+    tldNote: '国内注册商，备案必须用它。优惠口令常年在，结算页记得填。',
     tips: ['.cn 需实名认证', '优惠口令常年在，结算页记得填'],
   },
   {
     provider: '百度智能云',
     difficulty: 'easy',
+    tlds: [
+      { tld: '.com', price: '¥33 首年（新客）', tag: 'promo', note: '新客专享' },
+      { tld: '.top', price: '¥15 起', tag: 'cheap' },
+      { tld: '.cn', price: '曾 ¥8 活动', tag: 'promo', note: '不定期，需盯活动页' },
+    ],
+    tldNote: '价格随活动大幅波动，属于「时不时捡漏」型，值得关注但不稳定。',
     tips: ['曾不定期搞 .cn 8 元级活动，值得盯一下活动页'],
   },
   {
     provider: 'Cloudflare',
     difficulty: 'easy',
+    tlds: [
+      { tld: '.com', price: '$10.44/年', tag: 'hot', note: '注册=续费，无套路' },
+      { tld: '.net', price: '$11.20/年', tag: 'hot' },
+      { tld: '.org', price: '$10.11/年', tag: 'hot' },
+      { tld: '.app', price: '$13.20/年', tag: 'cheap' },
+    ],
+    tldNote: '没有任何首年促销，全部按注册局成本价 —— 短期不便宜，长期最省。',
     tips: ['必须把域名的 DNS 托管到 Cloudflare', '首年与续费同价，长期最省'],
+  },
+  {
+    provider: 'Porkbun',
+    difficulty: 'easy',
+    tlds: [
+      { tld: '.com', price: '$11.06/年', tag: 'hot', note: '一口价不涨' },
+      { tld: '.io', price: '$32.44 首年', tag: 'hot', note: '全网最低' },
+      { tld: '.ai', price: '$65.44 首年', tag: 'hot', note: 'AI 热门后缀' },
+      { tld: '.co', price: '$12.13 首年', tag: 'hot' },
+      { tld: '.xyz', price: '$1.16 首年', tag: 'promo', note: '续费约 $12' },
+      { tld: '.online', price: '$0.99 首年', tag: 'promo', note: '续费会涨' },
+      { tld: '.dev', price: '$12.34/年', tag: 'cheap' },
+    ],
+    tldNote: `${CHEAP_TLDS_NOTE}。.io / .ai 首年价常为全网最低。`,
+    tips: ['送免费 WHOIS 隐私 / SSL / 邮件转发', '一口价后缀续费不涨'],
   },
   {
     provider: 'Spaceship',
     difficulty: 'easy',
-    tips: ['首年最便宜，5 年总成本也最低'],
+    tlds: [
+      { tld: '.com', price: '$9.08 首年', tag: 'promo', note: '续费 $9.98' },
+      { tld: '.xyz', price: '$0.99/年', tag: 'cheap', note: '6-9 位纯数字，首年续费同价' },
+      { tld: '.space', price: '≈$0.99 首年', tag: 'cheap' },
+      { tld: '.site', price: '≈$0.99 首年', tag: 'cheap' },
+      { tld: '.buzz', price: '≈$1 首年', tag: 'cheap', note: '冷门后缀' },
+      { tld: '.online', price: '≈$0.99 首年', tag: 'cheap' },
+    ],
+    tldNote:
+      '首年最狠的一家；纯数字 .xyz 首年+续费都约 $0.99，是全站唯一「续费不涨」的极低价后缀。',
+    tips: ['首年最便宜，5 年总成本也最低', '想极致省钱：注册纯数字 .xyz'],
   },
   {
     provider: 'Namecheap',
     difficulty: 'easy',
+    tlds: [
+      { tld: '.com', price: '$5.98 首年', tag: 'promo', note: '续费 $13.98' },
+      { tld: '.info', price: '$3.98 首年', tag: 'cheap', note: '续费跳 $21.98' },
+      { tld: '.top', price: '$1.88 首年', tag: 'cheap' },
+      { tld: '.xyz', price: '$1.98 首年', tag: 'cheap', note: '续费 $9.98' },
+      { tld: '.online', price: '$0.99 首年', tag: 'cheap', note: '续费会涨' },
+      { tld: '.org', price: '$9.18 首年', tag: 'hot' },
+    ],
+    tldNote: `${CHEAP_TLDS_NOTE}。Namecheap 首年最低，但续费跳涨最狠。`,
     tips: ['首年最低但续费跳涨，长期持有建议到期前转出'],
+  },
+  {
+    provider: 'NameSilo',
+    difficulty: 'easy',
+    tlds: [
+      { tld: '.com', price: '$11.05/年', tag: 'hot', note: '一口价不涨' },
+      { tld: '.net', price: '$12.79/年', tag: 'hot' },
+    ],
+    tldNote: '无首年套路，注册=续费；批量持有可进折扣计划（5000+ 降至 $7.75）。',
+  },
+  {
+    provider: 'Dynadot',
+    difficulty: 'easy',
+    tlds: [
+      { tld: '.com', price: '$10.88/年', tag: 'hot', note: '单一定价' },
+      { tld: '.io', price: '$35.99 首年', tag: 'hot' },
+    ],
+    tldNote: '500+ 后缀，单一定价；有中文站，适合批量管理。',
   },
 
   // ---------- hard: the famous free tiers everyone struggles with ----------
