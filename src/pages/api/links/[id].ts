@@ -1,8 +1,8 @@
 import { supabase } from '../../../lib/supabase'
+import { isAdminRequest } from '../../../lib/admin-auth'
 
-export async function PUT({ params, request, cookies }: { params: { id: string }; request: Request; cookies: any }) {
-  const auth = cookies.get('admin_auth')
-  if (!auth) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+export async function PUT({ params, request, cookies, locals }: { params: { id: string }; request: Request; cookies: any; locals: any }) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const body = await request.json()
   const { data, error } = await supabase
@@ -15,9 +15,8 @@ export async function PUT({ params, request, cookies }: { params: { id: string }
   return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }
 
-export async function DELETE({ params, cookies }: { params: { id: string }; cookies: any }) {
-  const auth = cookies.get('admin_auth')
-  if (!auth) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+export async function DELETE({ params, cookies, locals }: { params: { id: string }; cookies: any; locals: any }) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const { error } = await supabase.from('links').delete().eq('id', params.id)
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })

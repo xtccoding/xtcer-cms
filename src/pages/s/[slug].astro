@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro'
-import { supabase } from '../../lib/supabase'
+import { createAdminClient } from '../../lib/supabase-admin'
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B'
@@ -11,7 +11,11 @@ function formatSize(bytes: number): string {
 const { slug } = Astro.params
 if (!slug) return Astro.redirect('/')
 
-const { data: file } = await supabase
+// RLS 收紧后 anon 无法读 files 表；分享页走 service_role 客户端
+const admin = createAdminClient((Astro.locals as any)?.runtime?.env)
+if (!admin) return new Response('File service unavailable', { status: 503 })
+
+const { data: file } = await admin
   .from('files')
   .select('*')
   .eq('share_slug', slug)
@@ -98,7 +102,7 @@ const fileHash = file.key?.match(/files\/([a-f0-9]+)/)?.[1] || ''
   </div>
 
   {needsPassword && (
-    <script define:vars={{ slug, fileUrl: file.url, filename: file.filename, fileSize: file.size, downloads: file.downloads }}>
+    <script define:vars={{ slug, filename: file.filename, fileSize: file.size, downloads: file.downloads }}>
       document.getElementById('pw-submit')?.addEventListener('click', async () => {
         const pw = (document.getElementById('pw-input')).value
         const res = await fetch('/api/files/verify', {
@@ -108,16 +112,24 @@ const fileHash = file.key?.match(/files\/([a-f0-9]+)/)?.[1] || ''
         })
         if (res.ok) {
           const data = await res.json()
-          document.getElementById('password-gate').innerHTML = `
-            <div class="share-header">
-              <h2>${filename}</h2>
-              <span class="share-meta">${(fileSize / 1024 / 1024).toFixed(1)} MB · ${downloads || 0} 次下载</span>
-            </div>
-            <a href="${data.url}" download="${filename}" class="btn btn-primary share-download">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              下载文件
-            </a>
-          `
+          const gate = document.getElementById('password-gate')
+          gate.innerHTML = ''
+          const header = document.createElement('div')
+          header.className = 'share-header'
+          const h2 = document.createElement('h2')
+          h2.textContent = filename
+          const meta = document.createElement('span')
+          meta.className = 'share-meta'
+          meta.textContent = `${(fileSize / 1024 / 1024).toFixed(1)} MB · ${downloads || 0} 次下载`
+          header.appendChild(h2)
+          header.appendChild(meta)
+          const link = document.createElement('a')
+          link.href = data.url
+          link.download = filename
+          link.className = 'btn btn-primary share-download'
+          link.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 下载文件'
+          gate.appendChild(header)
+          gate.appendChild(link)
         } else {
           document.getElementById('pw-error').style.display = ''
         }

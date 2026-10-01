@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro'
 import Sidebar from '../../components/Sidebar.astro'
 import { supabase } from '../../lib/supabase'
+import { createAdminClient } from '../../lib/supabase-admin'
 
 const runtimeEnv = (Astro.locals as any)?.runtime?.env
 const ADMIN_PASSWORD = runtimeEnv?.ADMIN_PASSWORD || import.meta.env.ADMIN_PASSWORD
@@ -9,16 +10,25 @@ if (!ADMIN_PASSWORD) return new Response('ADMIN_PASSWORD not configured', { stat
 const cookie = Astro.cookies.get('admin_auth')
 if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
 
+// visitors/files RLS 收紧后 anon 无法 SELECT；后台用 service_role 客户端
+const adminClient = createAdminClient(runtimeEnv)
+
 let postsRes = { count: 0 }, linksRes = { count: 0 }, dealsRes = { count: 0 }, feedsRes = { count: 0 }, visitorsRes = { count: 0 }, blacklistRes = { count: 0 }, filesRes = { count: 0 }
 try {
+  const vQuery = adminClient
+    ? adminClient.from('visitors').select('id', { count: 'exact', head: true })
+    : supabase.from('visitors').select('id', { count: 'exact', head: true })
+  const fQuery = adminClient
+    ? adminClient.from('files').select('id', { count: 'exact', head: true })
+    : supabase.from('files').select('id', { count: 'exact', head: true })
   const results = await Promise.all([
     supabase.from('posts').select('id', { count: 'exact', head: true }),
     supabase.from('links').select('id', { count: 'exact', head: true }),
     supabase.from('deals').select('id', { count: 'exact', head: true }),
     supabase.from('feeds').select('id', { count: 'exact', head: true }),
-    supabase.from('visitors').select('id', { count: 'exact', head: true }),
+    vQuery,
     supabase.from('blacklist').select('id', { count: 'exact', head: true }),
-    supabase.from('files').select('id', { count: 'exact', head: true }),
+    fQuery,
   ])
   postsRes = results[0]; linksRes = results[1]; dealsRes = results[2]; feedsRes = results[3]
   visitorsRes = results[4]; blacklistRes = results[5]; filesRes = results[6]
@@ -176,7 +186,9 @@ CREATE TABLE IF NOT EXISTS visitors (
 );
 ALTER TABLE visitors ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS allow_all_visitors ON visitors;
-CREATE POLICY allow_all_visitors ON visitors FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS anon_insert_visitors ON visitors;
+CREATE POLICY anon_insert_visitors ON visitors
+  FOR INSERT TO anon WITH CHECK (true);
 
 -- ==================== blacklist ====================
 CREATE TABLE IF NOT EXISTS blacklist (
@@ -281,9 +293,9 @@ CREATE TABLE IF NOT EXISTS files (
 CREATE INDEX IF NOT EXISTS idx_files_share_slug ON files(share_slug);
 ALTER TABLE files ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS allow_all_files ON files;
-CREATE POLICY allow_all_files ON files FOR ALL USING (true) WITH CHECK (true);
+-- files 表不对 anon 开放直接表操作；公开分享/验证/下载走服务端
 CREATE OR REPLACE FUNCTION increment_downloads(slug TEXT)
-RETURNS VOID AS $$ BEGIN UPDATE files SET downloads = downloads + 1 WHERE share_slug = slug; END; $$ LANGUAGE plpgsql;</code></pre>
+RETURNS VOID AS $$ BEGIN UPDATE files SET downloads = downloads + 1 WHERE share_slug = slug; END; $$ LANGUAGE plpgsql SECURITY DEFINER;</code></pre>
         </div>
         <div style="margin-top:1rem">
           <a href="https://supabase.com/dashboard/project/ltwwyznurskgsphujarm/sql" target="_blank" class="btn btn-primary">

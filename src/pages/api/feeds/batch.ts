@@ -1,12 +1,8 @@
 import { supabase } from '../../../lib/supabase'
+import { isAdminOrFeedRequest } from '../../../lib/admin-auth'
 
 function isAuthenticated(cookies: any, request: Request, env: any): boolean {
-  const cookieAuth = cookies.get('admin_auth')
-  if (cookieAuth) return true
-  const feedKey = request.headers.get('X-Feed-Key')
-  const validKey = env?.FEED_API_KEY || import.meta.env.FEED_API_KEY
-  if (feedKey && feedKey === validKey) return true
-  return false
+  return isAdminOrFeedRequest(cookies, request, env)
 }
 
 function normalizeUrl(url: string): string {

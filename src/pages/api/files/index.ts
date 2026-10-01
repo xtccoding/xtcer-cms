@@ -1,11 +1,6 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { supabase } from '../../../lib/supabase'
-
-function isAuthenticated(cookies: any, request: Request, env: any): boolean {
-  const cookieAuth = cookies?.get?.('admin_auth')?.value
-  if (cookieAuth) return true
-  return false
-}
+import { isAdminRequest } from '../../../lib/admin-auth'
 
 function randomSlug(len = 8): string {
   const chars = 'abcdefghijkmnpqrstuvwxyz23456789'
@@ -14,8 +9,8 @@ function randomSlug(len = 8): string {
   return s
 }
 
-export async function GET({ cookies, request, locals, url }: { cookies: any; request: Request; locals: any; url: URL }) {
-  if (!isAuthenticated(cookies, request, locals?.runtime?.env)) {
+export async function GET({ cookies, locals, url }: { cookies: any; locals: any; url: URL }) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
@@ -50,7 +45,7 @@ export async function GET({ cookies, request, locals, url }: { cookies: any; req
 }
 
 export async function POST({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
-  if (!isAuthenticated(cookies, request, locals?.runtime?.env)) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
@@ -127,7 +122,7 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
 }
 
 export async function PUT({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
-  if (!isAuthenticated(cookies, request, locals?.runtime?.env)) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
@@ -157,7 +152,7 @@ export async function PUT({ request, cookies, locals }: { request: Request; cook
 }
 
 export async function DELETE({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
-  if (!isAuthenticated(cookies, request, locals?.runtime?.env)) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 

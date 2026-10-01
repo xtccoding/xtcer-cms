@@ -1,16 +1,15 @@
 import { supabase } from '../../../lib/supabase'
+import { isAdminRequest } from '../../../lib/admin-auth'
 
-export async function GET({ cookies }: { cookies: any }) {
-  const auth = cookies.get('admin_auth')
-  if (!auth) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+export async function GET({ cookies, locals }: { cookies: any; locals: any }) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const { data } = await supabase.from('blacklist').select('*').order('created_at', { ascending: false })
   return new Response(JSON.stringify(data || []), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }
 
-export async function POST({ request, cookies }: { request: Request; cookies: any }) {
-  const auth = cookies.get('admin_auth')
-  if (!auth) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+export async function POST({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const body = await request.json()
   const { ip, reason } = body
@@ -25,9 +24,8 @@ export async function POST({ request, cookies }: { request: Request; cookies: an
   return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }
 
-export async function DELETE({ url, cookies }: { url: URL; cookies: any }) {
-  const auth = cookies.get('admin_auth')
-  if (!auth) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+export async function DELETE({ url, cookies, locals }: { url: URL; cookies: any; locals: any }) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const id = url.searchParams.get('id')
   if (!id) return new Response(JSON.stringify({ error: 'ID required' }), { status: 400 })

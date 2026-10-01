@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro'
 import { supabase } from '../../lib/supabase'
+import { isAdminRequest } from '../../lib/admin-auth'
 
 export const GET: APIRoute = async ({ url }) => {
   const key = url.searchParams.get('key')
@@ -45,10 +46,8 @@ export const GET: APIRoute = async ({ url }) => {
   })
 }
 
-export const POST: APIRoute = async ({ request, cookies }) => {
-  // Simple auth check - just check if cookie exists (same as other APIs)
-  const auth = cookies.get('admin_auth')
-  if (!auth) {
+export const POST: APIRoute = async ({ request, cookies, locals }) => {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' }

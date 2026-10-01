@@ -1,8 +1,8 @@
 import { supabase } from '../../../lib/supabase'
+import { isAdminRequest } from '../../../lib/admin-auth'
 
-export async function GET({ cookies, url }: { cookies: any; url: URL }) {
-  const auth = cookies.get('admin_auth')
-  if (!auth) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+export async function GET({ cookies, locals, url }: { cookies: any; locals: any; url: URL }) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const range = url.searchParams.get('range') || '7d'
   const days = range === '1d' ? 1 : range === '30d' ? 30 : 7

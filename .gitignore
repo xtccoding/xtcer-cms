@@ -32,3 +32,6 @@ npm-debug.log*
 tmpwork/
 .opencode/node_modules/
 .shots/
+
+# 数据备份（含访客 IP 等隐私数据，绝不入库）
+backups/

@@ -1,11 +1,15 @@
-import { supabase } from '../../../lib/supabase'
+import { createAdminClient } from '../../../lib/supabase-admin'
 
-export async function POST({ request }: { request: Request }) {
+export async function POST({ request, locals }: { request: Request; locals: any }) {
   try {
     const { slug, password } = await request.json()
     if (!slug || !password) return new Response(JSON.stringify({ error: 'Missing params' }), { status: 400 })
 
-    const { data: file } = await supabase
+    // RLS 收紧后 anon 无法读 files 表；密码验证走 service_role 客户端
+    const admin = createAdminClient(locals?.runtime?.env)
+    if (!admin) return new Response(JSON.stringify({ error: 'File service unavailable' }), { status: 503 })
+
+    const { data: file } = await admin
       .from('files')
       .select('url, password, expires_at')
       .eq('share_slug', slug)

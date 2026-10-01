@@ -1,16 +1,12 @@
 import { supabase } from '../../lib/supabase'
+import { isAdminRequest } from '../../lib/admin-auth'
 
-function isAuthenticated(cookies: any, request: Request, env: any): boolean {
-  const cookieAuth = cookies?.get?.('admin_auth')?.value
-  if (cookieAuth) return true
-  const feedKey = request?.headers?.get?.('X-Feed-Key')
-  const validKey = env?.FEED_API_KEY || import.meta.env.FEED_API_KEY
-  if (feedKey && feedKey === validKey) return true
-  return false
+function isAuthenticated(cookies: any, env: any): boolean {
+  return isAdminRequest(cookies, env)
 }
 
 export async function GET({ cookies, request, locals, url }: { cookies: any; request: Request; locals: any; url: URL }) {
-  if (!isAuthenticated(cookies, request, locals?.runtime?.env)) {
+  if (!isAuthenticated(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
@@ -68,7 +64,7 @@ export async function GET({ cookies, request, locals, url }: { cookies: any; req
 }
 
 export async function PUT({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
-  if (!isAuthenticated(cookies, request, locals?.runtime?.env)) {
+  if (!isAuthenticated(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
@@ -96,7 +92,7 @@ export async function PUT({ request, cookies, locals }: { request: Request; cook
 }
 
 export async function DELETE({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
-  if (!isAuthenticated(cookies, request, locals?.runtime?.env)) {
+  if (!isAuthenticated(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 

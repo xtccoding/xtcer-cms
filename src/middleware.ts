@@ -1,11 +1,15 @@
 import { defineMiddleware } from 'astro:middleware'
 import { supabase } from './lib/supabase'
+import { setRuntimeEnv } from './lib/runtime-env'
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const path = context.url.pathname
-  
-  // Get custom admin path from env
+
+  // Preserve the current request's runtime env for shared server-side helpers.
   const runtimeEnv = (context.locals as any)?.runtime?.env
+  setRuntimeEnv(runtimeEnv)
+
+  // Get custom admin path from env
   const customAdminPath = runtimeEnv?.ADMIN_PATH || import.meta.env.ADMIN_PATH
   
   // If custom admin path is set

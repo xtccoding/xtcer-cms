@@ -11,6 +11,7 @@
  *
  * 为什么 key 不能带 PUBLIC_ 前缀：Astro 只会把 `PUBLIC_*` 注入客户端，
  * 其余变量在客户端代码里取到 undefined，这是最后一道保险。
+
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
@@ -51,6 +52,7 @@ export function createAdminClient(env: any): SupabaseClient<Database> | null {
   if (typeof window !== 'undefined') {
     throw new Error('[supabase-admin] 禁止在浏览器端创建 service_role 客户端')
   }
+
 
   const key = resolveServiceRoleKey(env)
   if (!key) return null

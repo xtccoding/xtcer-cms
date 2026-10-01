@@ -1,16 +1,15 @@
 import { supabase } from '../../../lib/supabase'
+import { isAdminRequest } from '../../../lib/admin-auth'
 
-export async function GET({ cookies }: { cookies: any }) {
-  const auth = cookies.get('admin_auth')
-  if (!auth) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+export async function GET({ cookies, locals }: { cookies: any; locals: any }) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const { data } = await supabase.from('links').select('*').order('sort_order', { ascending: true })
   return new Response(JSON.stringify(data || []), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }
 
-export async function POST({ request, cookies }: { request: Request; cookies: any }) {
-  const auth = cookies.get('admin_auth')
-  if (!auth) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+export async function POST({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const body = await request.json()
   const { title, url, description, icon, category } = body

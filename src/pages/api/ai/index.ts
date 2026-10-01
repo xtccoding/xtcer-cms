@@ -1,4 +1,4 @@
-import { supabase } from '../../../lib/supabase'
+import { isAdminRequest } from '../../../lib/admin-auth'
 
 const CEREBRAS_KEY = 'csk-j8f8wmwhehryvm54ke95d388rmnnjm5nwvr2ckf6jmj2rv32'
 const MODELS = ['gpt-oss-120b', 'zai-glm-4.7', 'qwen-3-235b-a22b-instruct-2507', 'llama3.1-8b']
@@ -25,9 +25,8 @@ async function callCerebras(model: string, prompt: string, content: string) {
   return data.choices?.[0]?.message?.content || ''
 }
 
-export async function POST({ request, cookies }: { request: Request; cookies: any }) {
-  const auth = cookies.get('admin_auth')
-  if (!auth) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+export async function POST({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const body = await request.json()
   const { action, content, title } = body
