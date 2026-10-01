@@ -265,11 +265,10 @@ const schema = {
 
   /* 支付优先级图例 —— 分组两行，不再是挤成一排的标签条
      （卡片上的徽标样式在 DealCard 里，此处是页面级副本） */
+  /* 不套白底/边框 —— 和标题、说明文字一样直接贴页面背景，避免突兀的白色色块 */
   .pay-legend {
     display: flex; flex-direction: column; gap: 0.5rem;
-    margin-top: 1.125rem; padding: 0.875rem 1rem;
-    border: 1px solid var(--border); border-radius: var(--radius-sm);
-    background: var(--surface);
+    margin-top: 1.25rem;
   }
   .pay-legend-head { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
   .pay-legend-title { font-size: 0.75rem; font-weight: 700; color: var(--text); }
@@ -299,11 +298,18 @@ const schema = {
   .pay-chip.intl { color: var(--text-muted); }
   .pay-icon { font-size: 0.625rem; line-height: 1; }
 
+  /* 分类 Tab：窄屏可横向滚动，但**不显示滚动条**（默认那条灰条太突兀）。
+     用右缘渐隐提示「还能往右滑」。 */
   .tabs {
     display: flex; gap: 0.5rem; margin-bottom: 2rem;
-    overflow-x: auto; padding-bottom: 0.25rem;
+    overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
   }
+  .tabs::-webkit-scrollbar { display: none; height: 0; }
   .tab {
     padding: 0.5rem 1rem; border: 1px solid var(--glass-border); border-radius: 999px;
     background: var(--surface); color: var(--text-muted); font-size: 0.8125rem;
