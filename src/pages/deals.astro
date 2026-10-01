@@ -1,26 +1,50 @@
 ---
 import Layout from '../layouts/Layout.astro'
 import { supabase } from '../lib/supabase'
+import {
+  resolveCuration,
+  DIFFICULTY_RANK,
+  DIFFICULTY_META,
+  type Difficulty,
+} from '../data/deal-curation'
 
-const { data: deals } = await supabase
+const { data: dealsRaw } = await supabase
   .from('deals')
   .select('*')
   .eq('is_active', true)
   // 过期即隐藏：expiry 为空 = 长期有效；有值则必须 >= 今天。
   // expiry 统一存 YYYY-MM-DD，按字符串比较即可。
   .or(`expiry.is.null,expiry.gte.${new Date().toISOString().slice(0, 10)}`)
-  .order('price_cny', { ascending: true, nullsFirst: false })
 
-const allCategories = [...new Set(deals?.map(d => d.category) || [])]
+// 附上人工整理层（难度 / 风险 / 优惠码 / 教程），再按「难度 → 价格」排序：
+// 容易成功、低价的排最前，Oracle / Azure / GCP / AWS 这类高难度沉到最后。
+const deals = (dealsRaw || [])
+  .map(d => ({ ...d, curation: resolveCuration(d.provider, d.product) }))
+  .sort((a, b) => {
+    const byDifficulty =
+      DIFFICULTY_RANK[a.curation.difficulty] - DIFFICULTY_RANK[b.curation.difficulty]
+    if (byDifficulty !== 0) return byDifficulty
+    return (a.price_cny ?? Number.MAX_SAFE_INTEGER) - (b.price_cny ?? Number.MAX_SAFE_INTEGER)
+  })
+
+const sectionOrder: Difficulty[] = ['easy', 'medium', 'hard']
+const sections = sectionOrder
+  .map(key => ({ key, items: deals.filter(d => d.curation.difficulty === key) }))
+  .filter(s => s.items.length > 0)
+
+const allCategories = [...new Set(deals.map(d => d.category))]
 const categoryMap: Record<string, string> = {
   'compute': '计算',
   'ai': 'AI Token',
+  'api': 'API',
   'storage': '存储',
   'tray': '托盘',
   'hosting': '托管',
+  'database': '数据库',
+  'domain': '域名',
   'other': '其他',
 }
-const categoryOrder = ['compute', 'ai', 'storage', 'tray', 'hosting', 'other']
+const categoryOrder = ['compute', 'ai', 'api', 'storage', 'database', 'hosting', 'domain', 'tray', 'other']
 const sortedCategories = categoryOrder.filter(c => allCategories.includes(c))
 const remaining = allCategories.filter(c => !categoryOrder.includes(c))
 const categories = [...sortedCategories, ...remaining]
@@ -29,11 +53,11 @@ const schema = {
   "@context": "https://schema.org",
   "@type": "CollectionPage",
   "name": "云服务优惠 - XTCer",
-  "description": "精选云服务器、AI Token、存储等优惠信息，按价格排序",
+  "description": "精选云服务器、AI Token、存储等优惠信息，按上手难度与价格排序",
   "url": "https://xtcer.cn/deals",
   "isPartOf": { "@type": "WebSite", "name": "XTCer", "url": "https://xtcer.cn" },
   "about": { "@type": "Thing", "name": "云服务优惠" },
-  "hasPart": (deals || []).map(deal => ({
+  "hasPart": deals.map(deal => ({
     "@type": "Offer",
     "name": deal.product,
     "description": deal.notes || `${deal.provider} ${deal.product}`,
@@ -46,7 +70,7 @@ const schema = {
 }
 ---
 
-<Layout title="云服务优惠 - XTCer" description="精选云服务器、AI Token、存储等优惠信息，按价格排序" schema={schema}>
+<Layout title="云服务优惠 - XTCer" description="精选云服务器、AI Token、存储等优惠信息，按上手难度与价格排序" schema={schema}>
   <nav class="nav">
     <div class="nav-inner">
       <a href="/" class="nav-logo">XTCer</a>
@@ -65,7 +89,7 @@ const schema = {
     <div class="container-wide">
       <header class="page-header">
         <h1>云服务优惠</h1>
-        <p class="page-desc">精选服务器、AI、存储等优惠信息 · 按价格排序</p>
+        <p class="page-desc">按<strong>上手难度</strong>排序：容易成功、低价的排前面，需要信用卡 / 风控严格的沉到最后</p>
       </header>
 
       <div class="tabs">
@@ -75,39 +99,82 @@ const schema = {
         ))}
       </div>
 
-      <div class="deals-grid" id="deals-grid">
-        {deals && deals.map(deal => (
-          <div class="deal-card glass-card" data-cat={deal.category}>
-            <div class="deal-header">
-              <span class="deal-provider">{deal.provider}</span>
-              <span class="deal-badge">{categoryMap[deal.category] || deal.category}</span>
-            </div>
-            <h3 class="deal-product">
-              {deal.url ? <a href={deal.url} target="_blank" rel="noopener">{deal.product}</a> : deal.product}
-            </h3>
-            <div class="deal-price">
-              <span class="price-value">{deal.price}</span>
-              {deal.price_cny && <span class="price-cny">≈ ¥{deal.price_cny}/月</span>}
-            </div>
-            <div class="deal-specs">
-              {deal.config && <span class="spec">🖥 {deal.config}</span>}
-              {deal.bandwidth && <span class="spec">📡 {deal.bandwidth}</span>}
-              {deal.region && <span class="spec">🌍 {deal.region}</span>}
-            </div>
-            {deal.notes && <p class="deal-notes">{deal.notes}</p>}
-            <div class="deal-footer">
-              {deal.type && <span class="deal-type">{deal.type}</span>}
-              {deal.expiry && <span class="deal-expiry">截止: {deal.expiry}</span>}
-            </div>
+      {sections.map(section => (
+        <section class="diff-section" data-diff={section.key}>
+          <div class="section-head">
+            <h2 class="section-title">
+              <span class="section-icon">{DIFFICULTY_META[section.key].icon}</span>
+              {DIFFICULTY_META[section.key].label}
+              <span class="section-count">{section.items.length}</span>
+            </h2>
+            <p class="section-desc">{DIFFICULTY_META[section.key].desc}</p>
           </div>
-        ))}
-      </div>
 
-      {(!deals || deals.length === 0) && (
+          <div class="deals-grid">
+            {section.items.map(deal => (
+              <div class="deal-card glass-card" data-cat={deal.category} data-diff={deal.curation.difficulty}>
+                <div class="deal-header">
+                  <span class="deal-provider">{deal.provider}</span>
+                  <span class="deal-badge">{categoryMap[deal.category] || deal.category}</span>
+                </div>
+                <h3 class="deal-product">
+                  {deal.url ? <a href={deal.url} target="_blank" rel="noopener">{deal.product}</a> : deal.product}
+                </h3>
+                <div class="deal-price">
+                  <span class="price-value">{deal.price}</span>
+                  {deal.price_cny ? <span class="price-cny">≈ ¥{deal.price_cny}</span> : null}
+                </div>
+                <div class="deal-specs">
+                  {deal.config && <span class="spec">🖥 {deal.config}</span>}
+                  {deal.bandwidth && <span class="spec">📡 {deal.bandwidth}</span>}
+                  {deal.region && <span class="spec">🌍 {deal.region}</span>}
+                </div>
+
+                {deal.curation.promo && (
+                  <button class="promo-chip" data-code={deal.curation.promo} title="点击复制优惠码">
+                    🎁 优惠码 <code>{deal.curation.promo}</code>
+                    <span class="promo-copy">复制</span>
+                  </button>
+                )}
+                {deal.curation.promoNote && <p class="promo-note">{deal.curation.promoNote}</p>}
+
+                {deal.curation.warning && (
+                  <p class="deal-warning">⚠️ {deal.curation.warning}</p>
+                )}
+
+                {deal.notes && <p class="deal-notes">{deal.notes}</p>}
+
+                {deal.curation.tips && deal.curation.tips.length > 0 && (
+                  <ul class="deal-tips">
+                    {deal.curation.tips.map(tip => <li>{tip}</li>)}
+                  </ul>
+                )}
+
+                <div class="deal-footer">
+                  <div class="deal-footer-left">
+                    {deal.type && <span class="deal-type">{deal.type}</span>}
+                    {deal.expiry && <span class="deal-expiry">截止: {deal.expiry}</span>}
+                  </div>
+                  {deal.curation.tutorialUrl && (
+                    <a class="tutorial-link" href={deal.curation.tutorialUrl}>注册教程 →</a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+
+      {deals.length === 0 && (
         <div class="empty">
           <p>暂无优惠信息，敬请期待</p>
         </div>
       )}
+
+      <p class="disclaimer">
+        优惠信息与价格会变动，下单前请以官网为准。标注「高难度」的免费额度
+        <strong>不保证注册成功</strong>，详见 <a href="/posts/df92ea33-2962-4531-acf2-9c57c433b7fb">免费云额度注册避坑指南</a>。
+      </p>
     </div>
   </main>
 
@@ -124,15 +191,45 @@ const schema = {
   </footer>
 
   <script>
-    document.querySelectorAll('.tab').forEach(tab => {
+    // 分类筛选：命中后隐藏不匹配的卡片，并隐藏空掉的难度分区。
+    function applyFilter(cat: string) {
+      document.querySelectorAll<HTMLElement>('.deal-card').forEach(card => {
+        card.style.display = (!cat || card.dataset.cat === cat) ? '' : 'none'
+      })
+      document.querySelectorAll<HTMLElement>('.diff-section').forEach(section => {
+        const anyVisible = [...section.querySelectorAll<HTMLElement>('.deal-card')]
+          .some(c => c.style.display !== 'none')
+        section.style.display = anyVisible ? '' : 'none'
+      })
+    }
+
+    document.querySelectorAll<HTMLElement>('.tab').forEach(tab => {
       tab.addEventListener('click', () => {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
         tab.classList.add('active')
-        const cat = (tab as HTMLElement).dataset.cat
-        document.querySelectorAll('.deal-card').forEach(card => {
-          const el = card as HTMLElement
-          el.style.display = (!cat || el.dataset.cat === cat) ? '' : 'none'
-        })
+        applyFilter(tab.dataset.cat || '')
+      })
+    })
+
+    // 点击复制优惠码
+    document.querySelectorAll<HTMLElement>('.promo-chip').forEach(chip => {
+      chip.addEventListener('click', async () => {
+        const code = chip.dataset.code || ''
+        try {
+          await navigator.clipboard.writeText(code)
+        } catch {
+          const ta = document.createElement('textarea')
+          ta.value = code
+          document.body.appendChild(ta)
+          ta.select()
+          document.execCommand('copy')
+          ta.remove()
+        }
+        const badge = chip.querySelector('.promo-copy')
+        if (badge) {
+          badge.textContent = '已复制'
+          setTimeout(() => { badge.textContent = '复制' }, 1500)
+        }
       })
     })
 
@@ -152,9 +249,10 @@ const schema = {
     letter-spacing: -0.02em; margin-bottom: 0.5rem;
   }
   .page-desc { color: var(--text-muted); font-size: 0.9375rem; }
+  .page-desc strong { color: var(--text); }
 
   .tabs {
-    display: flex; gap: 0.5rem; margin-bottom: 1.5rem;
+    display: flex; gap: 0.5rem; margin-bottom: 2rem;
     overflow-x: auto; padding-bottom: 0.25rem;
     -webkit-overflow-scrolling: touch;
   }
@@ -165,6 +263,20 @@ const schema = {
   }
   .tab:hover { color: var(--text); border-color: var(--glass-border-hover); }
   .tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+  .diff-section { margin-bottom: 2.5rem; }
+  .section-head { margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border); }
+  .section-title {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 1.125rem; font-weight: 700; letter-spacing: -0.01em;
+  }
+  .section-icon { font-size: 1rem; }
+  .section-count {
+    font-size: 0.6875rem; font-weight: 600; color: var(--text-muted);
+    background: var(--surface); border: 1px solid var(--glass-border);
+    border-radius: 999px; padding: 0.0625rem 0.5rem;
+  }
+  .section-desc { color: var(--text-muted); font-size: 0.8125rem; margin-top: 0.25rem; }
 
   .deals-grid {
     display: grid;
@@ -177,6 +289,7 @@ const schema = {
     transition: transform 0.2s, border-color 0.2s;
   }
   .deal-card:hover { transform: translateY(-2px); }
+  .deal-card[data-diff='hard'] { border-left: 3px solid var(--orange); }
 
   .deal-header { display: flex; justify-content: space-between; align-items: center; }
   .deal-provider { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
@@ -198,15 +311,50 @@ const schema = {
   .deal-specs { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .spec { font-size: 0.75rem; color: var(--text-secondary); }
 
+  .promo-chip {
+    display: flex; align-items: center; gap: 0.5rem; width: 100%;
+    padding: 0.5rem 0.75rem; border-radius: var(--radius-sm);
+    background: rgba(41,151,255,0.06); border: 1px dashed rgba(41,151,255,0.35);
+    color: var(--text); font-size: 0.75rem; cursor: pointer; text-align: left;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .promo-chip:hover { background: rgba(41,151,255,0.12); border-color: var(--primary); }
+  .promo-chip code { font-weight: 700; color: var(--primary); letter-spacing: 0.03em; }
+  .promo-copy { margin-left: auto; font-size: 0.6875rem; color: var(--text-muted); }
+  .promo-note { font-size: 0.6875rem; color: var(--text-muted); }
+
+  .deal-warning {
+    font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5;
+    padding: 0.5rem 0.75rem; background: rgba(255,159,10,0.06);
+    border-radius: var(--radius-sm); border-left: 2px solid var(--orange);
+  }
+
   .deal-notes {
     font-size: 0.75rem; color: var(--text-muted); line-height: 1.5;
     padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.02);
     border-radius: var(--radius-sm); border-left: 2px solid var(--primary);
   }
 
-  .deal-footer { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+  .deal-tips { margin: 0; padding-left: 1rem; display: flex; flex-direction: column; gap: 0.25rem; }
+  .deal-tips li { font-size: 0.6875rem; color: var(--text-muted); line-height: 1.4; }
+
+  .deal-footer {
+    display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
+    margin-top: auto; padding-top: 0.5rem; border-top: 1px solid var(--border);
+  }
+  .deal-footer-left { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
   .deal-type { font-size: 0.6875rem; color: var(--text-muted); }
   .deal-expiry { font-size: 0.6875rem; color: var(--orange); }
+  .tutorial-link { font-size: 0.75rem; font-weight: 600; color: var(--primary); white-space: nowrap; }
+  .tutorial-link:hover { text-decoration: underline; }
+
+  .disclaimer {
+    margin-top: 1.5rem; padding: 0.875rem 1rem; border-radius: var(--radius-sm);
+    background: var(--surface); border: 1px solid var(--border);
+    font-size: 0.75rem; color: var(--text-muted); line-height: 1.6;
+  }
+  .disclaimer a { color: var(--primary); }
+  .disclaimer strong { color: var(--text-secondary); }
 
   .empty { text-align: center; padding: 4rem; }
   .empty p { color: var(--text-muted); font-size: 1rem; }
