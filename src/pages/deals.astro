@@ -1,10 +1,12 @@
 ---
 import Layout from '../layouts/Layout.astro'
+import DealCard from '../components/DealCard.astro'
 import { supabase } from '../lib/supabase'
 import {
   resolveCuration,
   DIFFICULTY_RANK,
   DIFFICULTY_META,
+  SUPPLEMENT_META,
   type Difficulty,
 } from '../data/deal-curation'
 
@@ -18,6 +20,7 @@ const { data: dealsRaw } = await supabase
 
 // 附上人工整理层（难度 / 风险 / 优惠码 / 教程），再按「难度 → 价格」排序：
 // 容易成功、低价的排最前，Oracle / Azure / GCP / AWS 这类高难度沉到最后。
+// 「买其他送域名」这类补充权益单独抽出来，放到最后一块。
 const deals = (dealsRaw || [])
   .map(d => ({ ...d, curation: resolveCuration(d.provider, d.product) }))
   .sort((a, b) => {
@@ -27,9 +30,12 @@ const deals = (dealsRaw || [])
     return (a.price_cny ?? Number.MAX_SAFE_INTEGER) - (b.price_cny ?? Number.MAX_SAFE_INTEGER)
   })
 
+const mainDeals = deals.filter(d => !d.curation.supplement)
+const supplementItems = deals.filter(d => d.curation.supplement)
+
 const sectionOrder: Difficulty[] = ['easy', 'medium', 'hard']
 const sections = sectionOrder
-  .map(key => ({ key, items: deals.filter(d => d.curation.difficulty === key) }))
+  .map(key => ({ key, items: mainDeals.filter(d => d.curation.difficulty === key) }))
   .filter(s => s.items.length > 0)
 
 const allCategories = [...new Set(deals.map(d => d.category))]
@@ -44,7 +50,8 @@ const categoryMap: Record<string, string> = {
   'domain': '域名',
   'other': '其他',
 }
-const categoryOrder = ['compute', 'ai', 'api', 'storage', 'database', 'hosting', 'domain', 'tray', 'other']
+const catLabel = (c: string) => categoryMap[c] || c
+const categoryOrder = ['compute', 'ai', 'api', 'storage', 'database', 'domain', 'hosting', 'tray', 'other']
 const sortedCategories = categoryOrder.filter(c => allCategories.includes(c))
 const remaining = allCategories.filter(c => !categoryOrder.includes(c))
 const categories = [...sortedCategories, ...remaining]
@@ -53,7 +60,7 @@ const schema = {
   "@context": "https://schema.org",
   "@type": "CollectionPage",
   "name": "云服务优惠 - XTCer",
-  "description": "精选云服务器、AI Token、存储等优惠信息，按上手难度与价格排序",
+  "description": "精选云服务器、AI Token、域名、存储等优惠信息，按上手难度与价格排序",
   "url": "https://xtcer.cn/deals",
   "isPartOf": { "@type": "WebSite", "name": "XTCer", "url": "https://xtcer.cn" },
   "about": { "@type": "Thing", "name": "云服务优惠" },
@@ -70,7 +77,7 @@ const schema = {
 }
 ---
 
-<Layout title="云服务优惠 - XTCer" description="精选云服务器、AI Token、存储等优惠信息，按上手难度与价格排序" schema={schema}>
+<Layout title="云服务优惠 - XTCer" description="精选云服务器、AI Token、域名、存储等优惠信息，按上手难度与价格排序" schema={schema}>
   <nav class="nav">
     <div class="nav-inner">
       <a href="/" class="nav-logo">XTCer</a>
@@ -95,7 +102,7 @@ const schema = {
       <div class="tabs">
         <button class="tab active" data-cat="">全部</button>
         {categories.map(cat => (
-          <button class="tab" data-cat={cat}>{categoryMap[cat] || cat}</button>
+          <button class="tab" data-cat={cat}>{catLabel(cat)}</button>
         ))}
       </div>
 
@@ -111,67 +118,27 @@ const schema = {
           </div>
 
           <div class="deals-grid">
-            {section.items.map(deal => (
-              <div class="deal-card glass-card" data-cat={deal.category} data-diff={deal.curation.difficulty}>
-                <div class="deal-header">
-                  <span class="deal-provider">{deal.provider}</span>
-                  <span class="deal-badges">
-                    {deal.curation.difficulty !== 'easy' && (
-                      <span class:list={['diff-chip', deal.curation.difficulty]}>
-                        {DIFFICULTY_META[deal.curation.difficulty].icon}
-                        {DIFFICULTY_META[deal.curation.difficulty].label}
-                      </span>
-                    )}
-                    <span class="deal-badge">{categoryMap[deal.category] || deal.category}</span>
-                  </span>
-                </div>
-                <h3 class="deal-product">
-                  {deal.url ? <a href={deal.url} target="_blank" rel="noopener">{deal.product}</a> : deal.product}
-                </h3>
-                <div class="deal-price">
-                  <span class="price-value">{deal.price}</span>
-                  {deal.price_cny ? <span class="price-cny">≈ ¥{deal.price_cny}</span> : null}
-                </div>
-                <div class="deal-specs">
-                  {deal.config && <span class="spec">🖥 {deal.config}</span>}
-                  {deal.bandwidth && <span class="spec">📡 {deal.bandwidth}</span>}
-                  {deal.region && <span class="spec">🌍 {deal.region}</span>}
-                </div>
-
-                {deal.curation.promo && (
-                  <button class="promo-chip" data-code={deal.curation.promo} title="点击复制优惠码">
-                    🎁 优惠码 <code>{deal.curation.promo}</code>
-                    <span class="promo-copy">复制</span>
-                  </button>
-                )}
-                {deal.curation.promoNote && <p class="promo-note">{deal.curation.promoNote}</p>}
-
-                {deal.curation.warning && (
-                  <p class="deal-warning">⚠️ {deal.curation.warning}</p>
-                )}
-
-                {deal.notes && <p class="deal-notes">{deal.notes}</p>}
-
-                {deal.curation.tips && deal.curation.tips.length > 0 && (
-                  <ul class="deal-tips">
-                    {deal.curation.tips.map(tip => <li>{tip}</li>)}
-                  </ul>
-                )}
-
-                <div class="deal-footer">
-                  <div class="deal-footer-left">
-                    {deal.type && <span class="deal-type">{deal.type}</span>}
-                    {deal.expiry && <span class="deal-expiry">截止: {deal.expiry}</span>}
-                  </div>
-                  {deal.curation.tutorialUrl && (
-                    <a class="tutorial-link" href={deal.curation.tutorialUrl}>注册教程 →</a>
-                  )}
-                </div>
-              </div>
-            ))}
+            {section.items.map(deal => <DealCard deal={deal} categoryLabel={catLabel(deal.category)} />)}
           </div>
         </section>
       ))}
+
+      {supplementItems.length > 0 && (
+        <section class="diff-section supplement" data-diff="supplement">
+          <div class="section-head">
+            <h2 class="section-title">
+              <span class="section-icon">{SUPPLEMENT_META.icon}</span>
+              {SUPPLEMENT_META.label}
+              <span class="section-count">{supplementItems.length}</span>
+            </h2>
+            <p class="section-desc">{SUPPLEMENT_META.desc}</p>
+          </div>
+
+          <div class="deals-grid">
+            {supplementItems.map(deal => <DealCard deal={deal} categoryLabel={catLabel(deal.category)} />)}
+          </div>
+        </section>
+      )}
 
       {deals.length === 0 && (
         <div class="empty">
@@ -182,6 +149,7 @@ const schema = {
       <p class="disclaimer">
         优惠信息与价格会变动，下单前请以官网为准。标注「高难度」的免费额度
         <strong>不保证注册成功</strong>，详见 <a href="/posts/df92ea33-2962-4531-acf2-9c57c433b7fb">免费云额度注册避坑指南</a>。
+        域名价格为首年 / 续费参考价，促销随时变动。
       </p>
     </div>
   </main>
@@ -285,83 +253,13 @@ const schema = {
     border-radius: 999px; padding: 0.0625rem 0.5rem;
   }
   .section-desc { color: var(--text-muted); font-size: 0.8125rem; margin-top: 0.25rem; }
+  .diff-section.supplement .section-head { border-bottom-style: dashed; }
 
   .deals-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 0.75rem;
   }
-
-  .deal-card {
-    padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 0.625rem;
-    transition: transform 0.2s, border-color 0.2s;
-  }
-  .deal-card:hover { transform: translateY(-2px); }
-  .deal-card[data-diff='hard'] { border-left: 3px solid var(--orange); }
-
-  .deal-header { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
-  .deal-provider { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-  .deal-badges { display: flex; align-items: center; gap: 0.375rem; flex-shrink: 0; }
-  .diff-chip {
-    padding: 0.125rem 0.5rem; border-radius: 999px;
-    font-size: 0.6875rem; font-weight: 600; white-space: nowrap;
-  }
-  .diff-chip.medium { background: rgba(255,204,0,0.12); color: #b8860b; border: 1px solid rgba(255,204,0,0.3); }
-  .diff-chip.hard { background: rgba(255,90,60,0.1); color: #d94a2b; border: 1px solid rgba(255,90,60,0.28); }
-  .deal-badge {
-    padding: 0.125rem 0.5rem; border-radius: 999px;
-    font-size: 0.6875rem; font-weight: 500;
-    background: rgba(41,151,255,0.08); color: var(--primary);
-    border: 1px solid rgba(41,151,255,0.15);
-  }
-
-  .deal-product { font-size: 1rem; font-weight: 600; line-height: 1.4; }
-  .deal-product a { color: var(--text); }
-  .deal-product a:hover { color: var(--primary); }
-
-  .deal-price { display: flex; align-items: baseline; gap: 0.5rem; }
-  .price-value { font-size: 1.25rem; font-weight: 700; color: var(--green); }
-  .price-cny { font-size: 0.75rem; color: var(--text-muted); }
-
-  .deal-specs { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-  .spec { font-size: 0.75rem; color: var(--text-secondary); }
-
-  .promo-chip {
-    display: flex; align-items: center; gap: 0.5rem; width: 100%;
-    padding: 0.5rem 0.75rem; border-radius: var(--radius-sm);
-    background: rgba(41,151,255,0.06); border: 1px dashed rgba(41,151,255,0.35);
-    color: var(--text); font-size: 0.75rem; cursor: pointer; text-align: left;
-    transition: background 0.15s, border-color 0.15s;
-  }
-  .promo-chip:hover { background: rgba(41,151,255,0.12); border-color: var(--primary); }
-  .promo-chip code { font-weight: 700; color: var(--primary); letter-spacing: 0.03em; }
-  .promo-copy { margin-left: auto; font-size: 0.6875rem; color: var(--text-muted); }
-  .promo-note { font-size: 0.6875rem; color: var(--text-muted); }
-
-  .deal-warning {
-    font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5;
-    padding: 0.5rem 0.75rem; background: rgba(255,159,10,0.06);
-    border-radius: var(--radius-sm); border-left: 2px solid var(--orange);
-  }
-
-  .deal-notes {
-    font-size: 0.75rem; color: var(--text-muted); line-height: 1.5;
-    padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.02);
-    border-radius: var(--radius-sm); border-left: 2px solid var(--primary);
-  }
-
-  .deal-tips { margin: 0; padding-left: 1rem; display: flex; flex-direction: column; gap: 0.25rem; }
-  .deal-tips li { font-size: 0.6875rem; color: var(--text-muted); line-height: 1.4; }
-
-  .deal-footer {
-    display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
-    margin-top: auto; padding-top: 0.5rem; border-top: 1px solid var(--border);
-  }
-  .deal-footer-left { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
-  .deal-type { font-size: 0.6875rem; color: var(--text-muted); }
-  .deal-expiry { font-size: 0.6875rem; color: var(--orange); }
-  .tutorial-link { font-size: 0.75rem; font-weight: 600; color: var(--primary); white-space: nowrap; }
-  .tutorial-link:hover { text-decoration: underline; }
 
   .disclaimer {
     margin-top: 1.5rem; padding: 0.875rem 1rem; border-radius: var(--radius-sm);

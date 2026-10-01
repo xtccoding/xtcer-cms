@@ -1,0 +1,154 @@
+---
+import { DIFFICULTY_META, type DealCuration } from '../data/deal-curation'
+
+interface Deal {
+  provider: string
+  product: string
+  price: string
+  price_cny?: number | null
+  config?: string | null
+  bandwidth?: string | null
+  region?: string | null
+  url?: string | null
+  notes?: string | null
+  type?: string | null
+  expiry?: string | null
+  category: string
+  curation: DealCuration
+}
+
+interface Props {
+  deal: Deal
+  categoryLabel: string
+}
+
+const { deal, categoryLabel } = Astro.props
+---
+
+<div class="deal-card glass-card" data-cat={deal.category} data-diff={deal.curation.difficulty}>
+  <div class="deal-header">
+    <span class="deal-provider">{deal.provider}</span>
+    <span class="deal-badges">
+      {deal.curation.difficulty !== 'easy' && (
+        <span class:list={['diff-chip', deal.curation.difficulty]}>
+          {DIFFICULTY_META[deal.curation.difficulty].icon}
+          {DIFFICULTY_META[deal.curation.difficulty].label}
+        </span>
+      )}
+      <span class="deal-badge">{categoryLabel}</span>
+    </span>
+  </div>
+  <h3 class="deal-product">
+    {deal.url ? <a href={deal.url} target="_blank" rel="noopener">{deal.product}</a> : deal.product}
+  </h3>
+  <div class="deal-price">
+    <span class="price-value">{deal.price}</span>
+    {deal.price_cny ? <span class="price-cny">≈ ¥{deal.price_cny}</span> : null}
+  </div>
+  <div class="deal-specs">
+    {deal.config && <span class="spec">🖥 {deal.config}</span>}
+    {deal.bandwidth && <span class="spec">📡 {deal.bandwidth}</span>}
+    {deal.region && <span class="spec">🌍 {deal.region}</span>}
+  </div>
+
+  {deal.curation.promo && (
+    <button class="promo-chip" data-code={deal.curation.promo} title="点击复制优惠码">
+      🎁 优惠码 <code>{deal.curation.promo}</code>
+      <span class="promo-copy">复制</span>
+    </button>
+  )}
+  {deal.curation.promoNote && <p class="promo-note">{deal.curation.promoNote}</p>}
+
+  {deal.curation.warning && <p class="deal-warning">⚠️ {deal.curation.warning}</p>}
+
+  {deal.notes && <p class="deal-notes">{deal.notes}</p>}
+
+  {deal.curation.tips && deal.curation.tips.length > 0 && (
+    <ul class="deal-tips">
+      {deal.curation.tips.map(tip => <li>{tip}</li>)}
+    </ul>
+  )}
+
+  <div class="deal-footer">
+    <div class="deal-footer-left">
+      {deal.type && <span class="deal-type">{deal.type}</span>}
+      {deal.expiry && <span class="deal-expiry">截止: {deal.expiry}</span>}
+    </div>
+    {deal.curation.tutorialUrl && (
+      <a class="tutorial-link" href={deal.curation.tutorialUrl}>注册教程 →</a>
+    )}
+  </div>
+</div>
+
+<style>
+  .deal-card {
+    padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 0.625rem;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .deal-card:hover { transform: translateY(-2px); }
+  .deal-card[data-diff='hard'] { border-left: 3px solid var(--orange); }
+
+  .deal-header { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+  .deal-provider { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .deal-badges { display: flex; align-items: center; gap: 0.375rem; flex-shrink: 0; }
+  .diff-chip {
+    padding: 0.125rem 0.5rem; border-radius: 999px;
+    font-size: 0.6875rem; font-weight: 600; white-space: nowrap;
+  }
+  .diff-chip.medium { background: rgba(255,204,0,0.12); color: #b8860b; border: 1px solid rgba(255,204,0,0.3); }
+  .diff-chip.hard { background: rgba(255,90,60,0.1); color: #d94a2b; border: 1px solid rgba(255,90,60,0.28); }
+  .deal-badge {
+    padding: 0.125rem 0.5rem; border-radius: 999px;
+    font-size: 0.6875rem; font-weight: 500;
+    background: rgba(41,151,255,0.08); color: var(--primary);
+    border: 1px solid rgba(41,151,255,0.15);
+  }
+
+  .deal-product { font-size: 1rem; font-weight: 600; line-height: 1.4; }
+  .deal-product a { color: var(--text); }
+  .deal-product a:hover { color: var(--primary); }
+
+  .deal-price { display: flex; align-items: baseline; gap: 0.5rem; }
+  .price-value { font-size: 1.25rem; font-weight: 700; color: var(--green); }
+  .price-cny { font-size: 0.75rem; color: var(--text-muted); }
+
+  .deal-specs { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .spec { font-size: 0.75rem; color: var(--text-secondary); }
+
+  .promo-chip {
+    display: flex; align-items: center; gap: 0.5rem; width: 100%;
+    padding: 0.5rem 0.75rem; border-radius: var(--radius-sm);
+    background: rgba(41,151,255,0.06); border: 1px dashed rgba(41,151,255,0.35);
+    color: var(--text); font-size: 0.75rem; cursor: pointer; text-align: left;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .promo-chip:hover { background: rgba(41,151,255,0.12); border-color: var(--primary); }
+  .promo-chip code { font-weight: 700; color: var(--primary); letter-spacing: 0.03em; }
+  .promo-copy { margin-left: auto; font-size: 0.6875rem; color: var(--text-muted); }
+  .promo-note { font-size: 0.6875rem; color: var(--text-muted); line-height: 1.5; }
+
+  .deal-warning {
+    font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5;
+    padding: 0.5rem 0.75rem; background: rgba(255,159,10,0.06);
+    border-radius: var(--radius-sm); border-left: 2px solid var(--orange);
+  }
+
+  .deal-notes {
+    font-size: 0.75rem; color: var(--text-muted); line-height: 1.5;
+    padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.02);
+    border-radius: var(--radius-sm); border-left: 2px solid var(--primary);
+  }
+
+  .deal-tips { margin: 0; padding-left: 1rem; display: flex; flex-direction: column; gap: 0.25rem; }
+  .deal-tips li { font-size: 0.6875rem; color: var(--text-muted); line-height: 1.4; }
+
+  .deal-footer {
+    display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
+    margin-top: auto; padding-top: 0.5rem; border-top: 1px solid var(--border);
+  }
+  .deal-footer-left { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+  .deal-type { font-size: 0.6875rem; color: var(--text-muted); }
+  .deal-expiry { font-size: 0.6875rem; color: var(--orange); }
+  .tutorial-link { font-size: 0.75rem; font-weight: 600; color: var(--primary); white-space: nowrap; }
+  .tutorial-link:hover { text-decoration: underline; }
+</style>

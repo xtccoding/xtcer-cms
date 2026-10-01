@@ -27,6 +27,11 @@ export interface DealCuration {
   tips?: string[]
   /** link to a full tutorial article */
   tutorialUrl?: string
+  /**
+   * Pull this item out of the difficulty sections and render it in a final
+   * "补充" block — used for secondary perks like "buy hosting, get a domain".
+   */
+  supplement?: boolean
 }
 
 interface Rule extends Partial<DealCuration> {
@@ -53,7 +58,85 @@ export const DIFFICULTY_META: Record<
   hard: { label: '高难度 · 不保证成功', icon: '⚠️', desc: '风控严、常被拒，申请不到是常态' },
 }
 
+/** Header for the trailing "补充" block (buy X, get a domain free). */
+export const SUPPLEMENT_META = {
+  label: '补充 · 买其他送域名',
+  icon: '🧩',
+  desc: '买服务器 / 主机顺带赠送的域名，仅首年免费，续费按标准价 —— 可能用得上，故列在最后',
+}
+
 const rules: Rule[] = [
+  // ---------- supplement: bundles that throw in a free domain ----------
+  // (productIncludes '赠' must come before the provider-wide rules below)
+  {
+    provider: '阿里云',
+    productIncludes: '赠',
+    difficulty: 'easy',
+    supplement: true,
+    warning: '仅首年赠送，到期按标准价续费；需购买指定配置的云服务器。',
+  },
+  {
+    provider: '腾讯云',
+    productIncludes: '赠',
+    difficulty: 'easy',
+    supplement: true,
+    warning: '仅首年赠送；需选带「赠域名」标签的套餐，单独注册域名没有 0 元。',
+  },
+  {
+    provider: '华为云',
+    difficulty: 'easy',
+    supplement: true,
+    warning: '云耀 L 实例推广期赠送，仅首年，次年起计费。',
+  },
+  {
+    provider: 'Hostinger',
+    difficulty: 'easy',
+    supplement: true,
+    warning: '仅新用户首次下单有效；注意主机续约价通常高于首年。',
+  },
+  {
+    provider: 'Bluehost',
+    difficulty: 'easy',
+    supplement: true,
+    warning: '域名次年按约 $14.95/年续费，主机续费也偏贵，注意长期成本。',
+  },
+
+  // ---------- domain registrars (real prices, not "成本价/低价") ----------
+  {
+    provider: '阿里云',
+    productIncludes: '域名注册',
+    difficulty: 'easy',
+    promoNote: '.cn 首年 ¥38 / .com 首年 ¥85；新用户有 ¥1 首年活动，优惠口令可再打折',
+    tips: ['.cn 需实名认证', '不定期有低价活动，值得盯一下'],
+  },
+  {
+    provider: '腾讯云',
+    productIncludes: '域名注册',
+    difficulty: 'easy',
+    promoNote: '.cn 首年 ¥35 / .com 首年 ¥83；续费 .cn ¥39，优惠口令可降',
+    tips: ['.cn 需实名认证', '优惠口令常年在，结算页记得填'],
+  },
+  {
+    provider: '百度智能云',
+    difficulty: 'easy',
+    tips: ['曾不定期搞 .cn 8 元级活动，值得盯一下活动页'],
+  },
+  {
+    provider: 'Cloudflare',
+    difficulty: 'easy',
+    tips: ['必须把域名的 DNS 托管到 Cloudflare', '首年与续费同价，长期最省'],
+  },
+  {
+    provider: 'Spaceship',
+    difficulty: 'easy',
+    tips: ['首年最便宜，5 年总成本也最低'],
+  },
+  {
+    provider: 'Namecheap',
+    difficulty: 'easy',
+    tips: ['首年最低但续费跳涨，长期持有建议到期前转出'],
+  },
+
   // ---------- hard: the famous free tiers everyone struggles with ----------
   {
     provider: 'Oracle Cloud',
