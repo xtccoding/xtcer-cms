@@ -1,5 +1,5 @@
 -- ======================================================================
--- visitors & files RLS migration
+-- visitors & files RLS migration v2
 -- 目标：收紧 anon 对 visitors/files 的直接表访问，
 -- 同时保留现有应用功能（访客跟踪写入、文件分享页公开读、下载计数）。
 --
@@ -13,17 +13,25 @@
 --             但 increment_downloads RPC 允许 anon 调用（公开下载计数）
 --
 -- 安全注意：
---   旧策略 allow_all_visitors / allow_all_files 必须删除，否则新策略无效。
+--   旧策略可能叫任意名字（allow_all / anon_read / public_read 等），
+--   所以用 DO 块 + pg_policies 动态删除全部旧策略，不靠猜名字。
 --   此脚本幂等，可安全重复执行。
 -- ======================================================================
 
 -- ── visitors ──────────────────────────────────────────────────────
 ALTER TABLE visitors ENABLE ROW LEVEL SECURITY;
 
--- 清除旧的"全放开"策略
-DROP POLICY IF EXISTS allow_all_visitors ON visitors;
-DROP POLICY IF EXISTS anon_insert_visitors ON visitors;
-DROP POLICY IF EXISTS anon_select_visitors ON visitors;
+-- 动态删除 visitors 表上的所有现有策略（不靠猜名字）
+DO $$
+DECLARE
+  pol TEXT;
+BEGIN
+  FOR pol IN
+    SELECT policyname FROM pg_policies WHERE tablename = 'visitors' AND schemaname = 'public'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON visitors', pol);
+  END LOOP;
+END $$;
 
 -- anon 可插入访客记录（中间件 /api/visitors/track.ts 需要写入）
 -- 但不允许 anon 读取（IP 是隐私数据）
@@ -37,12 +45,17 @@ CREATE POLICY anon_insert_visitors ON visitors
 -- ── files ─────────────────────────────────────────────────────────
 ALTER TABLE files ENABLE ROW LEVEL SECURITY;
 
--- 清除旧的"全放开"策略
-DROP POLICY IF EXISTS allow_all_files ON files;
-DROP POLICY IF EXISTS anon_insert_files ON files;
-DROP POLICY IF EXISTS anon_select_files ON files;
-DROP POLICY IF EXISTS anon_update_files ON files;
-DROP POLICY IF EXISTS anon_delete_files ON files;
+-- 动态删除 files 表上的所有现有策略（不靠猜名字）
+DO $$
+DECLARE
+  pol TEXT;
+BEGIN
+  FOR pol IN
+    SELECT policyname FROM pg_policies WHERE tablename = 'files' AND schemaname = 'public'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON files', pol);
+  END LOOP;
+END $$;
 
 -- files 表不对 anon 开放任何直接表操作
 -- 公开分享页 /s/[slug] 和密码验证 /api/files/verify 走 service_role 客户端
@@ -66,4 +79,4 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 验证：执行后用 anon key 测试
 -- curl "$SUPA/rest/v1/visitors?select=*&limit=1" -H "apikey: $ANON_KEY" → 应返回 200 []
 -- curl "$SUPA/rest/v1/files?select=*&limit=1" -H "apikey: $ANON_KEY" → 应返回 200 []
--- curl "$SUPA/rest/v1/rpc/increment_downloads" -H "apikey: $ANON_KEY" -H "Content-Type: application/json" -d '{"slug":"test"}' → 应返回 200 null
+-- curl "$SUPA/rest/v1/rpc/increment_downloads" -H "apikey: $ANON_KEY" -H "Content-Type: application/json" -d '{"slug":"test"}' → 应返回 204
