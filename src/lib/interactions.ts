@@ -97,6 +97,11 @@ export function validateTarget(input: unknown): string | null {
   return target
 }
 
+/** 判断是否为标准 UUID 字符串（后台按 id 操作记录时用）。 */
+export function isValidUuid(input: unknown): input is string {
+  return typeof input === 'string' && UUID_RE.test(input)
+}
+
 /**
  * 校验并清理 message。非法返回 null。
  * 规则：字符串、剥离控制字符、trim 后长度 1–500。

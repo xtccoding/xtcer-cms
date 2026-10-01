@@ -1,0 +1,344 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import Sidebar from '../../components/Sidebar.astro'
+import { getAdminFullPath } from '../../lib/admin-path'
+import { resolveAdminPassword, isAdminRequest } from '../../lib/admin-auth'
+import { createAdminClient } from '../../lib/supabase-admin'
+import { isTableMissing } from '../../lib/interactions'
+
+const runtimeEnv = (Astro.locals as any)?.runtime?.env
+
+if (!resolveAdminPassword(runtimeEnv)) {
+  return new Response('ADMIN_PASSWORD not configured', { status: 500 })
+}
+if (!isAdminRequest(Astro.cookies, runtimeEnv)) {
+  return Astro.redirect(getAdminFullPath('login', runtimeEnv))
+}
+
+type FeedbackRow = {
+  id: string
+  message: string
+  contact: string | null
+  ip_hash: string | null
+  path: string | null
+  created_at: string
+  handled?: boolean
+}
+
+/**
+ * state 说明：
+ * - ok       正常
+ * - no-key   未配置 SUPABASE_SERVICE_ROLE_KEY（anon 读不到 feedback，只能走 service_role）
+ * - no-table 用户还没执行 database/interactions.sql
+ * - error    其它数据库错误
+ */
+let state: 'ok' | 'no-key' | 'no-table' | 'error' = 'ok'
+let errorMessage = ''
+let items: FeedbackRow[] = []
+
+const admin = createAdminClient(runtimeEnv)
+if (!admin) {
+  state = 'no-key'
+} else {
+  const { data, error } = await admin
+    .from('feedback')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(500)
+
+  if (error) {
+    state = isTableMissing(error) ? 'no-table' : 'error'
+    errorMessage = error.message
+  } else {
+    items = (data ?? []) as FeedbackRow[]
+  }
+}
+
+const pendingCount = items.filter((i) => !i.handled).length
+const startOfToday = new Date()
+startOfToday.setHours(0, 0, 0, 0)
+const todayCount = items.filter((i) => new Date(i.created_at) >= startOfToday).length
+
+function fmt(iso: string): string {
+  return new Date(iso).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+---
+
+<Layout title="意见反馈 - XTCer">
+  <div class="admin-layout">
+    <Sidebar active="feedback" />
+    <div class="admin-main">
+      <header class="admin-header">
+        <div>
+          <h1>意见反馈</h1>
+          <p class="admin-subtitle">访客通过前台反馈箱提交的内容（纯文本，仅后台可见）</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-ghost btn-sm" id="fb-refresh">刷新</button>
+        </div>
+      </header>
+
+      {state === 'no-key' && (
+        <section class="panel glass-card notice notice-warn">
+          <h2>⚠️ 还没配置 service_role 密钥，暂时读不到反馈</h2>
+          <p>
+            <code>feedback</code> 表故意只允许匿名用户「写入」、不允许「读取」（匿名密钥会打进浏览器，等于公开，
+            开放读权限任何人都能拉走全部反馈）。所以后台需要一把仅在服务端使用的
+            <code>SUPABASE_SERVICE_ROLE_KEY</code>。
+          </p>
+          <ol>
+            <li>打开 Supabase Dashboard → <strong>Project Settings → API</strong>。</li>
+            <li>复制 <code>service_role</code> 那一行的密钥（<strong>不是</strong> anon key）。</li>
+            <li>在 Cloudflare Pages → Settings → Environment variables 新增
+              <code>SUPABASE_SERVICE_ROLE_KEY</code>，值粘贴进去，保存后重新部署。</li>
+          </ol>
+          <p class="notice-foot">
+            注意：变量名<strong>不能</strong>加 <code>PUBLIC_</code> 前缀，否则会被打进浏览器产物。
+          </p>
+        </section>
+      )}
+
+      {state === 'no-table' && (
+        <section class="panel glass-card notice notice-warn">
+          <h2>⚠️ 数据库里还没有 feedback 表</h2>
+          <p>
+            请到 Supabase Dashboard → <strong>SQL Editor</strong>，把仓库里
+            <code>database/interactions.sql</code> 的内容整段粘贴执行一次。
+            该脚本是幂等的，重复执行不会报错。
+          </p>
+        </section>
+      )}
+
+      {state === 'error' && (
+        <section class="panel glass-card notice notice-error">
+          <h2>读取失败</h2>
+          <p><code>{errorMessage}</code></p>
+        </section>
+      )}
+
+      {state === 'ok' && (
+        <>
+          <div class="stats-grid">
+            <div class="stat-card glass-card">
+              <div class="stat-label">全部反馈</div>
+              <div class="stat-value" id="stat-total">{items.length}</div>
+            </div>
+            <div class="stat-card glass-card">
+              <div class="stat-label">待处理</div>
+              <div class="stat-value" id="stat-pending">{pendingCount}</div>
+            </div>
+            <div class="stat-card glass-card">
+              <div class="stat-label">今日新增</div>
+              <div class="stat-value">{todayCount}</div>
+            </div>
+          </div>
+
+          <section class="panel glass-card">
+            <div class="panel-header">
+              <div class="filter-btns">
+                <button class="btn btn-ghost btn-sm active" data-filter="all">全部</button>
+                <button class="btn btn-ghost btn-sm" data-filter="pending">待处理</button>
+              </div>
+              <input type="text" id="fb-search" class="input" placeholder="搜索内容 / 联系方式..." />
+            </div>
+
+            {items.length === 0 ? (
+              <p class="empty">还没有收到反馈。前台的反馈箱在配置完成后即可提交。</p>
+            ) : (
+              <div class="fb-list" id="fb-list">
+                {items.map((item) => (
+                  <article
+                    class={`fb-item ${item.handled ? 'is-handled' : ''}`}
+                    data-id={item.id}
+                    data-handled={item.handled ? '1' : '0'}
+                  >
+                    <div class="fb-body">{item.message}</div>
+                    <div class="fb-meta">
+                      {item.contact && <span class="fb-chip">✉️ {item.contact}</span>}
+                      {item.path && <span class="fb-chip">📍 {item.path}</span>}
+                      {item.ip_hash && <span class="fb-chip fb-mono">#{item.ip_hash.slice(0, 8)}</span>}
+                      <span class="fb-chip fb-time">{fmt(item.created_at)}</span>
+                    </div>
+                    <div class="fb-actions">
+                      <button class="btn btn-ghost btn-sm fb-toggle">
+                        {item.handled ? '↩ 标为待处理' : '✓ 标记已处理'}
+                      </button>
+                      <button class="btn btn-danger btn-sm fb-del">删除</button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
+    </div>
+  </div>
+
+  <script>
+    const list = document.getElementById('fb-list')
+    const totalEl = document.getElementById('stat-total')
+    const pendingEl = document.getElementById('stat-pending')
+    const searchEl = document.getElementById('fb-search') as HTMLInputElement | null
+    let filter: 'all' | 'pending' = 'all'
+    let keyword = ''
+
+    function items() {
+      return Array.from(document.querySelectorAll<HTMLElement>('.fb-item'))
+    }
+
+    function refreshCounts() {
+      const all = items()
+      const pending = all.filter((el) => el.dataset.handled !== '1')
+      if (totalEl) totalEl.textContent = String(all.length)
+      if (pendingEl) pendingEl.textContent = String(pending.length)
+    }
+
+    function applyFilter() {
+      items().forEach((el) => {
+        const pendingOnly = filter === 'pending' && el.dataset.handled === '1'
+        const text = (el.textContent || '').toLowerCase()
+        const noMatch = keyword.length > 0 && !text.includes(keyword)
+        el.style.display = pendingOnly || noMatch ? 'none' : ''
+      })
+    }
+
+    list?.addEventListener('click', async (e) => {
+      const btn = (e.target as HTMLElement).closest('button')
+      if (!btn) return
+      const item = btn.closest<HTMLElement>('.fb-item')
+      const id = item?.dataset.id
+      if (!item || !id) return
+
+      if (btn.classList.contains('fb-del')) {
+        if (!confirm('确定删除这条反馈？删除后不可恢复。')) return
+        btn.setAttribute('disabled', 'true')
+        const res = await fetch(`/api/admin/feedback?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+        if (res.ok) {
+          item.remove()
+          refreshCounts()
+          applyFilter()
+        } else {
+          btn.removeAttribute('disabled')
+          alert('删除失败，请刷新后重试')
+        }
+        return
+      }
+
+      if (btn.classList.contains('fb-toggle')) {
+        const next = item.dataset.handled !== '1'
+        btn.setAttribute('disabled', 'true')
+        const res = await fetch('/api/admin/feedback', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, handled: next }),
+        })
+        btn.removeAttribute('disabled')
+        if (res.ok) {
+          item.dataset.handled = next ? '1' : '0'
+          item.classList.toggle('is-handled', next)
+          btn.textContent = next ? '↩ 标为待处理' : '✓ 标记已处理'
+          refreshCounts()
+          applyFilter()
+        } else {
+          alert('操作失败，请刷新后重试')
+        }
+      }
+    })
+
+    document.querySelectorAll('[data-filter]').forEach((el) => {
+      el.addEventListener('click', () => {
+        document.querySelectorAll('[data-filter]').forEach((b) => b.classList.remove('active'))
+        el.classList.add('active')
+        filter = (el as HTMLElement).dataset.filter === 'pending' ? 'pending' : 'all'
+        applyFilter()
+      })
+    })
+
+    searchEl?.addEventListener('input', () => {
+      keyword = searchEl.value.trim().toLowerCase()
+      applyFilter()
+    })
+
+    document.getElementById('fb-refresh')?.addEventListener('click', () => location.reload())
+  </script>
+</Layout>
+
+<style>
+  .admin-layout { display: flex; min-height: 100vh; }
+  .admin-main { flex: 1; margin-left: 200px; padding: 1.25rem; }
+  .admin-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; }
+  .admin-header h1 { font-size: 1.375rem; font-weight: 700; }
+  .admin-subtitle { color: var(--text-muted); font-size: 0.75rem; margin-top: 0.125rem; }
+  .header-actions { display: flex; gap: 0.5rem; align-items: center; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.625rem; margin-bottom: 0.75rem; }
+  .stat-card { padding: 1rem; }
+  .stat-label { font-size: 0.6875rem; color: var(--text-muted); margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat-value { font-size: 1.375rem; font-weight: 700; letter-spacing: -0.02em; }
+
+  .panel { padding: 1rem; }
+  .panel-header { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+  .filter-btns { display: flex; gap: 0.25rem; }
+  .filter-btns .btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  #fb-search { width: 240px; font-size: 0.8125rem; padding: 0.375rem 0.625rem; }
+
+  .notice h2 { font-size: 0.9375rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .notice p { font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 0.5rem; }
+  .notice ol { font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.9; padding-left: 1.25rem; }
+  .notice code { font-size: 0.75rem; background: rgba(255,255,255,0.06); padding: 0.0625rem 0.3125rem; border-radius: 3px; }
+  .notice-foot { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; }
+  .notice-warn { border-left: 3px solid var(--orange); }
+  .notice-error { border-left: 3px solid var(--red); }
+
+  .fb-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .fb-item {
+    padding: 0.75rem 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.02);
+    transition: opacity 0.2s, border-color 0.2s;
+  }
+  .fb-item.is-handled { opacity: 0.5; }
+  .fb-body {
+    font-size: 0.8125rem;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text);
+  }
+  .fb-meta { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.5rem; }
+  .fb-chip {
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    background: rgba(255,255,255,0.05);
+    padding: 0.125rem 0.4375rem;
+    border-radius: 999px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .fb-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .fb-time { margin-left: auto; }
+  .fb-actions { display: flex; gap: 0.375rem; margin-top: 0.5rem; }
+  .empty { font-size: 0.8125rem; color: var(--text-muted); padding: 1.5rem 0; text-align: center; }
+
+  :root.light .notice code { background: rgba(0,0,0,0.05); }
+  :root.light .fb-item { background: rgba(0,0,0,0.015); }
+  :root.light .fb-chip { background: rgba(0,0,0,0.05); }
+
+  @media (max-width: 768px) {
+    .admin-main { margin-left: 0; padding: 0.75rem; }
+    .admin-header { flex-direction: column; gap: 0.5rem; }
+    .stats-grid { grid-template-columns: repeat(3, 1fr); }
+    .panel-header { flex-direction: column; align-items: stretch; }
+    #fb-search { width: 100%; }
+    .fb-time { margin-left: 0; }
+  }
+</style>

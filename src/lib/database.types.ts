@@ -257,6 +257,7 @@ export interface Database {
           contact: string | null
           ip_hash: string | null
           path: string | null
+          handled: boolean
           created_at: string
         }
         Insert: {
@@ -265,6 +266,7 @@ export interface Database {
           contact?: string | null
           ip_hash?: string | null
           path?: string | null
+          handled?: boolean
           created_at?: string
         }
         Update: {
@@ -273,6 +275,7 @@ export interface Database {
           contact?: string | null
           ip_hash?: string | null
           path?: string | null
+          handled?: boolean
           created_at?: string
         }
       }
