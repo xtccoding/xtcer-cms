@@ -24,7 +24,13 @@ const { data: postResults } = await supabase
 const hasResults = (feedResults && feedResults.length > 0) || (postResults && postResults.length > 0)
 if (!hasResults) return Astro.redirect('/feeds')
 
-const totalCount = (feedResults?.length || 0) + (postResults?.length || 0)
+// 「共 N 篇」要显示真实数量：上面的列表各自 limit(200)，直接用 length 相加会在
+// 内容超过 200 条时低报。用 head:true 单独取精确 count（不受 max-rows 影响）。
+const [{ count: feedCount }, { count: postCount }] = await Promise.all([
+  supabase.from('feeds').select('id', { count: 'exact', head: true }).contains('tags', [decodedTag]),
+  supabase.from('posts').select('id', { count: 'exact', head: true }).contains('tags', [decodedTag]),
+])
+const totalCount = (feedCount || 0) + (postCount || 0)
 
 const relatedTagCount = new Map<string, number>()
 for (const p of postResults || []) {
@@ -71,6 +77,7 @@ const schema = {
       <a href="/" class="nav-logo">XTCer</a>
       <div class="nav-links">
         <a href="/" class="nav-link">首页</a>
+        <a href="/posts" class="nav-link">文章</a>
         <a href="/deals" class="nav-link">优惠</a>
         <a href="/feeds" class="nav-link">情报</a>
         <button class="nav-search-btn" id="nav-search" title="搜索 (⌘K)">

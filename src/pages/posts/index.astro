@@ -1,0 +1,162 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import Pagination from '../../components/Pagination.astro'
+import { supabase } from '../../lib/supabase'
+import { countRows } from '../../lib/query'
+
+// 文章归档页 —— 服务端分页，URL 即状态（?page=N）。
+// 为什么需要它：首页只展示最近 12 篇（全量拉会被 PostgREST max-rows=1000 截断且拖慢首屏），
+// 之前全站没有任何地方能浏览全部文章。这个页面补上完整的可浏览索引。
+const PAGE_SIZE = 24
+
+const pageParam = Number.parseInt(Astro.url.searchParams.get('page') || '1', 10)
+const requestedPage = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1
+
+const total = await countRows('posts')
+const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+// 页码越界钳到末页
+const page = Math.min(requestedPage, totalPages)
+const offset = (page - 1) * PAGE_SIZE
+
+const { data: posts } = await supabase
+  .from('posts')
+  .select('id, title, summary, content, created_at, views')
+  .order('created_at', { ascending: false })
+  .range(offset, offset + PAGE_SIZE - 1)
+
+const stripMd = (s: string) =>
+  s.replace(/<[^>]*>/g, '').replace(/[#*_`~\[\]>|]/g, '').replace(/\s+/g, ' ').trim()
+
+const excerpt = (p: any) => {
+  const raw = p.summary || stripMd(p.content || '')
+  return raw.length > 120 ? raw.slice(0, 120) + '…' : raw
+}
+
+const readMinutes = (p: any) =>
+  Math.max(1, Math.ceil(stripMd(p.content || '').length / 400))
+
+const hrefFor = (n: number) => (n === 1 ? '/posts' : `/posts?page=${n}`)
+
+const schema = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: '文章归档 - XTCer',
+  description: 'XTCer 全部技术文章归档',
+  url: 'https://xtcer.cn/posts',
+  isPartOf: { '@type': 'WebSite', name: 'XTCer', url: 'https://xtcer.cn' },
+  numberOfItems: total,
+}
+---
+
+<Layout title={`文章归档 - XTCer`} description={`XTCer 全部技术文章，共 ${total} 篇，第 ${page}/${totalPages} 页`} schema={schema}>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">XTCer</a>
+      <div class="nav-links">
+        <a href="/" class="nav-link">首页</a>
+        <a href="/posts" class="nav-link" style="color:var(--text)">文章</a>
+        <a href="/deals" class="nav-link">优惠</a>
+        <a href="/feeds" class="nav-link">情报</a>
+        <button class="nav-search-btn" id="nav-search" title="搜索 (⌘K)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="posts-page">
+    <div class="container-wide">
+      <header class="page-header">
+        <h1>文章归档</h1>
+        <p class="page-desc">共 {total} 篇技术文章 · 第 {page} / {totalPages} 页</p>
+      </header>
+
+      {posts && posts.length > 0 ? (
+        <div class="posts-grid">
+          {posts.map((post) => (
+            <a href={`/posts/${post.id}`} class="post-card glass-card hover-lift">
+              <div class="post-body">
+                <h3>{post.title}</h3>
+                <p class="excerpt">{excerpt(post)}</p>
+              </div>
+              <div class="post-footer">
+                <time>{new Date(post.created_at).toLocaleDateString('zh-CN')}</time>
+                <span>·</span>
+                <span>{readMinutes(post)} 分钟</span>
+                {post.views > 0 && <><span>·</span><span>{post.views} 次浏览</span></>}
+              </div>
+            </a>
+          ))}
+        </div>
+      ) : (
+        <div class="empty"><p>还没有文章</p></div>
+      )}
+
+      <Pagination page={page} totalPages={totalPages} total={total} pageSize={PAGE_SIZE} hrefFor={hrefFor} />
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container-wide">
+      <div class="footer-inner">
+        <span>© {new Date().getFullYear()} XTCer · 技术探索者</span>
+        <div class="footer-links">
+          <a href="/about">关于</a>
+          <a href="/contact">联系</a>
+          <a href="/rss.xml">RSS</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+</Layout>
+
+<style>
+  .posts-page { padding: 2rem 0 4rem; }
+  .page-header { margin-bottom: 1.5rem; }
+  .page-header h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.5rem; }
+  .page-desc { color: var(--text-muted); font-size: 0.9375rem; }
+
+  .posts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 0.625rem;
+    align-items: start;
+  }
+
+  .post-card {
+    display: flex; flex-direction: column; justify-content: space-between;
+    gap: 0.75rem; padding: 1rem 1.125rem;
+    border-radius: var(--radius);
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .post-card:hover { transform: translateY(-2px); }
+
+  .post-body h3 {
+    font-size: 0.9375rem; font-weight: 600; line-height: 1.4;
+    margin-bottom: 0.375rem; color: var(--text);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .excerpt {
+    font-size: 0.8125rem; color: var(--text-muted); line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .post-footer {
+    display: flex; align-items: center; gap: 0.375rem;
+    font-size: 0.6875rem; color: var(--text-muted);
+    padding-top: 0.625rem; border-top: 1px solid var(--border);
+  }
+
+  .empty { text-align: center; padding: 4rem 0; }
+  .empty p { color: var(--text-muted); }
+
+  .footer { border-top: 1px solid var(--border); padding: 2rem 0; margin-top: 2rem; }
+  .footer-inner { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted); }
+  .footer-links { display: flex; gap: 1.5rem; }
+  .footer-links a { color: var(--text-muted); }
+  .footer-links a:hover { color: var(--text); }
+
+  @media (max-width: 640px) {
+    .posts-grid { grid-template-columns: 1fr; }
+    .footer-inner { flex-direction: column; gap: 1rem; }
+  }
+</style>

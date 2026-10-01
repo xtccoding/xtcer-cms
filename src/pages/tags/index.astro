@@ -1,15 +1,17 @@
 ---
 import Layout from '../../layouts/Layout.astro'
-import { supabase } from '../../lib/supabase'
+import { fetchAll } from '../../lib/query'
 
-const { data: posts } = await supabase.from('posts').select('tags')
-const { data: feeds } = await supabase.from('feeds').select('tags')
+// 标签聚合必须遍历**全部**文章/情报：PostgREST max-rows=1000 会截断直接 select，
+// 导致标签计数偏低、冷门标签直接消失。用 fetchAll 分页拉全量。
+const posts = await fetchAll<{ tags: string[] | null }>('posts', 'tags')
+const feeds = await fetchAll<{ tags: string[] | null }>('feeds', 'tags')
 
 const tagCount = new Map<string, number>()
-for (const p of posts || []) {
+for (const p of posts) {
   for (const t of p.tags || []) tagCount.set(t, (tagCount.get(t) || 0) + 1)
 }
-for (const f of feeds || []) {
+for (const f of feeds) {
   for (const t of f.tags || []) tagCount.set(t, (tagCount.get(t) || 0) + 1)
 }
 
@@ -49,6 +51,7 @@ const schema = {
       <a href="/" class="nav-logo">XTCer</a>
       <div class="nav-links">
         <a href="/" class="nav-link">首页</a>
+        <a href="/posts" class="nav-link">文章</a>
         <a href="/deals" class="nav-link">优惠</a>
         <a href="/feeds" class="nav-link">情报</a>
         <button class="nav-search-btn" id="nav-search" title="搜索 (⌘K)">

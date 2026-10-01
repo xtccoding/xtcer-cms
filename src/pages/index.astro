@@ -1,12 +1,20 @@
 ---
 import Layout from '../layouts/Layout.astro'
 import { supabase } from '../lib/supabase'
+import { countRows } from '../lib/query'
 
-// Fetch posts, links, feeds
+// 首页只展示最近的文章。
+// ⚠️ 不能全量拉：PostgREST max-rows=1000 会把结果静默截断（文章已 1041 篇），
+// 且 posts 正文约 11.8MB，全量拉会拖慢首屏。总数用 countRows 单独取。
 const { data: posts } = await supabase
   .from('posts')
-  .select('*')
+  .select('id, title, summary, content, created_at, views')
   .order('created_at', { ascending: false })
+  .limit(12)
+
+// 真实总数（count 不受 max-rows 影响）
+const postCount = await countRows('posts')
+const feedCount = await countRows('feeds')
 
 const { data: links } = await supabase
   .from('links')
@@ -76,6 +84,7 @@ function stripMarkdown(text: string) {
       <div class="nav-inner">
         <a href="/" class="nav-logo">XTcer</a>
         <div class="nav-links">
+          <a href="/posts" class="nav-link">文章</a>
           <a href="/deals" class="nav-link">优惠</a>
           <a href="/feeds" class="nav-link">情报</a>
           <button class="nav-search-btn" id="nav-search" title="搜索 (⌘K)">
@@ -131,11 +140,11 @@ function stripMarkdown(text: string) {
           <!-- Stats -->
           <div class="hero-stats">
             <a href="/" class="stat-item glass-card">
-              <span class="stat-number">{posts?.length || 0}</span>
+              <span class="stat-number">{postCount}</span>
               <span class="stat-label">技术文章</span>
             </a>
             <a href="/feeds" class="stat-item glass-card">
-              <span class="stat-number">{recentFeeds?.length || 0}</span>
+              <span class="stat-number">{feedCount}</span>
               <span class="stat-label">实时情报</span>
             </a>
             <a href="/" class="stat-item glass-card">
@@ -215,7 +224,7 @@ function stripMarkdown(text: string) {
         <div class="container-wide">
           <div class="section-header">
             <h2>最新文章</h2>
-            <span class="count">{posts.length} 篇</span>
+            <a href="/posts" class="see-all">全部 {postCount} 篇 →</a>
           </div>
           <div class="posts-grid">
             {posts.map((post) => (

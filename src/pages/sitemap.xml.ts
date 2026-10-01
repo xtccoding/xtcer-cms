@@ -1,22 +1,21 @@
-import { supabase } from '../lib/supabase'
+import { fetchAll } from '../lib/query'
 
 const SITE = 'https://xtcer.cn'
 
 export async function GET() {
-  const { data: posts } = await supabase
-    .from('posts')
-    .select('id, created_at, tags')
+  // ⚠️ 必须用 fetchAll 分页拉取：PostgREST max-rows=1000 会把直接 select 静默截断，
+  // 文章已 1041 篇 —— 之前 sitemap 里有 41 篇永远进不去。
+  const posts = await fetchAll<{ id: string; created_at: string; tags: string[] | null }>(
+    'posts',
+    'id, created_at, tags',
+    { order: { column: 'created_at', ascending: false } }
+  )
 
-  const { data: deals } = await supabase
-    .from('deals')
-    .select('id')
-
-  const { data: feeds } = await supabase
-    .from('feeds')
-    .select('tags')
+  const feeds = await fetchAll<{ tags: string[] | null }>('feeds', 'tags')
 
   const staticPages = [
     { path: '', changefreq: 'daily', priority: '1.0' },
+    { path: 'posts', changefreq: 'daily', priority: '0.9' },
     { path: 'deals', changefreq: 'daily', priority: '0.8' },
     { path: 'feeds', changefreq: 'daily', priority: '0.8' },
     { path: 'tags', changefreq: 'weekly', priority: '0.8' },
