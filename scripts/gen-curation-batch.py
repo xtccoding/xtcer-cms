@@ -270,8 +270,8 @@ def main() -> int:
     text = SRC.read_text(encoding='utf-8')
 
     # Idempotent: strip any previously spliced block first, so re-running the
-    # script never doubles the rules up. The block runs from BATCH_COMMENT to
-    # the array terminator — a `]` sitting alone at column 0.
+    # script never doubles the rules up. This block sits at the END of the
+    # array, so the array terminator is the correct end marker.
     lines = text.split('\n')
     start = next((i for i, l in enumerate(lines) if BATCH_COMMENT.strip() in l), None)
     if start is not None:
@@ -283,9 +283,17 @@ def main() -> int:
     if text.count(marker) != 1:
         print(f'[!] anchor appears {text.count(marker)} times — aborting')
         return 1
+
+    # Safety net: never splice into an array that looks truncated.
+    before_rules = text.count('\n  {')
+    if before_rules < 50:
+        print(f'[!] only {before_rules} rules present — refusing to splice')
+        return 1
+
     text = text.replace(marker, '  ' + block + '\n]\n\n/** Resolve the curation for a deal.')
     SRC.write_text(text, encoding='utf-8')
-    print(f'[done] spliced {len(rows)} rules into {SRC.name}')
+    print(f'[done] spliced {len(rows)} rules into {SRC.name} '
+          f'({before_rules} -> {text.count(chr(10) + "  {")} rule objects)')
     return 0
 
 

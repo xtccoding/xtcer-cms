@@ -31,11 +31,12 @@ interface Props {
 const { deal, categoryLabel } = Astro.props
 ---
 
-<div class="deal-card glass-card" data-cat={deal.category} data-diff={deal.curation.difficulty}>
+<div class="deal-card glass-card" data-cat={deal.category} data-diff={deal.curation.difficulty} data-ref={deal.curation.reference ? 'true' : undefined}>
   <div class="deal-header">
     <span class="deal-provider">{deal.provider}</span>
     <span class="deal-badges">
-      {deal.curation.difficulty !== 'easy' && (
+      {deal.curation.reference && <span class="ref-chip">📊 标准价</span>}
+      {deal.curation.difficulty !== 'easy' && !deal.curation.reference && (
         <span class:list={['diff-chip', deal.curation.difficulty]}>
           {DIFFICULTY_META[deal.curation.difficulty].icon}
           {DIFFICULTY_META[deal.curation.difficulty].label}
@@ -56,6 +57,34 @@ const { deal, categoryLabel } = Astro.props
     {deal.bandwidth && <span class="spec">📡 {deal.bandwidth}</span>}
     {deal.region && <span class="spec">🌍 {deal.region}</span>}
   </div>
+
+  {deal.curation.perf && (
+    <p class="deal-perf">⚡ <strong>性能机型</strong>{deal.curation.perf}</p>
+  )}
+
+  {deal.curation.pros && deal.curation.pros.length > 0 && (
+    <div class="pros-row">
+      {deal.curation.pros.map(p => <span class="pro-chip">✓ {p}</span>)}
+    </div>
+  )}
+
+  {deal.curation.compare && deal.curation.compare.length > 0 && (
+    <div class="compare-block">
+      <div class="compare-head">
+        📊 同规格大厂价
+        {deal.curation.compareNote && <span class="compare-note">{deal.curation.compareNote}</span>}
+      </div>
+      <ul>
+        {deal.curation.compare.map(c => (
+          <li>
+            <span class="compare-vendor">{c.vendor}</span>
+            <span class="compare-config">{c.config}</span>
+            <span class="compare-price">{c.price}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
 
   {deal.curation.freeNoCard ? (
     <div class="pay-row">
@@ -191,6 +220,56 @@ const { deal, categoryLabel } = Astro.props
 
   .deal-specs { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .spec { font-size: 0.75rem; color: var(--text-secondary); }
+
+  /* ---- 标准价参考卡 ---- */
+  .ref-chip {
+    padding: 0.125rem 0.5rem; border-radius: 999px;
+    font-size: 0.6875rem; font-weight: 600; white-space: nowrap;
+    background: rgba(120,120,128,0.12); color: var(--text-secondary);
+    border: 1px solid var(--glass-border);
+  }
+  /* 参考卡不是优惠，价格不用「便宜绿」，避免误读成好价 */
+  .deal-card[data-ref='true'] { border-left: 3px solid var(--border); }
+  .deal-card[data-ref='true'] .price-value { color: var(--text-secondary); }
+
+  /* ---- 性能机型 ---- */
+  .deal-perf {
+    font-size: 0.6875rem; line-height: 1.45; color: var(--text-secondary);
+    padding: 0.3125rem 0.625rem; border-radius: var(--radius-sm);
+    background: rgba(41,151,255,0.05); border-left: 2px solid var(--primary);
+  }
+  .deal-perf strong { color: var(--primary); font-weight: 700; margin-right: 0.3125rem; }
+
+  /* ---- 优势 ---- */
+  .pros-row { display: flex; flex-wrap: wrap; gap: 0.3125rem; }
+  .pro-chip {
+    padding: 0.125rem 0.4375rem; border-radius: 999px;
+    font-size: 0.6875rem; font-weight: 500;
+    background: rgba(52,199,89,0.08); color: #1a8f3c;
+    border: 1px solid rgba(52,199,89,0.22);
+  }
+
+  /* ---- 同规格大厂价对比 ---- */
+  .compare-block {
+    padding: 0.375rem 0.625rem; border-radius: var(--radius-sm);
+    background: rgba(120,120,128,0.06); border-left: 2px solid var(--border);
+  }
+  .compare-head {
+    font-size: 0.6875rem; font-weight: 700; color: var(--text-secondary);
+    margin-bottom: 0.25rem; display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem;
+  }
+  .compare-note { font-weight: 400; font-size: 0.625rem; color: var(--text-muted); }
+  .compare-block ul {
+    margin: 0; padding: 0; list-style: none;
+    display: flex; flex-direction: column; gap: 0.1875rem;
+  }
+  .compare-block li {
+    display: flex; align-items: baseline; gap: 0.4375rem;
+    font-size: 0.6875rem; color: var(--text-muted);
+  }
+  .compare-vendor { font-weight: 600; color: var(--text-secondary); flex-shrink: 0; }
+  .compare-config { flex: 1; min-width: 0; }
+  .compare-price { font-weight: 700; color: var(--text-secondary); flex-shrink: 0; }
 
   /* ---- 支付方式徽标 ---- */
   .pay-row { display: flex; flex-wrap: wrap; gap: 0.3125rem; align-items: center; }

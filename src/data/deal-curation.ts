@@ -93,6 +93,19 @@ export function isCnFriendly(payments?: PaymentMethod[]): boolean {
   return !!payments?.some(p => p === 'wechat' || p === 'alipay' || p === 'unionpay')
 }
 
+/**
+ * 同规格的大厂标准价，用来证明这张便宜卡到底省了多少。
+ * 只写能查到的常规价（非促销），并在 `compareNote` 里标注核实月份。
+ */
+export interface CompareRef {
+  /** 阿里云 / 腾讯云 / AWS … */
+  vendor: string
+  /** 尽量写成同一档规格，便于横向比 */
+  config: string
+  /** 带币种的月付价，如 '¥199/月' */
+  price: string
+}
+
 export interface DealCuration {
   difficulty: Difficulty
   /** one-line risk note; rendered as a ⚠️ callout */
@@ -110,6 +123,11 @@ export interface DealCuration {
    * "补充" block — used for secondary perks like "buy hosting, get a domain".
    */
   supplement?: boolean
+  /**
+   * 大厂常规价参考卡：不进难度分区，单独渲染到最后的
+   * 「大厂标准价 · 对比参考」区，也不参与「便宜优先」的排序。
+   */
+  reference?: boolean
   /** per-TLD pricing (domain registrars); 'hot' ones also show on the card face */
   tlds?: TldPrice[]
   /** footnote under the TLD table (verification date, renewal traps, …) */
@@ -123,6 +141,20 @@ export interface DealCuration {
   freeNoCard?: boolean
   /** 使用限制 / 雷点（最低充值、仅信用卡、仅 IPv6、限速、按月清零…） */
   limits?: string[]
+  /**
+   * 性能机型亮点：CPU 型号 / 存储介质 / 带宽等级这类**硬件层面**的卖点。
+   * 与 DB 的 `config`（核数内存）互补 —— config 说「多少」，perf 说「多快」。
+   */
+  perf?: string
+  /**
+   * 优势清单：为什么选它。渲染成绿色 chip。
+   * 不能是 `limits` 的反话，也不能复述 `config` 里已有的数字。
+   */
+  pros?: string[]
+  /** 同规格的大厂标准价，卡片底部渲染成一行对比 */
+  compare?: CompareRef[]
+  /** compare 的核实月份，如 '2026-10' */
+  compareNote?: string
 }
 
 interface Rule extends Partial<DealCuration> {
@@ -156,7 +188,108 @@ export const SUPPLEMENT_META = {
   desc: '买服务器 / 主机顺带赠送的域名，仅首年免费，续费按标准价 —— 可能用得上，故列在最后',
 }
 
+/**
+ * Header for the trailing "大厂标准价" block.
+ *
+ * 这些卡**不是优惠**，是基准线：让你判断上面那些便宜卡到底省了多少。
+ * 全部按官网常规价（非促销）录入，并且**不参与「便宜优先」排序**。
+ */
+export const REFERENCE_META = {
+  label: '大厂标准价 · 对比参考',
+  icon: '📊',
+  desc: '阿里云 / 腾讯云 / 华为云 / AWS / Azure 的官网常规价（非促销），作为上面优惠的基准线 —— 贵不贵，一比就知道',
+}
+
 const rules: Rule[] = [
+  // >>> REFERENCE-BLOCK-START
+  // 大厂标准价参考卡（reference: true）—— 必须排在其它规则之前，否则会被同厂商的普通规则抢先匹配
+  {
+    provider: '腾讯云',
+    productIncludes: '标准价',
+    difficulty: 'easy',
+    reference: true,
+    limits: [
+      '刊例价，半年起有 88 折',
+      '国内节点需备案',
+    ],
+  },
+  {
+    provider: 'AWS',
+    productIncludes: '标准价',
+    difficulty: 'easy',
+    reference: true,
+    limits: [
+      '按需价，不含出网流量费',
+      '不含 EBS 存储与快照',
+    ],
+  },
+  {
+    provider: 'Microsoft Azure',
+    productIncludes: '标准价',
+    difficulty: 'easy',
+    reference: true,
+    limits: [
+      '即用即付价，不含出网流量费',
+      '不含磁盘存储',
+    ],
+  },
+  {
+    provider: '阿里云',
+    productIncludes: '标准价',
+    difficulty: 'easy',
+    reference: true,
+    limits: [
+      '刊例价，活动期通常更低',
+      '国内节点需备案',
+    ],
+  },
+  {
+    provider: '华为云',
+    productIncludes: '标准价',
+    difficulty: 'easy',
+    reference: true,
+    limits: [
+      '刊例价，活动期通常更低',
+      '国内节点需备案',
+    ],
+  },
+  {
+    provider: 'Cloudflare',
+    productIncludes: '标准价',
+    difficulty: 'easy',
+    reference: true,
+    limits: [
+      '免费计划不含高级 WAF 与图片优化',
+    ],
+  },
+  {
+    provider: 'Backblaze',
+    productIncludes: '标准价',
+    difficulty: 'easy',
+    reference: true,
+    limits: [
+      '出网免费额度 3 倍于存储量，超出按量计费',
+    ],
+  },
+  {
+    provider: 'Supabase',
+    productIncludes: '标准价',
+    difficulty: 'easy',
+    reference: true,
+    limits: [
+      '超出计算额度按 $0.01344/小时 计费',
+    ],
+  },
+  {
+    provider: 'Namecheap',
+    productIncludes: '标准价',
+    difficulty: 'easy',
+    reference: true,
+    limits: [
+      '首年低价为促销，续费按此标准价',
+    ],
+  },
+  // <<< REFERENCE-BLOCK-END
   // ---------- supplement: bundles that throw in a free domain ----------
   // (productIncludes '赠' must come before the provider-wide rules below)
   {
@@ -2409,15 +2542,739 @@ const rules: Rule[] = [
   },
 ]
 
+/**
+ * 「增强层」—— 只补展示型字段（性能机型 / 优势 / 大厂对比）。
+ *
+ * 为什么不直接写进 `rules`？因为规则是**首个命中生效**，同一 provider 想加
+ * 第二条规则必须小心 `productIncludes` 的先后顺序，很容易把已有的难度 / 雷点
+ * 悄悄顶掉。增强层单独一张表、在主规则之后合并，就不会动到既有整理层。
+ *
+ * 同样遵守铁律：`compare` / `pros` 属于「特殊元数据」，必须带 `productIncludes`。
+ */
+export interface EnrichRule {
+  provider: string
+  productIncludes?: string
+  perf?: string
+  pros?: string[]
+  compare?: CompareRef[]
+  compareNote?: string
+}
+
+const enrichments: EnrichRule[] = [
+  // >>> ENRICH-BLOCK-START
+  {
+    provider: '腾讯云',
+    productIncludes: '轻量应用服务器',
+    perf: '锐驰型同款 200Mbps 峰值带宽 + 无限流量',
+    pros: [
+      '年付折算每月不到 ¥9',
+      '与刊例价同规格，省下约 87%',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '锐驰型 2核4G · 200Mbps', price: '¥65/月' },
+      { vendor: 'AWS', config: 'EC2 t3.medium · 2核4G', price: '¥204/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: '阿里云',
+    productIncludes: '轻量应用服务器',
+    perf: 'ESSD 云盘 + 200Mbps 峰值带宽',
+    pros: [
+      '年付 ¥38，是全站最便宜的 2核2G 大厂机',
+      '与腾讯云轻量同档可直接横向比',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '锐驰型 2核2G · 200Mbps', price: '¥45/月' },
+      { vendor: 'AWS', config: 'EC2 t4g.medium · 2核4G', price: '¥165/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: '阿里云',
+    productIncludes: 'ECS经济型e',
+    perf: '独享型 vCPU，非突发共享',
+    pros: [
+      'ECS 正统产品线，不是轻量阉割版',
+      '促销期外仍可原价续费',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '锐驰型 2核2G · 200Mbps', price: '¥45/月' },
+      { vendor: 'AWS', config: 'EC2 t3.medium · 2核4G', price: '¥204/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: '华为云',
+    productIncludes: 'Flexus',
+    perf: '200GB 月流量包，带宽按流量计费',
+    pros: [
+      '同规格比腾讯云轻量便宜约 ¥3/月',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '锐驰型 2核2G · 200Mbps', price: '¥45/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: '火山引擎',
+    productIncludes: '云服务器',
+    perf: 'AMD 独享 vCPU（非共享型）',
+    pros: [
+      '2核8G 才 ¥199/年，内存是同价位两倍',
+      '字节自营机房，国内直连',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '锐驰型 2核4G · 200Mbps', price: '¥65/月' },
+      { vendor: 'AWS', config: 'EC2 t3.medium · 2核4G', price: '¥204/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: '慈云数据',
+    productIncludes: '香港特惠',
+    perf: '香港 CN2 线路，大陆回程优化',
+    pros: [
+      '免备案，¥16/月就能拿到 2核2G 香港机',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '香港 2核2G · 200Mbps', price: '¥55/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: '蓝队云',
+    productIncludes: '适配型',
+    perf: '国内机房独立 IP',
+    pros: [
+      '年付 ¥300 拿到 2核2G + 独立 IP',
+      '适合需要备案的国内站',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '锐驰型 2核2G · 200Mbps', price: '¥45/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: '雨云',
+    productIncludes: '云服务器',
+    perf: '国内高防线路',
+    pros: [
+      '年付折算每月 ¥15 出头，带基础防护',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '锐驰型 2核2G · 200Mbps', price: '¥45/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'RackNerd',
+    productIncludes: '768MB KVM',
+    perf: 'SSD 缓存 + 1Gbps 端口',
+    pros: [
+      '年付 $10.18，是全网最低价的 KVM 之一',
+      '机房可选最多，换 IP 方便',
+    ],
+    compare: [
+      { vendor: 'AWS', config: 'EC2 t4g.medium · 2核4G', price: '¥165/月' },
+      { vendor: 'Azure', config: 'B1ms · 1核2G', price: '¥102/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'RackNerd',
+    productIncludes: '2核2G KVM',
+    perf: 'SSD 缓存 + 1Gbps 端口',
+    pros: [
+      '2核2G 年付 $17.66，单月不到 ¥11',
+      '同价位少见的双核配置',
+    ],
+    compare: [
+      { vendor: 'AWS', config: 'EC2 t4g.medium · 2核4G', price: '¥165/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'CloudCone',
+    productIncludes: '512MB KVM',
+    perf: 'RAID10 存储，支持按小时计费',
+    pros: [
+      '年付 $9.99 且可随开随删',
+      '老牌商家，退款政策明确',
+    ],
+    compare: [
+      { vendor: 'Azure', config: 'B1ms · 1核2G', price: '¥102/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'CloudCone',
+    productIncludes: 'SC2 弹性云',
+    perf: 'RAID10 存储 + 按小时计费',
+    pros: [
+      '按小时计费，跑完就删最省钱',
+    ],
+    compare: [
+      { vendor: 'Azure', config: 'B1ms · 1核2G', price: '¥102/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'Hetzner',
+    productIncludes: 'CX23',
+    perf: 'NVMe SSD + 20TB 流量（欧洲机房）',
+    pros: [
+      '同价位配置与网络都是欧洲第一档',
+      '按小时计费，随时退',
+    ],
+    compare: [
+      { vendor: 'AWS', config: 'EC2 t4g.medium · 2核4G', price: '¥165/月' },
+      { vendor: 'Azure', config: 'B1ms · 1核2G', price: '¥102/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'OVHcloud',
+    productIncludes: 'VPS-1',
+    perf: 'NVMe SSD + 不限流量 @400Mbps',
+    pros: [
+      '4核8G 只要 $4.20/月，配置是同价位两倍',
+    ],
+    compare: [
+      { vendor: 'AWS', config: 'EC2 t3.medium · 2核4G', price: '¥204/月' },
+      { vendor: '腾讯云轻量', config: '锐驰型 2核4G · 200Mbps', price: '¥65/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'Contabo',
+    productIncludes: 'Cloud VPS',
+    perf: 'NVMe SSD，内存给得极猛',
+    pros: [
+      '同价位内存通常是别人的 2–4 倍',
+      '德国机房，欧洲访问快',
+    ],
+    compare: [
+      { vendor: 'AWS', config: 'EC2 t3.medium · 2核4G', price: '¥204/月' },
+      { vendor: '腾讯云轻量', config: '锐驰型 2核4G · 200Mbps', price: '¥65/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'HostHatch',
+    productIncludes: '入门 NVMe',
+    perf: 'AMD EPYC + 纯 NVMe 存储',
+    pros: [
+      'EPYC 平台单核性能强',
+      '大流量套餐多',
+    ],
+    compare: [
+      { vendor: 'AWS', config: 'EC2 t4g.medium · 2核4G', price: '¥165/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'Akamai Linode',
+    productIncludes: 'Nanode',
+    perf: '企业级网络，全球 20+ 机房',
+    pros: [
+      '$5/月 是老牌稳定档的基准价',
+    ],
+    compare: [
+      { vendor: 'AWS', config: 'EC2 t4g.medium · 2核4G', price: '¥165/月' },
+      { vendor: 'Azure', config: 'B1ms · 1核2G', price: '¥102/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'Vultr',
+    productIncludes: 'Cloud Compute',
+    perf: '全 SSD + 全球 30+ 机房',
+    pros: [
+      '$2.50/月 是海外大厂的最低门槛',
+    ],
+    compare: [
+      { vendor: 'Azure', config: 'B1ms · 1核2G', price: '¥102/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'UpCloud',
+    productIncludes: 'Developer',
+    perf: '最高 1000Mbps 端口，NVMe 存储',
+    pros: [
+      '同价位端口带宽给得最宽',
+    ],
+    compare: [
+      { vendor: 'Azure', config: 'B1ms · 1核2G', price: '¥102/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'BuyVM',
+    productIncludes: 'Slice',
+    perf: '不限流量 + 可加购 Block Storage',
+    pros: [
+      '$3.50/月 给 1G 内存且不限流量',
+      '老牌小商家，口碑稳',
+    ],
+    compare: [
+      { vendor: 'AWS', config: 'EC2 t4g.medium · 2核4G', price: '¥165/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'DMIT',
+    productIncludes: 'T1',
+    perf: '三网优化线路，1Gbps 端口',
+    pros: [
+      '线路质量是它的核心卖点，不是拼配置',
+    ],
+    compare: [
+      { vendor: 'AWS', config: 'EC2 t4g.medium · 2核4G', price: '¥165/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'HostDare',
+    productIncludes: 'CN2 GIA',
+    perf: 'CN2 GIA 三网直连线路',
+    pros: [
+      'CN2 GIA 里单价最低的一档',
+      '适合做国内访问的落地机',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '锐驰型 2核2G · 200Mbps', price: '¥45/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: '狗云',
+    productIncludes: '弹性云',
+    perf: 'KVM 全虚拟化 + 按小时计费',
+    pros: [
+      '按小时计费，不用了直接销毁',
+      '¥7.5/月 是全站起步价最低的付费机',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '入门型 2核2G · 2Mbps', price: '¥35/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: '咸鱼云',
+    productIncludes: '低价 CN2 GIA',
+    perf: 'CN2 GIA 线路',
+    pros: [
+      '¥15/月 是 CN2 GIA 的价格下限',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '入门型 2核2G · 2Mbps', price: '¥35/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: '搬瓦工',
+    productIncludes: 'CN2 GIA-E 年付',
+    perf: '三网回程 CN2 GIA，晚高峰不绕路',
+    pros: [
+      'CN2 GIA 线路里最知名的一家',
+      '老牌商家，跑路风险低',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '锐驰型 2核2G · 200Mbps', price: '¥45/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: '搬瓦工',
+    productIncludes: 'CN2 GIA-E 高端款',
+    pros: [
+      '贵在线路质量：晚高峰三网都不掉速',
+      '比 AWS 同规格仍便宜，但纯比配置不划算',
+    ],
+    compare: [
+      { vendor: 'AWS', config: 'EC2 t3.medium · 2核4G', price: '¥204/月' },
+      { vendor: '腾讯云轻量', config: '锐驰型 2核4G · 200Mbps', price: '¥65/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'GigsGigsCloud',
+    productIncludes: '特价 KVM',
+    perf: '香港 / 美国多线路可选',
+    pros: [
+      '$5/月起，线路选项丰富',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '入门型 2核2G · 2Mbps', price: '¥35/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'MoeCloud',
+    productIncludes: '韩国 CN2',
+    perf: '韩国原生 IP + CN2 回程',
+    pros: [
+      '韩国原生 IP 在小商家圈子里少见',
+      '适合做韩区业务',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '入门型 2核2G · 2Mbps', price: '¥35/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'UFOVPS',
+    productIncludes: '多线路',
+    pros: [
+      '国内访问稳定性好',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '入门型 2核2G · 2Mbps', price: '¥35/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: '椰草云',
+    productIncludes: '香港轻量',
+    perf: 'AMD 平台 + 380GB 流量 @100Mbps',
+    pros: [
+      '港区原生 IP，免备案',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '香港 2核2G · 200Mbps', price: '¥55/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'HostKVM',
+    productIncludes: '香港 CN2',
+    perf: '移动 CMI 直连，延迟可低到 35ms',
+    pros: [
+      '移动宽带用户延迟表现突出',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '香港 2核2G · 200Mbps', price: '¥55/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'CUBECLOUD',
+    productIncludes: 'CN2 GIA',
+    perf: 'CN2 GIA + NVMe 存储',
+    pros: [
+      'CN2 GIA 里少见的 NVMe 配置',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '入门型 2核2G · 2Mbps', price: '¥35/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'V.PS',
+    productIncludes: '三网优化',
+    perf: '1Gbps–2.5Gbps 独享端口',
+    pros: [
+      '独享端口，不跟别人抢带宽',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '锐驰型 2核2G · 200Mbps', price: '¥45/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'GreenCloud',
+    productIncludes: '特价 KVM',
+    perf: 'KVM 全虚拟化，多机房可选',
+    pros: [
+      '$15/年起，年付门槛低',
+    ],
+    compare: [
+      { vendor: 'Azure', config: 'B1ms · 1核2G', price: '¥102/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'VirMach',
+    productIncludes: '特价 KVM',
+    perf: 'KVM 全虚拟化',
+    pros: [
+      '常年有低于 $3/月 的特价档',
+    ],
+    compare: [
+      { vendor: 'Azure', config: 'B1ms · 1核2G', price: '¥102/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'EthernetServers',
+    productIncludes: '特价 OpenVZ',
+    perf: '含 5Gbps DDoS 防护',
+    pros: [
+      '带 DDoS 防护的低价机不多见',
+    ],
+    compare: [
+      { vendor: 'Azure', config: 'B1ms · 1核2G', price: '¥102/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'DediRock',
+    productIncludes: '入门 KVM',
+    perf: 'KVM 全虚拟化 + SSD',
+    pros: [
+      '$6.99/年 属于年付最低价一档',
+    ],
+    compare: [
+      { vendor: 'Azure', config: 'B1ms · 1核2G', price: '¥102/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'ByteVirt',
+    productIncludes: '东京 NAT',
+    perf: 'KVM 全虚拟化 + NVMe',
+    pros: [
+      '$8.80/年，东京机房的最低门槛',
+      'NAT 机免去独立 IP 成本',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '入门型 2核2G · 2Mbps', price: '¥35/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'ByteVirt',
+    productIncludes: '香港 NAT',
+    perf: 'KVM 全虚拟化 + NVMe',
+    pros: [
+      '这一档是全系最便宜的',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '香港 2核2G · 200Mbps', price: '¥55/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'NATVPS.net',
+    productIncludes: 'NAT512',
+    perf: '750GB 月流量 + IPv6 /80',
+    pros: [
+      '$7.5/年，流量给得比同价位多',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '入门型 2核2G · 2Mbps', price: '¥35/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'Gullo\'s Hosting',
+    productIncludes: 'NAT',
+    pros: [
+      '$3.5/年 是全站最低价',
+      '端口数量多，能对外映射多个服务',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '入门型 2核2G · 2Mbps', price: '¥35/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'C-Servers',
+    productIncludes: 'NanoVPS-II',
+    perf: 'Ryzen 9 平台 + NVMe，200Mbps 不限流量',
+    pros: [
+      'Ryzen 9 平台在小内存机里很少见',
+    ],
+    compare: [
+      { vendor: '腾讯云轻量', config: '入门型 2核2G · 2Mbps', price: '¥35/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'Oracle Cloud',
+    productIncludes: 'Always Free ARM',
+    perf: 'Ampere A1（ARM）· 最高 4 OCPU / 24GB',
+    pros: [
+      '唯一能长期白嫖到 4核24G 的云',
+      '10TB/月 出网，比多数付费机还多',
+    ],
+    compare: [
+      { vendor: 'AWS', config: 'EC2 t3.medium · 2核4G', price: '¥204/月' },
+      { vendor: '腾讯云轻量', config: '锐驰型 2核4G · 200Mbps', price: '¥65/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'Google Cloud',
+    productIncludes: 'e2-micro',
+    perf: '共享 vCPU 的突发型实例',
+    pros: [
+      '永久免费，不限期',
+    ],
+    compare: [
+      { vendor: 'Azure', config: 'B1ms · 1核2G', price: '¥102/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'AWS',
+    productIncludes: 'Free Tier',
+    perf: '新账户 $200 试用金',
+    pros: [
+      '额度可用于 EC2 / S3 / RDS 全线产品',
+    ],
+    compare: [
+      { vendor: 'Azure', config: 'B1ms · 1核2G', price: '¥102/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'Azure',
+    productIncludes: '免费',
+    perf: 'B1S 750 小时/月（12 个月）',
+    pros: [
+      '12 个月内相当于一台免费 1核1G 常开',
+    ],
+    compare: [
+      { vendor: 'Azure', config: 'B1ms · 1核2G', price: '¥102/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'Cloudflare',
+    productIncludes: 'R2 对象存储',
+    perf: '兼容 S3 API，无出网流量费',
+    pros: [
+      '出网完全免费，是相对 S3 的最大优势',
+      '10GB 免费额度永久有效',
+    ],
+    compare: [
+      { vendor: '阿里云 OSS', config: '标准存储', price: '¥0.12/GB/月' },
+      { vendor: 'AWS S3', config: 'Standard', price: '$0.023/GB/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'Backblaze',
+    productIncludes: 'B2 对象存储',
+    perf: '兼容 S3 API，出网免费额度大',
+    pros: [
+      '每 GB 单价是主流对象存储里最低的',
+      '出网免费额度可达存储量的 3 倍',
+    ],
+    compare: [
+      { vendor: '阿里云 OSS', config: '标准存储', price: '¥0.12/GB/月' },
+      { vendor: 'AWS S3', config: 'Standard', price: '$0.023/GB/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: '七牛云',
+    productIncludes: 'Kodo',
+    pros: [
+      '国内访问速度优于海外对象存储',
+    ],
+    compare: [
+      { vendor: '阿里云 OSS', config: '标准存储', price: '¥0.12/GB/月' },
+      { vendor: '腾讯云 COS', config: '标准存储', price: '¥0.118/GB/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'Tigris',
+    productIncludes: '免费对象存储',
+    perf: '兼容 S3 API 的全球分布式存储',
+    pros: [
+      '5GB 免费额度，无出网费',
+    ],
+    compare: [
+      { vendor: '阿里云 OSS', config: '标准存储', price: '¥0.12/GB/月' },
+      { vendor: 'AWS S3', config: 'Standard', price: '$0.023/GB/月' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'Gcore',
+    productIncludes: '免费 CDN',
+    perf: '全球边缘节点 + 免费额度',
+    pros: [
+      '免费额度按流量给，适合小站起步',
+    ],
+    compare: [
+      { vendor: '阿里云 CDN', config: '按流量', price: '¥0.24/GB' },
+      { vendor: '腾讯云 CDN', config: '按流量', price: '¥0.21/GB' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: 'Bunny.net',
+    productIncludes: 'CDN',
+    perf: '全球边缘节点，按流量阶梯计价',
+    pros: [
+      '起步单价低于国内云 CDN',
+    ],
+    compare: [
+      { vendor: '阿里云 CDN', config: '按流量', price: '¥0.24/GB' },
+      { vendor: '腾讯云 CDN', config: '按流量', price: '¥0.21/GB' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: '又拍云',
+    productIncludes: 'CDN',
+    perf: '国内节点 + 赠送额度按月发放',
+    pros: [
+      '国内 CDN 里少数按月送额度的',
+    ],
+    compare: [
+      { vendor: '阿里云 CDN', config: '按流量', price: '¥0.24/GB' },
+      { vendor: '腾讯云 CDN', config: '按流量', price: '¥0.21/GB' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  {
+    provider: '多吉云',
+    productIncludes: 'CDN',
+    perf: '国内节点 + 按月赠送额度',
+    pros: [
+      '赠送额度按月刷新，长期可用',
+    ],
+    compare: [
+      { vendor: '阿里云 CDN', config: '按流量', price: '¥0.24/GB' },
+      { vendor: '腾讯云 CDN', config: '按流量', price: '¥0.21/GB' },
+    ],
+    compareNote: '2026-10 核实',
+  },
+  // <<< ENRICH-BLOCK-END
+]
+
 /** Resolve the curation for a deal. Unknown providers default to `easy`. */
 export function resolveCuration(provider: string, product: string): DealCuration {
   const p = (provider || '').trim()
   const name = (product || '').trim()
+
+  let base: DealCuration = { difficulty: 'easy' }
   for (const rule of rules) {
     if (rule.provider !== p) continue
     if (rule.productIncludes && !name.includes(rule.productIncludes)) continue
     const { provider: _p, productIncludes: _pi, ...rest } = rule
-    return { difficulty: 'easy', ...rest }
+    base = { difficulty: 'easy', ...rest }
+    break
   }
-  return { difficulty: 'easy' }
+
+  // 参考卡本身就是基准线，不需要「优势 / 对比」——
+  // 而且它的产品名里常含普通卡的关键词（如「轻量应用服务器」），
+  // 不跳过的话会误吃增强层。
+  if (base.reference) return base
+
+  for (const e of enrichments) {
+    if (e.provider !== p) continue
+    if (e.productIncludes && !name.includes(e.productIncludes)) continue
+    const { provider: _p, productIncludes: _pi, ...extra } = e
+    return { ...base, ...extra }
+  }
+
+  return base
 }

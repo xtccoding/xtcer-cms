@@ -7,6 +7,7 @@ import {
   DIFFICULTY_RANK,
   DIFFICULTY_META,
   SUPPLEMENT_META,
+  REFERENCE_META,
   paymentRank,
   type Difficulty,
 } from '../data/deal-curation'
@@ -37,8 +38,17 @@ const deals = (dealsRaw || [])
     return (a.price_cny ?? Number.MAX_SAFE_INTEGER) - (b.price_cny ?? Number.MAX_SAFE_INTEGER)
   })
 
-const mainDeals = deals.filter(d => !d.curation.supplement)
+const mainDeals = deals.filter(d => !d.curation.supplement && !d.curation.reference)
 const supplementItems = deals.filter(d => d.curation.supplement)
+// 大厂标准价参考卡：不是优惠，单独一块放最后，且不参与「便宜优先」排序。
+// 按分类归堆，同类里便宜的排前面，方便和上面的优惠逐档对照。
+const referenceItems = deals
+  .filter(d => d.curation.reference)
+  .sort((a, b) => {
+    const byCat = a.category.localeCompare(b.category)
+    if (byCat !== 0) return byCat
+    return (a.price_cny ?? Number.MAX_SAFE_INTEGER) - (b.price_cny ?? Number.MAX_SAFE_INTEGER)
+  })
 
 const sectionOrder: Difficulty[] = ['easy', 'medium', 'hard']
 const sections = sectionOrder
@@ -162,6 +172,23 @@ const schema = {
 
           <div class="deals-grid">
             {supplementItems.map(deal => <DealCard deal={deal} categoryLabel={catLabel(deal.category)} />)}
+          </div>
+        </section>
+      )}
+
+      {referenceItems.length > 0 && (
+        <section class="diff-section reference" data-diff="reference">
+          <div class="section-head">
+            <h2 class="section-title">
+              <span class="section-icon">{REFERENCE_META.icon}</span>
+              {REFERENCE_META.label}
+              <span class="section-count">{referenceItems.length}</span>
+            </h2>
+            <p class="section-desc">{REFERENCE_META.desc}</p>
+          </div>
+
+          <div class="deals-grid">
+            {referenceItems.map(deal => <DealCard deal={deal} categoryLabel={catLabel(deal.category)} />)}
           </div>
         </section>
       )}
@@ -309,6 +336,10 @@ const schema = {
   }
   .section-desc { color: var(--text-muted); font-size: 0.75rem; margin: 0; }
   .diff-section.supplement .section-head { border-bottom-style: dashed; }
+  /* 参考区是基准线，不是优惠 —— 用虚线 + 灰标题，视觉上降一级 */
+  .diff-section.reference .section-head { border-bottom-style: dashed; }
+  .diff-section.reference .section-title { color: var(--text-secondary); }
+  .diff-section.reference .deals-grid { opacity: 0.88; }
 
   .deals-grid {
     display: grid;

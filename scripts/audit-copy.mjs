@@ -1,7 +1,7 @@
 // Detect duplicated copy between the DB `notes` field and the curation blocks
-// (limits / warning / promoNote / tips). Both are rendered on the same card, so
-// any sentence that appears in both shows up twice — the exact "看起来重复"
-// complaint. Run from the repo root:
+// (limits / warning / promoNote / tips / perf / pros). All of them render on the
+// same card, so any sentence that appears in both shows up twice — the exact
+// "看起来重复" complaint. Run from the repo root:
 //   node scripts/audit-copy.mjs
 import { readFileSync } from 'node:fs'
 import { resolveCuration } from '../src/data/deal-curation.ts'
@@ -40,6 +40,10 @@ for (const d of deals) {
   if (c.warning) blocks.push(['warning', c.warning])
   if (c.promoNote) blocks.push(['promoNote', c.promoNote])
   for (const t of c.tips || []) blocks.push(['tip', t])
+  // 2026-10 新增字段：性能机型 / 优势 / 对比也渲染在卡片上，同样不能和 notes 撞车
+  if (c.perf) blocks.push(['perf', c.perf])
+  for (const p of c.pros || []) blocks.push(['pro', p])
+  for (const cmp of c.compare || []) blocks.push(['compare', `${cmp.vendor} ${cmp.config}`])
 
   const hits = []
   for (const [kind, text] of blocks) {

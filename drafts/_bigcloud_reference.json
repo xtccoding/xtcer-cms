@@ -1,0 +1,283 @@
+{
+  "verified": "2026-10-01",
+  "fx_note": "USD→CNY = 6.72（open.er-api.com，2026-10-01）；云主机/数据库月价按 730 小时/月折算；促销价一律未采用，仅取官网常规刊例价。",
+  "compute": [
+    {
+      "vendor": "阿里云",
+      "product": "ECS 通用型 g8 (2核4G)",
+      "vcpu": 2,
+      "ram_gb": 4,
+      "price_cny_month": null,
+      "price_text": null,
+      "source": "https://www.aliyun.com/price/product#/ecs/detail",
+      "note": "未验证：官方定价页为 JS 动态渲染，帮助中心仅指向该页，未能取到具体数字。"
+    },
+    {
+      "vendor": "阿里云",
+      "product": "ECS 经济型 e (1核2G)",
+      "vcpu": 1,
+      "ram_gb": 2,
+      "price_cny_month": null,
+      "price_text": null,
+      "source": "https://www.aliyun.com/price/product#/ecs/detail",
+      "note": "未验证：同上。"
+    },
+    {
+      "vendor": "腾讯云",
+      "product": "CVM 标准型 S6 (2核4G)",
+      "vcpu": 2,
+      "ram_gb": 4,
+      "price_cny_month": null,
+      "price_text": null,
+      "source": "https://cloud.tencent.com/document/product/213/2176",
+      "note": "未验证：官方价格总览仅给出时长折扣规则，具体单价需用 JS 价格计算器。"
+    },
+    {
+      "vendor": "华为云",
+      "product": "ECS 通用型 S7 (2核4G)",
+      "vcpu": 2,
+      "ram_gb": 4,
+      "price_cny_month": null,
+      "price_text": null,
+      "source": "https://www.huaweicloud.com/pricing.html?tab=detail#/ecs",
+      "note": "未验证：官方定价页为 JS 价格计算器，未取到静态数字。"
+    },
+    {
+      "vendor": "AWS",
+      "product": "EC2 t3.medium (Linux, us-east-1)",
+      "vcpu": 2,
+      "ram_gb": 4,
+      "price_cny_month": 204,
+      "price_text": "$0.0416/小时（≈$30.37/月）",
+      "source": "https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/ec2/USD/current/ec2-ondemand-without-sec-sel/US%20East%20(N.%20Virginia)/Linux/index.json",
+      "note": "AWS 官方定价计算器数据源，按需价，非 Spot/RI。"
+    },
+    {
+      "vendor": "AWS",
+      "product": "EC2 t4g.medium (Linux, us-east-1)",
+      "vcpu": 2,
+      "ram_gb": 4,
+      "price_cny_month": 165,
+      "price_text": "$0.0336/小时（≈$24.53/月）",
+      "source": "https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/ec2/USD/current/ec2-ondemand-without-sec-sel/US%20East%20(N.%20Virginia)/Linux/index.json",
+      "note": "ARM 架构，按需价。"
+    },
+    {
+      "vendor": "AWS",
+      "product": "EC2 t3.small (Linux, us-east-1)",
+      "vcpu": 2,
+      "ram_gb": 2,
+      "price_cny_month": 102,
+      "price_text": "$0.0208/小时（≈$15.18/月）",
+      "source": "https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/ec2/USD/current/ec2-ondemand-without-sec-sel/US%20East%20(N.%20Virginia)/Linux/index.json",
+      "note": "AWS 突发型最低为 2 vCPU，无 1 vCPU/2GB 规格，故以 t3.small(2vCPU/2GB) 代替。"
+    },
+    {
+      "vendor": "Microsoft Azure",
+      "product": "Virtual Machines B2s (Linux, East US)",
+      "vcpu": 2,
+      "ram_gb": 4,
+      "price_cny_month": 204,
+      "price_text": "$0.0416/小时（≈$30.37/月）",
+      "source": "https://prices.azure.com/api/retail/prices?$filter=serviceName eq 'Virtual Machines' and armRegionName eq 'eastus' and armSkuName eq 'Standard_B2s' and priceType eq 'Consumption'",
+      "note": "Microsoft 官方 Retail Prices API，即用即付，Linux。"
+    },
+    {
+      "vendor": "Microsoft Azure",
+      "product": "Virtual Machines B1ms (Linux, East US)",
+      "vcpu": 1,
+      "ram_gb": 2,
+      "price_cny_month": 102,
+      "price_text": "$0.0207/小时（≈$15.11/月）",
+      "source": "https://prices.azure.com/api/retail/prices?$filter=serviceName eq 'Virtual Machines' and armRegionName eq 'eastus' and armSkuName eq 'Standard_B1ms' and priceType eq 'Consumption'",
+      "note": "Microsoft 官方 Retail Prices API。"
+    },
+    {
+      "vendor": "Microsoft Azure",
+      "product": "Virtual Machines B1s (Linux, East US)",
+      "vcpu": 1,
+      "ram_gb": 1,
+      "price_cny_month": 51,
+      "price_text": "$0.0104/小时（≈$7.59/月）",
+      "source": "https://prices.azure.com/api/retail/prices?$filter=serviceName eq 'Virtual Machines' and armRegionName eq 'eastus' and armSkuName eq 'Standard_B1s' and priceType eq 'Consumption'",
+      "note": "Microsoft 官方 Retail Prices API。"
+    },
+    {
+      "vendor": "Google Cloud",
+      "product": "Compute Engine e2-medium (us-central1)",
+      "vcpu": 2,
+      "ram_gb": 4,
+      "price_cny_month": null,
+      "price_text": null,
+      "source": "https://cloud.google.com/products/compute/pricing/general-purpose",
+      "note": "未验证：cloud.google.com 在本环境不可达（连接超时），官方 E2 价格表无法读取，故留空不猜。"
+    },
+    {
+      "vendor": "Google Cloud",
+      "product": "Compute Engine e2-small (us-central1)",
+      "vcpu": 2,
+      "ram_gb": 2,
+      "price_cny_month": null,
+      "price_text": null,
+      "source": "https://cloud.google.com/products/compute/pricing/general-purpose",
+      "note": "未验证：同上。"
+    }
+  ],
+  "storage_per_gb_cny": [
+    {
+      "vendor": "阿里云 OSS",
+      "product": "标准存储（本地冗余）",
+      "price_cny_gb_month": 0.12,
+      "price_text": "¥0.12/GB/月",
+      "source": "https://help.aliyun.com/zh/oss/product-overview/billing-overview"
+    },
+    {
+      "vendor": "腾讯云 COS",
+      "product": "标准存储（中国大陆）",
+      "price_cny_gb_month": 0.118,
+      "price_text": "¥0.118/GB/月",
+      "source": "https://cloud.tencent.com/document/product/436/53482"
+    },
+    {
+      "vendor": "华为云 OBS",
+      "product": "标准存储（单 AZ）",
+      "price_cny_gb_month": 0.099,
+      "price_text": "¥0.0990/GB/月",
+      "source": "https://www.huaweicloud.com/product/obs/price.html"
+    },
+    {
+      "vendor": "AWS S3",
+      "product": "S3 Standard (us-east-1, 前 50TB)",
+      "price_cny_gb_month": 0.15,
+      "price_text": "$0.023/GB/月",
+      "price_usd_gb_month": 0.023,
+      "source": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/us-east-1/index.json"
+    },
+    {
+      "vendor": "Cloudflare R2",
+      "product": "Standard storage",
+      "price_cny_gb_month": 0.1,
+      "price_text": "$0.015/GB/月",
+      "price_usd_gb_month": 0.015,
+      "source": "https://developers.cloudflare.com/r2/pricing/"
+    },
+    {
+      "vendor": "Backblaze B2",
+      "product": "B2 Cloud Storage",
+      "price_cny_gb_month": 0.046,
+      "price_text": "$6.95/TB/月（≈$0.0068/GB/月）",
+      "price_usd_gb_month": 0.0068,
+      "source": "https://www.backblaze.com/cloud-storage/pricing"
+    }
+  ],
+  "cdn_per_gb_cny": [
+    {
+      "vendor": "阿里云 CDN",
+      "product": "按流量计费（中国内地，0–10TB 档）",
+      "price_cny_gb": 0.24,
+      "price_text": "¥0.24/GB",
+      "source": "https://help.aliyun.com/zh/cdn/product-overview/billing-rules-of-basic-services"
+    },
+    {
+      "vendor": "腾讯云 CDN",
+      "product": "按流量计费（中国大陆，0–2TB 档）",
+      "price_cny_gb": 0.21,
+      "price_text": "¥0.21/GB",
+      "source": "https://cloud.tencent.com/document/product/228/2949"
+    },
+    {
+      "vendor": "AWS CloudFront",
+      "product": "Data Transfer Out（美/加/欧，1–10TB 档）",
+      "price_cny_gb": 0.57,
+      "price_text": "$0.085/GB",
+      "price_usd_gb": 0.085,
+      "source": "https://aws.amazon.com/cloudfront/pricing/pay-as-you-go/"
+    },
+    {
+      "vendor": "Cloudflare",
+      "product": "Free 计划（CDN）",
+      "price_cny_gb": 0,
+      "price_text": "$0（Free 计划，流量不计费）",
+      "source": "https://www.cloudflare.com/plans/",
+      "note": "Free 计划为 $0；Pro 计划月费未能在官方页面取到静态数字，故不列出。"
+    }
+  ],
+  "database": [
+    {
+      "vendor": "阿里云 RDS MySQL",
+      "product": "基础版 1核2G（含 20GB ESSD PL0）",
+      "price_cny_month": 24,
+      "price_text": "¥24/月",
+      "source": "https://help.aliyun.com/document_detail/2510306.html",
+      "note": "实例计算 ¥16/月 + 20GB 存储 ¥0.4/GB/月 = ¥24/月；包月常规价。"
+    },
+    {
+      "vendor": "腾讯云 TencentDB for MySQL",
+      "product": "入门档 1核2G",
+      "price_cny_month": null,
+      "price_text": null,
+      "source": "https://cloud.tencent.com/document/product/236",
+      "note": "未验证：官方文档仅指向 JS 价格计算器，未取到静态刊例价。"
+    },
+    {
+      "vendor": "AWS RDS for MySQL",
+      "product": "db.t3.micro 单可用区 (us-east-1)",
+      "price_cny_month": 83,
+      "price_text": "$0.017/小时（≈$12.41/月）",
+      "source": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonRDS/current/us-east-1/index.json",
+      "note": "仅实例费，不含存储与备份；AWS 官方价格清单。"
+    },
+    {
+      "vendor": "AWS RDS for MySQL",
+      "product": "db.t4g.micro 单可用区 (us-east-1)",
+      "price_cny_month": 79,
+      "price_text": "$0.016/小时（≈$11.68/月）",
+      "source": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonRDS/current/us-east-1/index.json",
+      "note": "仅实例费，不含存储与备份。"
+    },
+    {
+      "vendor": "Supabase",
+      "product": "Pro 计划（含 Micro 计算额度）",
+      "price_cny_month": 168,
+      "price_text": "$25/月",
+      "price_usd_month": 25,
+      "source": "https://supabase.com/pricing",
+      "note": "Pro 计划 $25/月，含 $10 计算额度（可覆盖 1 个 Micro 实例）。"
+    }
+  ],
+  "domain_com_renewal_cny": [
+    {
+      "vendor": "阿里云",
+      "product": ".com（英文）续费",
+      "price_cny_year": 95,
+      "price_text": "¥95/年",
+      "source": "https://wanwang.aliyun.com/tlds/com",
+      "note": "注册 ¥85/首年；¥95/年 为标准续费价。"
+    },
+    {
+      "vendor": "腾讯云",
+      "product": ".com 续费",
+      "price_cny_year": 90,
+      "price_text": "¥90/年",
+      "source": "https://buy.cloud.tencent.com/domain/price?type=overview",
+      "note": "注册 ¥83（首年）；标准续费 ¥90/年。"
+    },
+    {
+      "vendor": "Cloudflare Registrar",
+      "product": ".com（成本价）",
+      "price_cny_year": null,
+      "price_text": null,
+      "source": "https://www.cloudflare.com/domains/",
+      "note": "未验证：官方页面为 JS 渲染，未公布可抓取的 .com 具体数字；第三方来源存在 $10.44/$10.46 等分歧，故不列。"
+    },
+    {
+      "vendor": "Namecheap",
+      "product": ".com 续费",
+      "price_cny_year": 124,
+      "price_text": "$18.48/年",
+      "price_usd_year": 18.48,
+      "source": "https://www.namecheap.com/domains/registration/gtld/com/",
+      "note": "常规续费 $18.48/年（非 $6.79 新客首年特惠）。"
+    }
+  ]
+}
