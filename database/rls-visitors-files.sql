@@ -1,69 +1,60 @@
 -- ======================================================================
--- visitors & files RLS migration v2
--- 目标：收紧 anon 对 visitors/files 的直接表访问，
--- 同时保留现有应用功能（访客跟踪写入、文件分享页公开读、下载计数）。
---
--- 前提：站点的 anon key 会打进浏览器 bundle，等同于公开。
--- 所以凡是"不该被任何人读到"的数据，anon 一律不给 SELECT。
--- 后台管理操作走 service_role key（绕过 RLS），不存在权限问题。
---
--- 变更摘要：
---   visitors: anon 可 INSERT（中间件/track.ts 写入），不可 SELECT/UPDATE/DELETE
---   files:    anon 不可直接 SELECT/INSERT/UPDATE/DELETE（全走服务端）
---             但 increment_downloads RPC 允许 anon 调用（公开下载计数）
---
--- 安全注意：
---   旧策略可能叫任意名字（allow_all / anon_read / public_read 等），
---   所以用 DO 块 + pg_policies 动态删除全部旧策略，不靠猜名字。
---   此脚本幂等，可安全重复执行。
+-- visitors & files RLS migration v3
+-- 
+-- v1: 只删固定名字的策略 → visitors 有不同名字的策略存活
+-- v2: 用 DO $$ 块动态删 → Supabase SQL Editor 可能不支持 DO 块
+-- v3: 用 ALTER TABLE ... FORCE ROW LEVEL SECURITY + REVOKE 直接封死
 -- ======================================================================
 
 -- ── visitors ──────────────────────────────────────────────────────
+-- 先强制启用 RLS（即使之前已启用也不报错）
 ALTER TABLE visitors ENABLE ROW LEVEL SECURITY;
 
--- 动态删除 visitors 表上的所有现有策略（不靠猜名字）
-DO $$
-DECLARE
-  pol TEXT;
-BEGIN
-  FOR pol IN
-    SELECT policyname FROM pg_policies WHERE tablename = 'visitors' AND schemaname = 'public'
-  LOOP
-    EXECUTE format('DROP POLICY IF EXISTS %I ON visitors', pol);
-  END LOOP;
-END $$;
+-- 强制 RLS：即使 table owner 也要受策略约束
+-- 这一步确保不会有遗漏
+ALTER TABLE visitors FORCE ROW LEVEL SECURITY;
 
--- anon 可插入访客记录（中间件 /api/visitors/track.ts 需要写入）
--- 但不允许 anon 读取（IP 是隐私数据）
+-- 删除所有可能名字的旧策略（覆盖 Supabase 常见命名 + 项目历史命名）
+DROP POLICY IF EXISTS allow_all_visitors ON visitors;
+DROP POLICY IF EXISTS allow_all ON visitors;
+DROP POLICY IF EXISTS anon_insert_visitors ON visitors;
+DROP POLICY IF EXISTS anon_select_visitors ON visitors;
+DROP POLICY IF EXISTS visitors_select_policy ON visitors;
+DROP POLICY IF EXISTS visitors_insert_policy ON visitors;
+DROP POLICY IF EXISTS "Allow all access to visitors" ON visitors;
+DROP POLICY IF EXISTS "visitors anon read" ON visitors;
+DROP POLICY IF EXISTS "public visitors select" ON visitors;
+
+-- 撤销 anon 对 visitors 的 SELECT 权限（双保险：即使有策略也读不了）
+REVOKE SELECT ON visitors FROM anon;
+
+-- 只保留 anon 的 INSERT（中间件访客跟踪需要写入）
+-- 如果之前的 INSERT 策略被上面的 DROP 删了，这里重建
 CREATE POLICY anon_insert_visitors ON visitors
   FOR INSERT TO anon
   WITH CHECK (true);
 
--- service_role 绕过 RLS，后台读取不受影响
--- 不创建任何 SELECT 策略 → anon 无法 SELECT visitors
-
 -- ── files ─────────────────────────────────────────────────────────
 ALTER TABLE files ENABLE ROW LEVEL SECURITY;
+ALTER TABLE files FORCE ROW LEVEL SECURITY;
 
--- 动态删除 files 表上的所有现有策略（不靠猜名字）
-DO $$
-DECLARE
-  pol TEXT;
-BEGIN
-  FOR pol IN
-    SELECT policyname FROM pg_policies WHERE tablename = 'files' AND schemaname = 'public'
-  LOOP
-    EXECUTE format('DROP POLICY IF EXISTS %I ON files', pol);
-  END LOOP;
-END $$;
+-- 删除所有旧策略
+DROP POLICY IF EXISTS allow_all_files ON files;
+DROP POLICY IF EXISTS allow_all ON files;
+DROP POLICY IF EXISTS anon_insert_files ON files;
+DROP POLICY IF EXISTS anon_select_files ON files;
+DROP POLICY IF EXISTS anon_update_files ON files;
+DROP POLICY IF EXISTS anon_delete_files ON files;
+DROP POLICY IF EXISTS files_select_policy ON files;
+DROP POLICY IF EXISTS "Allow all access to files" ON files;
+DROP POLICY IF EXISTS "files anon read" ON files;
 
--- files 表不对 anon 开放任何直接表操作
--- 公开分享页 /s/[slug] 和密码验证 /api/files/verify 走 service_role 客户端
--- 下载计数 /api/files/download 走 increment_downloads RPC
+-- 撤销 anon 对 files 的所有直接表权限
+REVOKE SELECT, INSERT, UPDATE, DELETE ON files FROM anon;
 
--- 确保 increment_downloads 函数存在且标记为 SECURITY DEFINER
--- 这样 anon 调用 RPC 时以函数 owner 权限执行，能更新 downloads 列
--- 而不需要 anon 对 files 表有 UPDATE 权限
+-- ── increment_downloads RPC ──────────────────────────────────────
+-- SECURITY DEFINER 让 anon 能通过 RPC 增加下载计数
+-- 而不需要对 files 表有 UPDATE 权限
 CREATE OR REPLACE FUNCTION increment_downloads(slug TEXT)
 RETURNS VOID AS $$
 BEGIN
@@ -71,12 +62,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 允许 anon 调用下载计数 RPC
--- 注意：RPC 层面没有独立的 GRANT 机制（PostgREST 走路由权限），
--- 只要函数是 SECURITY DEFINER 且 schema 上 anon 有 EXECUTE 即可。
--- Supabase 默认 anon 对 public schema 有 EXECUTE 权限，无需额外 GRANT。
-
--- 验证：执行后用 anon key 测试
--- curl "$SUPA/rest/v1/visitors?select=*&limit=1" -H "apikey: $ANON_KEY" → 应返回 200 []
--- curl "$SUPA/rest/v1/files?select=*&limit=1" -H "apikey: $ANON_KEY" → 应返回 200 []
--- curl "$SUPA/rest/v1/rpc/increment_downloads" -H "apikey: $ANON_KEY" -H "Content-Type: application/json" -d '{"slug":"test"}' → 应返回 204
+-- ══════════════════════════════════════════════════════════════════
+-- 验证（执行完后再跑下面这些 curl，确认 anon 读不到了）：
+--
+--   # visitors → 应该返回 401 或 200 []
+--   curl "$SUPA/rest/v1/visitors?select=ip&limit=1" -H "apikey: $ANON"
+--
+--   # files → 应该返回 401 或 200 []
+--   curl "$SUPA/rest/v1/files?select=*&limit=1" -H "apikey: $ANON"
+--
+--   # increment_downloads RPC → 应该返回 204
+--   curl -X POST "$SUPA/rest/v1/rpc/increment_downloads" -H "apikey: $ANON" -H "Content-Type: application/json" -d '{"slug":"test"}'
+-- ══════════════════════════════════════════════════════════════════
