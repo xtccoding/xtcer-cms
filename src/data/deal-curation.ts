@@ -1522,7 +1522,6 @@ const rules: Rule[] = [
     difficulty: 'easy',
     payments: ['alipay', 'paypal'],
     limits: ['首年 5 折为活动价，续费回原价', '微信支付未核实'],
-    tips: ['人民币计价，原生支持 ChatGPT / Gemini 等 AI 站点访问'],
   },
   {
     provider: 'DMIT',
@@ -1577,7 +1576,6 @@ const rules: Rule[] = [
     difficulty: 'medium',
     payments: ['card', 'paypal'],
     limits: ['需绑定信用卡，部分地区注册风控较严', '机房以欧洲为主'],
-    tips: ['同价位配置最猛的一档：4 vCore / 8GB / 75GB NVMe'],
   },
   {
     provider: 'VirMach',
