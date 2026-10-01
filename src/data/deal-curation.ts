@@ -161,6 +161,7 @@ const rules: Rule[] = [
   },
   {
     provider: '百度智能云',
+    productIncludes: '域名注册',
     difficulty: 'easy',
     tlds: [
       { tld: '.com', price: '¥33 首年（新客）', tag: 'promo', note: '新客专享' },
@@ -172,6 +173,7 @@ const rules: Rule[] = [
   },
   {
     provider: 'Cloudflare',
+    productIncludes: '域名注册',
     difficulty: 'easy',
     tlds: [
       { tld: '.com', price: '$10.44/年', tag: 'hot', note: '注册=续费，无套路' },
