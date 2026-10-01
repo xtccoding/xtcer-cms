@@ -113,14 +113,22 @@ const schema = {
           容易成功、能微信 / 支付宝付款的排前面，只能刷海外信用卡、风控严格的沉到最后。
         </p>
         <div class="pay-legend">
-          <span class="pay-legend-title">支付优先级</span>
-          <span class="pay-chip cn"><span class="pay-icon">💚</span>微信</span>
-          <span class="pay-chip cn"><span class="pay-icon">🔵</span>支付宝</span>
-          <span class="pay-chip cn"><span class="pay-icon">🏦</span>银联</span>
-          <span class="pay-legend-sep">›</span>
-          <span class="pay-chip intl"><span class="pay-icon">💳</span>信用卡</span>
-          <span class="pay-chip intl"><span class="pay-icon">🅿️</span>PayPal</span>
-          <span class="pay-chip intl"><span class="pay-icon">🪙</span>加密货币</span>
+          <div class="pay-legend-head">
+            <span class="pay-legend-title">支付优先级</span>
+            <span class="pay-legend-sub">同一档难度内，越靠前越省事</span>
+          </div>
+          <div class="pay-legend-row">
+            <span class="pay-legend-label cn">国内友好</span>
+            <span class="pay-chip cn"><b class="pay-rank">1</b><span class="pay-icon">💚</span>微信</span>
+            <span class="pay-chip cn"><b class="pay-rank">2</b><span class="pay-icon">🔵</span>支付宝</span>
+            <span class="pay-chip cn"><b class="pay-rank">3</b><span class="pay-icon">🏦</span>银联</span>
+          </div>
+          <div class="pay-legend-row">
+            <span class="pay-legend-label intl">海外支付</span>
+            <span class="pay-chip intl"><b class="pay-rank">4</b><span class="pay-icon">💳</span>信用卡</span>
+            <span class="pay-chip intl"><b class="pay-rank">5</b><span class="pay-icon">🅿️</span>PayPal</span>
+            <span class="pay-chip intl"><b class="pay-rank">6</b><span class="pay-icon">🪙</span>加密货币</span>
+          </div>
         </div>
       </header>
 
@@ -255,16 +263,34 @@ const schema = {
   .page-desc { color: var(--text-muted); font-size: 0.9375rem; }
   .page-desc strong { color: var(--text); }
 
-  /* 支付优先级图例（卡片上的徽标样式在 DealCard 里，此处是页面级副本） */
+  /* 支付优先级图例 —— 分组两行，不再是挤成一排的标签条
+     （卡片上的徽标样式在 DealCard 里，此处是页面级副本） */
   .pay-legend {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem;
-    margin-top: 0.875rem; font-size: 0.75rem;
+    display: flex; flex-direction: column; gap: 0.5rem;
+    margin-top: 1.125rem; padding: 0.875rem 1rem;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--surface);
   }
-  .pay-legend-title { color: var(--text-muted); font-weight: 600; margin-right: 0.125rem; }
-  .pay-legend-sep { color: var(--text-muted); padding: 0 0.125rem; }
+  .pay-legend-head { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+  .pay-legend-title { font-size: 0.75rem; font-weight: 700; color: var(--text); }
+  .pay-legend-sub { font-size: 0.6875rem; color: var(--text-muted); }
+  .pay-legend-row { display: flex; align-items: center; gap: 0.375rem; flex-wrap: wrap; }
+  .pay-legend-label {
+    flex-shrink: 0; min-width: 4.25rem; text-align: center;
+    padding: 0.125rem 0.5rem; border-radius: 999px;
+    font-size: 0.625rem; font-weight: 700; letter-spacing: 0.02em;
+  }
+  .pay-legend-label.cn { background: rgba(52,199,89,0.14); color: #1a8f3c; }
+  .pay-legend-label.intl { background: rgba(125,125,140,0.12); color: var(--text-muted); }
+  .pay-rank {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 0.875rem; height: 0.875rem; border-radius: 50%;
+    margin-right: 0.25rem; font-size: 0.5625rem; font-weight: 700;
+    background: rgba(125,125,140,0.18); color: inherit;
+  }
   .pay-chip {
     display: inline-flex; align-items: center; gap: 0.1875rem;
-    padding: 0.125rem 0.5rem; border-radius: 999px;
+    padding: 0.1875rem 0.5625rem; border-radius: 999px;
     font-size: 0.6875rem; font-weight: 500;
     border: 1px solid var(--glass-border);
     background: var(--surface); color: var(--text-secondary);

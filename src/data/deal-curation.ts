@@ -525,7 +525,6 @@ const rules: Rule[] = [
       '最多 1 个活跃服务，0.1 vCPU / 512MB',
       '本地磁盘仅 2GB 且为临时存储',
     ],
-    tips: ['全球边缘网络，适合微服务 / 轻量 API'],
   },
   {
     provider: 'Zeabur',
@@ -545,14 +544,12 @@ const rules: Rule[] = [
       '免费版 2 条映射、5 并发',
       '升级套餐约 ¥1299/年起，性价比低',
     ],
-    tips: ['国产老牌，微信 / 支付宝直付；免费档只够验证用'],
   },
   {
     provider: 'cpolar',
     difficulty: 'easy',
     payments: ['wechat', 'alipay'],
     limits: ['免费版隧道数与带宽有限，域名随机且会变'],
-    tips: ['注册即用，微信 / 支付宝可升级'],
   },
   {
     provider: 'Cloudflare',
@@ -560,7 +557,6 @@ const rules: Rule[] = [
     difficulty: 'easy',
     payments: ['card', 'paypal'],
     limits: ['需自有域名并把 NS 托管到 Cloudflare'],
-    tips: ['免费不限速，自建穿透最省钱；配 cloudflared 一条命令搞定'],
   },
 
   // ---------- 共享主机 / 虚拟主机 ----------
@@ -591,7 +587,7 @@ const rules: Rule[] = [
       '需阿里云账号 + 实名认证',
     ],
     promoNote: '个人社区版永久免费；专业版 59 元/月（含 2000 Credits）',
-    tips: ['原「通义灵码」，支持 GLM / DeepSeek / Kimi / Qwen 多模型切换'],
+    tips: ['VS Code / JetBrains 装插件即可用，模型可在面板里随时切换'],
   },
   {
     provider: '智谱 ZCode',
@@ -602,7 +598,6 @@ const rules: Rule[] = [
       '活动是否继续、额度是否发放以官网为准',
     ],
     warning: '周末限时额度：发放后周日 23:00 清零，先到先得，不是长期权益。',
-    tips: ['智谱旗下 AI 编程工具，活动期间等于免费白嫖额度'],
   },
   {
     provider: 'WorkBuddy',
@@ -610,14 +605,12 @@ const rules: Rule[] = [
     payments: ['wechat', 'alipay', 'unionpay'],
     limits: ['免费体验额度有限，长期使用需订阅', '个人版 99 / 199 / 999 元/月三档'],
     promoNote: '新用户注册可领 5000 积分体验',
-    tips: ['腾讯云出品，AI Agent 办公工具'],
   },
   {
     provider: 'Trae',
     difficulty: 'easy',
     payments: ['wechat', 'alipay'],
     limits: ['免费版每月调用额度有上限，超出需付费', '2026 年起已移除 Claude 模型'],
-    tips: ['字节出品，免费版即可用 GPT / DeepSeek 等模型'],
   },
 ]
 
