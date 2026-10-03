@@ -225,7 +225,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const final = applyCacheControl(response, path)
 
   // 只把 200 写进缓存（3xx/4xx/5xx 一律不缓存）
-  if (cacheKey && final.status === 200) {
+  if (cacheKey && cfCtx?.waitUntil && final.status === 200) {
     // ⚠️ 先把 body 读成 buffer 再缓存，**不要用 `final.clone()`**。
     // clone 会 tee 出两条流，其中一条交给后台的 put()，另一条返回给客户端；
     // 实测这条 tee 出来的分支在 waitUntil 里读到的是**空内容**，
@@ -234,13 +234,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
     const buf = await final.arrayBuffer()
     const headers = new Headers(final.headers)
 
-    // 【临时诊断】await put 以便把错误直接写进响应头（诊断完移除）
-    try {
-      await edgeCache.put(cacheKey, new Response(buf, { status: 200, headers }))
-      dbg += ' put=OK'
-    } catch (e: any) {
-      dbg += ` putERR:${e?.message}`
-    }
+    // 【临时诊断】put 走 waitUntil（不阻塞响应），靠下一次请求的 HIT 验证是否生效
+    dbg += ' put=scheduled'
+    cfCtx.waitUntil(
+      edgeCache
+        .put(cacheKey, new Response(buf, { status: 200, headers }))
+        .catch((e: any) => console.error('[edge cache put]', e?.message || e)),
+    )
     headers.set('x-cache-dbg', dbg)
 
     return new Response(buf, { status: 200, headers })
