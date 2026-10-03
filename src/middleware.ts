@@ -9,10 +9,15 @@ import { setRuntimeEnv } from './lib/runtime-env'
  * 即**完全不缓存**。每个访客、每次刷新都要真实执行 SSR 并打回 Supabase，
  * 实测 TTFB 1.5–3.5s，且随并发波动。这是「站点变慢」的主因，与项目体量无关。
  *
- * 这里的做法：给公开的匿名可读页面加 `s-maxage`（仅 CDN 边缘缓存，浏览器不缓存），
- * 配合 `stale-while-revalidate` 让缓存过期后先返回旧内容、后台异步刷新，
- * 访客永远命中边缘节点 → TTFB 降到几十毫秒。
+ * ⚠️ 关键坑：**只加 `Cache-Control: s-maxage` 是不够的**。
+ * Cloudflare Pages/Workers 的 SSR 响应默认不进 CDN 缓存 —— 默认 Cache Level
+ * 只按「文件扩展名」缓存静态资源，HTML 不在其列。实测线上加了 s-maxage 之后
+ * 响应头依然是 `cf-cache-status: DYNAMIC`，一次都没命中。
+ * 真正生效的办法是在 Worker 里用 **Cache API**（`caches.default`）显式存取，
+ * 见下方 onRequest 中的 `edgeCache` 部分。静态资源（/_astro/*）则由
+ * Cloudflare 自身的静态缓存处理，无需干预。
  *
+ * 这里定义的是各路径的缓存时长（同时作为 Cache API 的 TTL 依据）。
  * 注意：**不能给 /admin 和 /api 加**（含登录态与写操作），它们必须保持 no-store。
  */
 function cacheControlFor(path: string): string | null {
@@ -80,8 +85,8 @@ function applyCacheControl(response: Response, path: string): Response {
 
   const headers = new Headers(response.headers)
   headers.set('cache-control', value)
-  // 让 CDN 缓存按 URL 区分（含 query，如 /posts?page=2 各自独立缓存）
-  headers.append('vary', 'Accept-Encoding')
+  // 不设 Vary：公开页对任何 Accept-Encoding 渲染结果一致，
+  // Cloudflare 会在边缘透明处理压缩。设了反而会让 Cache API 的键匹配变复杂。
 
   return new Response(response.body, {
     status: response.status,
@@ -151,9 +156,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return next()
   }
 
-  const response = await next()
+  const cfCtx = (context.locals as any)?.runtime?.ctx
 
-  // Track visitor
+  // ---- 访客统计 ----
+  // ⚠️ 必须放在缓存查找**之前**：命中边缘缓存时不会再执行页面逻辑，
+  // 但这次访问仍然应该被记录，否则统计会严重偏低（只有未命中的才被计数）。
+  // 写入通过 waitUntil 异步执行，不阻塞响应。
   const ip = context.request.headers.get('cf-connecting-ip') ||
              context.request.headers.get('x-forwarded-for') ||
              context.request.headers.get('x-real-ip') ||
@@ -173,10 +181,62 @@ export const onRequest = defineMiddleware(async (context, next) => {
     if (error) console.error('[visitor tracking]', error.message)
   })
 
-  const cfCtx = (context.locals as any)?.runtime?.ctx
   if (cfCtx?.waitUntil) {
     cfCtx.waitUntil(insertPromise)
   }
 
-  return applyCacheControl(response, path)
+  // ---- 边缘缓存查找（Cache API）----
+  // 见文件顶部说明：SSR 响应必须显式走 Cache API 才会真正被边缘缓存。
+  const cacheControl = cacheControlFor(path)
+  const edgeCache = (globalThis as any).caches?.default
+  const canCache = !!cacheControl && cacheControl !== 'no-store' && !!edgeCache
+
+  let cacheKey: Request | null = null
+  if (canCache) {
+    // 缓存键只用 URL（不带 Cookie / UA 等）：公开页对所有访客渲染一致，
+    // 这样命中率最高，也避免登录态请求污染缓存。
+    cacheKey = new Request(context.url.toString(), { method: 'GET' })
+    try {
+      const hit = await edgeCache.match(cacheKey)
+      if (hit) {
+        // ⚠️ 不能直接 `return hit`。Cache API 返回的 Response **headers 是不可变的**，
+        // 而 Astro 在中间件返回后还会改这个响应（删内部 ROUTE_TYPE header、
+        // attachCookiesToResponse 写 cookie），一改就抛
+        // `TypeError: Can't modify immutable headers` → 整页 500。
+        // 所以必须用一份可变的 headers 重建 Response。
+        const hitBuf = await hit.arrayBuffer()
+        return new Response(hitBuf, {
+          status: hit.status,
+          statusText: hit.statusText,
+          headers: new Headers(hit.headers),
+        })
+      }
+    } catch (e: any) {
+      console.error('[edge cache match]', e?.message || e)
+    }
+  }
+
+  const response = await next()
+  const final = applyCacheControl(response, path)
+
+  // 只把 200 写进缓存（3xx/4xx/5xx 一律不缓存）
+  if (cacheKey && cfCtx?.waitUntil && final.status === 200) {
+    // ⚠️ 先把 body 读成 buffer 再缓存，**不要用 `final.clone()`**。
+    // clone 会 tee 出两条流，其中一条交给后台的 put()，另一条返回给客户端；
+    // 实测这条 tee 出来的分支在 waitUntil 里读到的是**空内容**，
+    // 结果缓存里存的是空响应，之后所有命中缓存的请求都返回 0 字节。
+    // 读成 ArrayBuffer 后各建一个 Response，彻底绕开流的生命周期问题。
+    const buf = await final.arrayBuffer()
+    const headers = new Headers(final.headers)
+
+    cfCtx.waitUntil(
+      edgeCache
+        .put(cacheKey, new Response(buf, { status: 200, headers }))
+        .catch((e: any) => console.error('[edge cache put]', e?.message || e)),
+    )
+
+    return new Response(buf, { status: 200, headers })
+  }
+
+  return final
 })
