@@ -192,6 +192,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const canCache = !!cacheControl && cacheControl !== 'no-store' && !!edgeCache
 
   let cacheKey: Request | null = null
+  let dbg = `caches=${typeof (globalThis as any).caches} default=${!!edgeCache} canCache=${canCache} ctx=${!!cfCtx} waitUntil=${!!cfCtx?.waitUntil}`
   if (canCache) {
     // 缓存键只用 URL（不带 Cookie / UA 等）：公开页对所有访客渲染一致，
     // 这样命中率最高，也避免登录态请求污染缓存。
@@ -205,13 +206,17 @@ export const onRequest = defineMiddleware(async (context, next) => {
         // `TypeError: Can't modify immutable headers` → 整页 500。
         // 所以必须用一份可变的 headers 重建 Response。
         const hitBuf = await hit.arrayBuffer()
+        const hitHeaders = new Headers(hit.headers)
+        hitHeaders.set('x-cache-dbg', `${dbg} HIT`)
         return new Response(hitBuf, {
           status: hit.status,
           statusText: hit.statusText,
-          headers: new Headers(hit.headers),
+          headers: hitHeaders,
         })
       }
+      dbg += ' MISS'
     } catch (e: any) {
+      dbg += ` matchERR:${e?.message}`
       console.error('[edge cache match]', e?.message || e)
     }
   }
@@ -220,7 +225,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const final = applyCacheControl(response, path)
 
   // 只把 200 写进缓存（3xx/4xx/5xx 一律不缓存）
-  if (cacheKey && cfCtx?.waitUntil && final.status === 200) {
+  if (cacheKey && final.status === 200) {
     // ⚠️ 先把 body 读成 buffer 再缓存，**不要用 `final.clone()`**。
     // clone 会 tee 出两条流，其中一条交给后台的 put()，另一条返回给客户端；
     // 实测这条 tee 出来的分支在 waitUntil 里读到的是**空内容**，
@@ -229,11 +234,14 @@ export const onRequest = defineMiddleware(async (context, next) => {
     const buf = await final.arrayBuffer()
     const headers = new Headers(final.headers)
 
-    cfCtx.waitUntil(
-      edgeCache
-        .put(cacheKey, new Response(buf, { status: 200, headers }))
-        .catch((e: any) => console.error('[edge cache put]', e?.message || e)),
-    )
+    // 【临时诊断】await put 以便把错误直接写进响应头（诊断完移除）
+    try {
+      await edgeCache.put(cacheKey, new Response(buf, { status: 200, headers }))
+      dbg += ' put=OK'
+    } catch (e: any) {
+      dbg += ` putERR:${e?.message}`
+    }
+    headers.set('x-cache-dbg', dbg)
 
     return new Response(buf, { status: 200, headers })
   }
