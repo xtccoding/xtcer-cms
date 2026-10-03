@@ -192,7 +192,6 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const canCache = !!cacheControl && cacheControl !== 'no-store' && !!edgeCache
 
   let cacheKey: Request | null = null
-  let dbg = `caches=${typeof (globalThis as any).caches} default=${!!edgeCache} canCache=${canCache} ctx=${!!cfCtx} waitUntil=${!!cfCtx?.waitUntil}`
   if (canCache) {
     // 缓存键只用 URL（不带 Cookie / UA 等）：公开页对所有访客渲染一致，
     // 这样命中率最高，也避免登录态请求污染缓存。
@@ -206,17 +205,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
         // `TypeError: Can't modify immutable headers` → 整页 500。
         // 所以必须用一份可变的 headers 重建 Response。
         const hitBuf = await hit.arrayBuffer()
-        const hitHeaders = new Headers(hit.headers)
-        hitHeaders.set('x-cache-dbg', `${dbg} HIT`)
         return new Response(hitBuf, {
           status: hit.status,
           statusText: hit.statusText,
-          headers: hitHeaders,
+          headers: new Headers(hit.headers),
         })
       }
-      dbg += ' MISS'
     } catch (e: any) {
-      dbg += ` matchERR:${e?.message}`
       console.error('[edge cache match]', e?.message || e)
     }
   }
@@ -234,14 +229,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
     const buf = await final.arrayBuffer()
     const headers = new Headers(final.headers)
 
-    // 【临时诊断】put 走 waitUntil（不阻塞响应），靠下一次请求的 HIT 验证是否生效
-    dbg += ' put=scheduled'
+    // put 走 waitUntil：不阻塞响应，缓存写入在后台完成。
     cfCtx.waitUntil(
       edgeCache
         .put(cacheKey, new Response(buf, { status: 200, headers }))
         .catch((e: any) => console.error('[edge cache put]', e?.message || e)),
     )
-    headers.set('x-cache-dbg', dbg)
 
     return new Response(buf, { status: 200, headers })
   }
