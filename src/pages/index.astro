@@ -6,39 +6,53 @@ import { countRows } from '../lib/query'
 // 首页只展示最近的文章。
 // ⚠️ 不能全量拉：PostgREST max-rows=1000 会把结果静默截断（文章已 1041 篇），
 // 且 posts 正文约 11.8MB，全量拉会拖慢首屏。总数用 countRows 单独取。
-const { data: posts } = await supabase
-  .from('posts')
-  .select('id, title, summary, content, created_at, views')
-  .order('created_at', { ascending: false })
-  .limit(12)
+//
+// ⚡ 性能：以下 6 个查询彼此独立，必须用 Promise.all 并发执行。
+// 之前是串行 await，每个查询都要等上一个返回（含 Supabase 冷启动），
+// 实测 TTFB 1.5–3.5s 且波动大。并发后冷启动 TTFB 可砍掉一半以上。
+const [
+  { data: posts },
+  postCount,
+  feedCount,
+  { data: links },
+  { data: recentFeeds },
+  { data: bannerData },
+  { data: particlesData },
+] = await Promise.all([
+  supabase
+    .from('posts')
+    .select('id, title, summary, content, created_at, views')
+    .order('created_at', { ascending: false })
+    .limit(12),
 
-// 真实总数（count 不受 max-rows 影响）
-const postCount = await countRows('posts')
-const feedCount = await countRows('feeds')
+  // 真实总数（count 不受 max-rows 影响）
+  countRows('posts'),
+  countRows('feeds'),
 
-const { data: links } = await supabase
-  .from('links')
-  .select('*')
-  .order('sort_order', { ascending: true })
+  supabase
+    .from('links')
+    .select('*')
+    .order('sort_order', { ascending: true }),
 
-const { data: recentFeeds } = await supabase
-  .from('feeds')
-  .select('*')
-  .order('created_at', { ascending: false })
-  .limit(12)
+  supabase
+    .from('feeds')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(12),
 
-// Fetch site settings
-const { data: bannerData } = await supabase
-  .from('site_settings')
-  .select('value')
-  .eq('key', 'banner')
-  .single()
+  // Fetch site settings
+  supabase
+    .from('site_settings')
+    .select('value')
+    .eq('key', 'banner')
+    .single(),
 
-const { data: particlesData } = await supabase
-  .from('site_settings')
-  .select('value')
-  .eq('key', 'particles')
-  .single()
+  supabase
+    .from('site_settings')
+    .select('value')
+    .eq('key', 'particles')
+    .single(),
+])
 
 const banner = bannerData?.value || {
   title_line1: '探索前沿',

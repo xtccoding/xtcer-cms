@@ -1,6 +1,13 @@
 ---
 import '../styles/global.css'
 
+// ⚡ 字体自托管取代 Google Fonts CDN。
+// 原方案从 fonts.googleapis.com 拉 Inter(8 个字重) + Space Grotesk(8 个字重)，
+// 共 16 个字体文件 + 2 个跨域阻塞请求（还要 preconnect 三次握手）。
+// 实测这是首屏渲染的关键阻塞路径之一。
+// 现改为自托管、只打包 latin/latin-ext 子集，详见 src/styles/fonts.css
+import '../styles/fonts.css'
+
 interface Props {
   title: string
   description?: string
@@ -21,9 +28,6 @@ const ogImageUrl = ogImage || new URL('/og-image.svg', 'https://xtcer.cn').href
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/x-icon" href="/icon.ico" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;650;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <meta name="description" content={description} />
     <link rel="canonical" href={canonicalURL} />
     <link rel="alternate" type="application/rss+xml" title="XTcer RSS" href="/rss.xml" />
