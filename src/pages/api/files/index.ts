@@ -1,5 +1,5 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
-import { supabase } from '../../../lib/supabase'
+import { createAdminClient } from '../../../lib/supabase-admin'
 import { isAdminRequest } from '../../../lib/admin-auth'
 
 function randomSlug(len = 8): string {
@@ -9,9 +9,21 @@ function randomSlug(len = 8): string {
   return s
 }
 
+// files 表在 RLS v3 里已对 anon 撤销全部权限（REVOKE SELECT/INSERT/UPDATE/DELETE），
+// 所以后台的文件管理**必须**用 service_role 客户端，否则每次查询都是
+// `permission denied for table files` → 前端拿到非 JSON/缺 total → 显示 undefined。
+function adminClient(locals: any) {
+  return createAdminClient(locals?.runtime?.env)
+}
+
 export async function GET({ cookies, locals, url }: { cookies: any; locals: any; url: URL }) {
   if (!isAdminRequest(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+  }
+
+  const supabase = adminClient(locals)
+  if (!supabase) {
+    return new Response(JSON.stringify({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' }), { status: 500 })
   }
 
   try {
@@ -47,6 +59,11 @@ export async function GET({ cookies, locals, url }: { cookies: any; locals: any;
 export async function POST({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
   if (!isAdminRequest(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+  }
+
+  const supabase = adminClient(locals)
+  if (!supabase) {
+    return new Response(JSON.stringify({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' }), { status: 500 })
   }
 
   const env = locals?.runtime?.env || {}
@@ -126,6 +143,11 @@ export async function PUT({ request, cookies, locals }: { request: Request; cook
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
+  const supabase = adminClient(locals)
+  if (!supabase) {
+    return new Response(JSON.stringify({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' }), { status: 500 })
+  }
+
   try {
     const body = await request.json()
     const { id, share_slug, password, expires_at } = body
@@ -154,6 +176,11 @@ export async function PUT({ request, cookies, locals }: { request: Request; cook
 export async function DELETE({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
   if (!isAdminRequest(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+  }
+
+  const supabase = adminClient(locals)
+  if (!supabase) {
+    return new Response(JSON.stringify({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' }), { status: 500 })
   }
 
   const env = locals?.runtime?.env || {}

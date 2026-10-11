@@ -1,8 +1,12 @@
-import { supabase } from '../../../lib/supabase'
+import { createAdminClient } from '../../../lib/supabase-admin'
 import { isAdminRequest } from '../../../lib/admin-auth'
 
 export async function GET({ cookies, locals, url }: { cookies: any; locals: any; url: URL }) {
   if (!isAdminRequest(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+
+  // visitors 表已对 anon 撤销 SELECT（RLS v3），后台统计必须走 service_role。
+  const supabase = createAdminClient(locals?.runtime?.env)
+  if (!supabase) return new Response(JSON.stringify({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' }), { status: 500 })
 
   const range = url.searchParams.get('range') || '7d'
   const days = range === '1d' ? 1 : range === '30d' ? 30 : 7

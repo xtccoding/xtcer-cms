@@ -1,5 +1,5 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
-import { supabase } from '../../../lib/supabase'
+import { createAdminClient } from '../../../lib/supabase-admin'
 
 function randomSlug(len = 8): string {
   const chars = 'abcdefghijkmnpqrstuvwxyz23456789'
@@ -8,7 +8,16 @@ function randomSlug(len = 8): string {
   return s
 }
 
+// files 表已对 anon 撤销权限（RLS v3），本端点虽是 bearer token 鉴权，
+// 但表操作仍需 service_role 客户端，否则权限报错。
+function adminClient(locals: any) {
+  return createAdminClient(locals?.runtime?.env)
+}
+
 export async function POST({ request, locals }: { request: Request; locals: any }) {
+  const supabase = adminClient(locals)
+  if (!supabase) return new Response(JSON.stringify({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' }), { status: 500 })
+
   const env = locals?.runtime?.env || {}
   const validKey = env.UPLOAD_API_KEY || import.meta.env.UPLOAD_API_KEY
   if (!validKey) return new Response(JSON.stringify({ error: 'UPLOAD_API_KEY not configured' }), { status: 500 })
@@ -91,6 +100,9 @@ export async function POST({ request, locals }: { request: Request; locals: any 
 }
 
 export async function DELETE({ request, locals }: { request: Request; locals: any }) {
+  const supabase = adminClient(locals)
+  if (!supabase) return new Response(JSON.stringify({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' }), { status: 500 })
+
   const env = locals?.runtime?.env || {}
   const validKey = env.UPLOAD_API_KEY || import.meta.env.UPLOAD_API_KEY
   if (!validKey) return new Response(JSON.stringify({ error: 'UPLOAD_API_KEY not configured' }), { status: 500 })

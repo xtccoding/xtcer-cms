@@ -155,14 +155,26 @@ if (!filesSlug || slug !== filesSlug) return Astro.redirect('/admin')
       if (search !== undefined) currentSearch = search
       const params = new URLSearchParams({ page: String(currentPage), limit: '50' })
       if (currentSearch) params.set('q', currentSearch)
-      const res = await fetch('/api/files?' + params)
-      const data = await res.json()
-      allFiles = data.files || []
-      currentPage = data.page || 1
-      totalPages = data.totalPages || 1
-      renderFiles()
-      renderPagination()
-      document.getElementById('files-stats').textContent = data.total + ' 个文件'
+      try {
+        const res = await fetch('/api/files?' + params)
+        const data = await res.json().catch(function() { return null })
+        if (!res.ok || !data) {
+          window.showToast((data && data.error) || '加载文件列表失败', 'error')
+          allFiles = []; currentPage = 1; totalPages = 1
+          renderFiles(); renderPagination()
+          document.getElementById('files-stats').textContent = '加载失败'
+          return
+        }
+        allFiles = data.files || []
+        currentPage = data.page || 1
+        totalPages = data.totalPages || 1
+        renderFiles()
+        renderPagination()
+        document.getElementById('files-stats').textContent = (data.total || 0) + ' 个文件'
+      } catch (e) {
+        window.showToast('加载文件列表失败', 'error')
+        document.getElementById('files-stats').textContent = '加载失败'
+      }
     }
 
     function renderFiles() {
