@@ -1,0 +1,114 @@
+---
+/**
+ * FestivalBanner —— 节日促销倒计时横幅。
+ *
+ * 两种状态：
+ *   - 节日进行中（active）：显示「进行中」，无倒计时。
+ *   - 节日未开始（upcoming）：显示「还有 N 天」并实时倒计时到开始时刻。
+ * 两者都没有时不渲染（返回 null）。
+ */
+import { activeFestival, upcomingFestival, daysUntil, type Festival } from '../data/festivals'
+
+interface Props {
+  /** 允许父页覆盖（一般不用传，自动判定） */
+  festival?: Festival | null
+}
+
+const active = activeFestival()
+const upcoming = upcomingFestival()
+
+// 优先展示进行中的节日；否则展示最近的未开始节日。
+const fest = (active ?? upcoming) as Festival | null
+const isActive = !!active && fest?.id === active.id
+const days = fest && !isActive ? daysUntil(fest) : 0
+---
+
+{fest && (
+  <a
+    class:list={['fest-banner', isActive && 'is-live']}
+    href={`/deals?cat=festival-${fest.id}`}
+    style={`--fest-accent:${fest.accent}`}
+  >
+    <span class="fest-icon">{fest.icon}</span>
+    <span class="fest-text">
+      <strong class="fest-label">{fest.label}</strong>
+      <span class="fest-slogan">{fest.slogan}</span>
+    </span>
+    {isActive ? (
+      <span class="fest-count live">进行中 · 点此看专区 →</span>
+    ) : (
+      <span class="fest-count" data-countdown-to={fest.start}>
+        还有 <strong data-days>{days}</strong> 天
+      </span>
+    )}
+  </a>
+)}
+
+<style>
+  .fest-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0 0 1rem;
+    padding: 0.7rem 1rem;
+    border-radius: var(--radius);
+    background: linear-gradient(100deg, var(--fest-accent) 0%, color-mix(in srgb, var(--fest-accent) 62%, #ffffff) 100%);
+    color: #fff;
+    text-decoration: none;
+    box-shadow: 0 4px 16px -6px color-mix(in srgb, var(--fest-accent) 70%, transparent);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+  }
+  .fest-banner:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 22px -8px color-mix(in srgb, var(--fest-accent) 80%, transparent);
+  }
+  .fest-icon { font-size: 1.4rem; line-height: 1; }
+  .fest-text { display: flex; flex-direction: column; gap: 0.05rem; min-width: 0; }
+  .fest-label { font-size: 0.95rem; font-weight: 700; letter-spacing: 0.02em; }
+  .fest-slogan { font-size: 0.72rem; opacity: 0.82; }
+  .fest-count {
+    margin-left: auto;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+    padding: 0.28rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(4px);
+  }
+  .fest-count.live {
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--fest-accent);
+  }
+  .fest-count strong { font-size: 0.95rem; }
+
+  @media (max-width: 520px) {
+    .fest-slogan { display: none; }
+    .fest-count { font-size: 0.72rem; }
+  }
+</style>
+
+<script>
+  // 实时倒计时：到目标日期的北京时间 00:00 之前，按天刷新。
+  // 只做「天」粒度（页面缓存 5 分钟，秒级倒计时没有意义）。
+  const el = document.querySelector<HTMLElement>('[data-countdown-to]')
+  if (el) {
+    const target = el.dataset.countdownTo || '' // 'MM-DD'
+    const daysEl = el.querySelector<HTMLElement>('[data-days]')
+    function tick() {
+      if (!daysEl) return
+      // 用北京时间计算「今天」
+      const now = new Date(Date.now() + 8 * 3600 * 1000)
+      const y = now.getUTCFullYear()
+      const todayStr = now.toISOString().slice(0, 10)
+      let startStr = `${y}-${target}`
+      if (startStr < todayStr) startStr = `${y + 1}-${target}`
+      const t0 = Date.parse(`${todayStr}T00:00:00+08:00`)
+      const t1 = Date.parse(`${startStr}T00:00:00+08:00`)
+      const d = Math.max(0, Math.round((t1 - t0) / 86400000))
+      daysEl.textContent = String(d)
+    }
+    tick()
+    setInterval(tick, 60 * 60 * 1000) // 每小时校准一次
+  }
+</script>

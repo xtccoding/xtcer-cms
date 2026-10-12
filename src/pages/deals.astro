@@ -4,9 +4,11 @@ import DealCard from '../components/DealCard.astro'
 import DealsTable from '../components/DealsTable.astro'
 import Pagination from '../components/Pagination.astro'
 import FeedbackBox from '../components/FeedbackBox.astro'
+import FestivalBanner from '../components/FestivalBanner.astro'
 import { supabase } from '../lib/supabase'
 import { isTableMissing, resolveSalt } from '../lib/interactions'
 import { monthlyCny } from '../lib/price.mjs'
+import { FESTIVALS, dealMatchesFestival } from '../data/festivals'
 import {
   resolveCuration,
   DIFFICULTY_RANK,
@@ -66,6 +68,20 @@ const mainDeals = deals.filter(d => !d.curation.reference)
 
 const isReferenceTab = catRaw === 'reference'
 
+// ---------------------------------------------------------------- 节日专区
+// cat 形如 'festival-<id>'（如 festival-blackfriday）时进入该节日专区。
+// 节日窗口由节日表按日期自动判定，这里只负责「筛选出属于该节日的 deal」。
+const festivalMatch = catRaw.match(/^festival-(.+)$/)
+const activeFestivalId = festivalMatch ? festivalMatch[1] : ''
+const festivalMeta = FESTIVALS.find(f => f.id === activeFestivalId) || null
+const isFestivalTab = !!festivalMeta
+
+// 每个节日当前命中的 deal 数，用于 Tab 上的角标（0 条也显示 Tab，方便知道有这个专区）
+const festivalCounts: Record<string, number> = {}
+for (const f of FESTIVALS) {
+  festivalCounts[f.id] = deals.filter(d => !d.curation.reference && dealMatchesFestival(d, f)).length
+}
+
 // ---------------------------------------------------------------- 分类
 const allCategories = [...new Set(mainDeals.map(d => d.category))]
 const categoryMap: Record<string, string> = {
@@ -93,12 +109,16 @@ const sortedCategories = categoryOrder.filter(c => allCategories.includes(c))
 const remainingCats = allCategories.filter(c => !categoryOrder.includes(c))
 const categories = [...sortedCategories, ...remainingCats]
 
-const cat = isReferenceTab || allCategories.includes(catRaw) ? catRaw : ''
+const cat = isReferenceTab || isFestivalTab || allCategories.includes(catRaw) ? catRaw : ''
 
 // ---------------------------------------------------------------- 过滤 + 排序
-const baseList = isReferenceTab ? referenceDeals : mainDeals
+const baseList = isReferenceTab
+  ? referenceDeals
+  : isFestivalTab
+    ? mainDeals.filter(d => dealMatchesFestival(d, festivalMeta!))
+    : mainDeals
 const filtered =
-  cat && !isReferenceTab ? baseList.filter(d => d.category === cat) : baseList
+  cat && !isReferenceTab && !isFestivalTab ? baseList.filter(d => d.category === cat) : baseList
 
 /**
  * 排序用的价格键。
@@ -165,7 +185,7 @@ function makeUrl(overrides: {
 // 只有「难度优先」这一种排序下，按难度分区才有意义；其它排序一律平铺网格。
 const sectionOrder: Difficulty[] = ['easy', 'medium', 'hard']
 const groupedSections =
-  sort === 'difficulty' && !isReferenceTab
+  sort === 'difficulty' && !isReferenceTab && !isFestivalTab
     ? sectionOrder
         .map(key => ({ key, items: pageItems.filter(d => d.curation.difficulty === key) }))
         .filter(s => s.items.length > 0)
@@ -260,6 +280,9 @@ const pageTitle =
         </p>
       </header>
 
+      {/* 节日促销倒计时横幅（黑五 / 双十一 / 双十二；无节日时不渲染） */}
+      <FestivalBanner />
+
       {/* 工具条：视图切换 + 排序。都是链接，切换即刷新（服务端渲染）。 */}
       <div class="toolbar">
         <div class="view-switch" role="group" aria-label="展示方式">
@@ -295,6 +318,14 @@ const pageTitle =
       {/* 分类 Tab：服务端筛选（分页之后前端筛选只能筛到当前页，所以必须走 URL） */}
       <div class="tabs">
         <a class:list={['tab', !cat && 'active']} href={makeUrl({ cat: '', page: 1 })}>全部</a>
+        {/* 节日专区 Tab 放在最前：节令期间是用户最关心的入口，别让它被挤出可视区 */}
+        {FESTIVALS.map(f => (
+          <a
+            class:list={['tab', 'tab-fest', cat === `festival-${f.id}` && 'active']}
+            href={makeUrl({ cat: `festival-${f.id}`, page: 1 })}
+            style={`--fest-accent:${f.accent}`}
+          >{f.icon} {f.label}<span class="tab-badge">{festivalCounts[f.id]}</span></a>
+        ))}
         {categories.map(c => (
           <a class:list={['tab', cat === c && 'active']} href={makeUrl({ cat: c, page: 1 })}>{catLabel(c)}</a>
         ))}
@@ -303,6 +334,20 @@ const pageTitle =
           href={makeUrl({ cat: 'reference', page: 1 })}
         >{REFERENCE_META.icon} 大厂标准价</a>
       </div>
+
+      {isFestivalTab && festivalMeta && (
+        <div class="section-head standalone">
+          <h2 class="section-title">
+            <span class="section-icon">{festivalMeta.icon}</span>
+            {festivalMeta.label} 专区
+            <span class="section-count">{total}</span>
+          </h2>
+          <p class="section-desc">
+            {festivalMeta.slogan}。此专区按关键词自动归集与黑五 / 双十一 / 双十二相关的优惠；
+            窗口期结束会继续保留常驻优惠，节日专属价请以官网活动页为准。
+          </p>
+        </div>
+      )}
 
       {isReferenceTab && (
         <div class="section-head standalone">
@@ -513,6 +558,21 @@ const pageTitle =
   .tab:hover { color: var(--text); border-color: var(--glass-border-hover); }
   .tab.active { background: var(--primary); color: white; border-color: var(--primary); }
   .tab-ref { border-style: dashed; }
+  /* 节日 Tab：用节日主色做描边与激活底色，视觉上跳出来 */
+  .tab-fest {
+    border-color: color-mix(in srgb, var(--fest-accent) 40%, var(--glass-border));
+    color: color-mix(in srgb, var(--fest-accent) 78%, var(--text));
+    font-weight: 600;
+  }
+  .tab-fest:hover { border-color: var(--fest-accent); color: var(--fest-accent); }
+  .tab-fest.active {
+    background: var(--fest-accent); color: #fff; border-color: var(--fest-accent);
+  }
+  .tab-badge {
+    display: inline-block; margin-left: 0.35rem;
+    font-size: 0.6875rem; font-variant-numeric: tabular-nums;
+    opacity: 0.7;
+  }
 
   /* 大块（难度分区）之间收紧，卡片内部也收紧 —— 纯信息展示，密集优先 */
   .diff-section { margin-bottom: 1.5rem; }
