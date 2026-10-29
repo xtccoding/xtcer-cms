@@ -343,7 +343,7 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
     color: #fff; transform: translateY(-1px);
   }
   .toolbar-btn-save:active { transform: scale(0.97) translateY(0); }
-  .toolbar-label { font-size: 0.75rem; }
+  :global(.toolbar-label) { font-size: 0.75rem; }
 
   .ai-dropdown { position: relative; }
   .ai-menu {

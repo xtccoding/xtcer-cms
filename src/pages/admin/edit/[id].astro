@@ -373,7 +373,7 @@ if (!post) return Astro.redirect('/admin/dashboard')
   }
   .toolbar-btn-save:active { transform: scale(0.97) translateY(0); }
 
-  .toolbar-label { font-size: 0.75rem; }
+  :global(.toolbar-label) { font-size: 0.75rem; }
 
   /* AI Dropdown */
   .ai-dropdown { position: relative; }

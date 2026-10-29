@@ -429,7 +429,7 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
   .bulk-check input { cursor: pointer; accent-color: var(--primary); }
   .bulk-count { font-size: 0.75rem; color: var(--text-muted); }
   .bulk-actions { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
-  .bulk-note { font-size: 0.75rem; color: var(--text-muted); padding: 0.25rem 0.25rem 0.5rem; }
+  :global(.bulk-note) { font-size: 0.75rem; color: var(--text-muted); padding: 0.25rem 0.25rem 0.5rem; }
   .bulk-preview { max-height: 180px; overflow-y: auto; margin-bottom: 1.25rem; padding: 0.625rem 0.75rem; background: rgba(255,255,255,0.04); border-radius: 8px; font-size: 0.75rem; color: var(--text-secondary); line-height: 1.7; }
   .bulk-preview :global(.muted) { color: var(--text-muted); }
 
