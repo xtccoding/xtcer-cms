@@ -1,5 +1,55 @@
 # Changelog
 
+## 2026-10-29
+
+### fix: 文件上传 50MB 以上全部失败（Workers 1102 内存超限）
+
+**现象:** 后台 `/xadminx/files` 上传大文件，100MB 以内的都传不上去。
+
+**实测阈值（线上逐档验证）:**
+
+| 文件 | 结果 |
+|---|---|
+| 1MB / 10MB / 30MB | ✅ 200 |
+| 50MB / 95MB | ❌ `error code: 1102` / HTTP 503 |
+
+**根因:** Cloudflare Workers 有 **128MB 内存上限**，而原实现把整个文件读进 Worker：
+`request.formData()` 缓冲一份 → `file.arrayBuffer()` 再一份 → SHA-256 摘要
+→ S3 签名，同一份数据同时存在 3～4 份，50MB 就爆。代码里那个 100MB 判断
+根本走不到，实际天花板在 30～50MB 之间。
+
+**修复:** 改为分片上传（S3 Multipart Upload）
+
+- 新增 `src/pages/api/files/multipart.ts`：`init` → 逐片 `PUT`（8MB/片）→ `complete`，
+  失败自动 `abort` 清理未完成分片。Worker 每次只持有一片，内存占用与文件总大小无关。
+- 前端 `admin/files/[slug].astro`：`< 20MB` 仍走原单请求（快），`≥ 20MB` 自动切分片，
+  进度条按片推进。上限从 100MB 提到 **500MB**。
+- 实测：50MB / 37s（7 片）、95MB / 60s（12 片），下载字节数完全一致。
+
+**过程中踩的两个坑（都写进代码注释了）:**
+
+1. **`DOMParser is not defined`** —— `@aws-sdk/client-s3` 检测到 `fetch` 存在就把运行环境
+   当浏览器，用 `DOMParser` 解析 S3 响应 XML（`CreateMultipartUpload` 要从里面取
+   `UploadId`）。Workers 没有 DOMParser；补了 `@xmldom/xmldom` 后又缺 `Node` 常量。
+   在 Workers 上给 SDK 补 DOM 环境是个无底洞。
+2. **最终改用 `aws4fetch`** —— 只做 SigV4 签名、拿原生 `Response`，`UploadId` 用正则
+   从 XML 提取，`CompleteMultipartUpload` 的 parts 直接拼 XML。零 DOM 依赖，体积也更小。
+
+**注意:** `PUT` 上传二进制片时不要用 `multipart/form-data`，否则会撞 Astro 的
+CSRF 同源检查；这里用 `application/octet-stream`。
+
+**文件:** `src/pages/api/files/multipart.ts`（新增）、`src/pages/admin/files/[slug].astro`
+
+### chore: 建立 git.xen → GitHub 自动镜像
+
+本地 `git.xen`（Forgejo）为主库，push 后经 Push Mirror（`sync_on_commit`）自动同步到
+`xtccoding/xtcer-cms`，再触发 Cloudflare Pages 自动构建部署。实测 push 后约 10s
+GitHub 收到、约 40s 线上生效。日常 `git push local main` 即可，**不要在 GitHub 侧直接改代码**
+（镜像为 `--mirror` 语义，会被强制覆盖）。
+
+同时补了 `.gitignore`：`.workbuddy-ai/`、`drafts/_feeds_*.json`、`.shots_deals_all.json`
+不应入库。
+
 ## 2026-06-06
 
 ### fix: 访客记录停止写入
