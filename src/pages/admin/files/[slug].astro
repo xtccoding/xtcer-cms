@@ -55,7 +55,7 @@ if (!filesSlug || slug !== filesSlug) return Astro.redirect('/admin')
       <div class="upload-zone" id="upload-zone">
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         <p>拖拽文件到这里，或 <span class="upload-link" id="upload-link">点击选择</span></p>
-        <small>最大 100MB</small>
+        <small>最大 500MB（超过 20MB 自动分片上传）</small>
       </div>
       <div style="margin-top:0.75rem;display:flex;flex-direction:column;gap:0.5rem">
         <div style="display:flex;gap:0.5rem">
@@ -251,6 +251,9 @@ if (!filesSlug || slug !== filesSlug) return Astro.redirect('/admin')
     uploadZone.addEventListener('drop', function(e) { e.preventDefault(); uploadZone.classList.remove('dragover'); if (e.dataTransfer.files.length) uploadFile(e.dataTransfer.files[0]) })
     fileInput.addEventListener('change', function() { if (fileInput.files.length) uploadFile(fileInput.files[0]) })
 
+    // 小于该阈值走单请求（快、一次往返）；超过则分片，避免 Workers 128MB 内存上限
+    var SMALL_LIMIT = 20 * 1024 * 1024
+
     async function uploadFile(file) {
       var slug = document.getElementById('file-slug').value.trim()
       var password = document.getElementById('file-password').value.trim()
@@ -259,25 +262,93 @@ if (!filesSlug || slug !== filesSlug) return Astro.redirect('/admin')
       var statusEl = document.getElementById('upload-status')
       var barEl = document.getElementById('upload-bar')
       var zoneEl = document.getElementById('upload-zone')
-      progressEl.style.display = ''; zoneEl.style.display = 'none'; barEl.style.width = '30%'
+      progressEl.style.display = ''; zoneEl.style.display = 'none'; barEl.style.width = '5%'
 
-      var fd = new FormData(); fd.append('file', file)
-      if (slug) fd.append('slug', slug); if (password) fd.append('password', password)
-      if (expires !== '0') fd.append('expires', expires)
+      function setProgress(pct, text) {
+        barEl.style.width = Math.max(0, Math.min(100, pct)) + '%'
+        if (text) statusEl.textContent = text
+      }
 
       try {
-        barEl.style.width = '60%'
-        var res = await fetch('/api/files', { method: 'POST', body: fd })
-        var data = await res.json()
-        if (res.ok) {
-          barEl.style.width = '100%'; statusEl.textContent = '完成'
-          await navigator.clipboard.writeText(siteUrl + '/s/' + data.share_slug)
-          window.showToast('上传成功，链接已复制', 'success'); loadFiles()
-        } else { window.showToast(data.error || '上传失败', 'error') }
-      } catch(e) { window.showToast('上传失败', 'error') }
+        var data
+        if (file.size >= SMALL_LIMIT) {
+          data = await uploadByChunks(file, { slug: slug, password: password, expires: expires }, setProgress)
+        } else {
+          setProgress(40, '上传中...')
+          var fd = new FormData(); fd.append('file', file)
+          if (slug) fd.append('slug', slug); if (password) fd.append('password', password)
+          if (expires !== '0') fd.append('expires', expires)
+          var res = await fetch('/api/files', { method: 'POST', body: fd })
+          data = await res.json()
+          if (!res.ok) throw new Error(data.error || '上传失败')
+        }
+        setProgress(100, '完成')
+        try { await navigator.clipboard.writeText(siteUrl + '/s/' + data.share_slug) } catch (e) {}
+        window.showToast('上传成功，链接已复制', 'success'); loadFiles()
+      } catch (e) {
+        window.showToast((e && e.message) || '上传失败', 'error')
+      }
 
       fileInput.value = ''
       setTimeout(function() { uploadModal.style.display = 'none'; progressEl.style.display = 'none'; zoneEl.style.display = ''; barEl.style.width = '0' }, 600)
+    }
+
+    // 大文件分片：每片 8MB 单独请求，Worker 每次只持有一片，内存占用与文件总大小无关
+    async function uploadByChunks(file, meta, setProgress) {
+      var initRes = await fetch('/api/files/multipart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'init',
+          filename: file.name,
+          size: file.size,
+          contentType: file.type || 'application/octet-stream',
+          slug: meta.slug,
+          password: meta.password,
+          expires: meta.expires
+        })
+      })
+      var init = await initRes.json()
+      if (!initRes.ok) throw new Error(init.error || '初始化分片失败')
+
+      var total = Math.ceil(file.size / init.chunkSize)
+      var parts = []
+      try {
+        for (var i = 0; i < total; i++) {
+          var start = i * init.chunkSize
+          var blob = file.slice(start, Math.min(start + init.chunkSize, file.size))
+          var r = await fetch('/api/files/multipart?key=' + encodeURIComponent(init.key) +
+            '&uploadId=' + encodeURIComponent(init.uploadId) + '&part=' + (i + 1), { method: 'PUT', body: blob })
+          var d = await r.json()
+          if (!r.ok) throw new Error(d.error || ('第 ' + (i + 1) + ' 片上传失败'))
+          parts.push({ PartNumber: i + 1, ETag: d.etag })
+          setProgress(Math.round((i + 1) / total * 95), '上传中 ' + (i + 1) + '/' + total + ' 片')
+        }
+        setProgress(96, '合并中...')
+        var finRes = await fetch('/api/files/multipart', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'complete', key: init.key, uploadId: init.uploadId, parts: parts,
+            filename: file.name, size: file.size,
+            contentType: file.type || 'application/octet-stream',
+            slug: init.slug, password: meta.password, expires: meta.expires
+          })
+        })
+        var fin = await finRes.json()
+        if (!finRes.ok) throw new Error(fin.error || '合并分片失败')
+        return fin
+      } catch (e) {
+        // 失败必须 abort，否则 R2 上残留的未完成分片会一直占空间
+        try {
+          await fetch('/api/files/multipart', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'abort', key: init.key, uploadId: init.uploadId })
+          })
+        } catch (_) {}
+        throw e
+      }
     }
 
     // Click handlers
