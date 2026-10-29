@@ -5,8 +5,20 @@ import {
   CompleteMultipartUploadCommand,
   AbortMultipartUploadCommand,
 } from '@aws-sdk/client-s3'
+import { DOMParser as XmlDOMParser } from '@xmldom/xmldom'
 import { createAdminClient } from '../../../lib/supabase-admin'
 import { isAdminRequest } from '../../../lib/admin-auth'
+
+/**
+ * ⚠️ Cloudflare Workers 没有 DOMParser，而 @aws-sdk/client-s3 检测到 `fetch` 存在时
+ * 会把运行环境判定为「浏览器」，用 DOMParser 解析 S3 的 XML 响应。
+ * CreateMultipartUpload 必须从响应 XML 里取 UploadId，缺了会直接抛
+ * `DOMParser is not defined`（实测 500）。原来的 PutObject 不解析响应体，所以一直没暴露。
+ * 这里在模块加载时注入 polyfill，早于任何 handler 调用。
+ */
+if (typeof (globalThis as any).DOMParser === 'undefined') {
+  (globalThis as any).DOMParser = XmlDOMParser
+}
 
 /**
  * 大文件分片上传（S3 Multipart Upload）。
