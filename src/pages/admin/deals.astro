@@ -3,6 +3,7 @@ import '../../styles/admin.css'
 import Layout from '../../layouts/Layout.astro'
 import Sidebar from '../../components/Sidebar.astro'
 import { supabase } from '../../lib/supabase'
+import { catLabel } from '../../lib/deal-categories'
 
 const runtimeEnv = (Astro.locals as any)?.runtime?.env
 const ADMIN_PASSWORD = runtimeEnv?.ADMIN_PASSWORD || import.meta.env.ADMIN_PASSWORD
@@ -43,7 +44,7 @@ const rows = (deals || []).map((d: any) => {
       <div class="filter-bar">
         <select id="filter-cat" class="input filter-select">
           <option value="">全部分类</option>
-          {categories.map(c => <option value={c}>{c}</option>)}
+          {categories.map(c => <option value={c}>{catLabel(c)}</option>)}
         </select>
         <select id="filter-status" class="input filter-select">
           <option value="">全部状态</option>
@@ -55,6 +56,15 @@ const rows = (deals || []).map((d: any) => {
 
       <div class="deals-table glass-card">
         <table class="table">
+          <colgroup>
+            <col class="c-provider" />
+            <col class="c-product" />
+            <col class="c-price" />
+            <col class="c-config" />
+            <col class="c-cat" />
+            <col class="c-status" />
+            <col class="c-ops" />
+          </colgroup>
           <thead>
             <tr>
               <th>厂商</th>
@@ -69,18 +79,18 @@ const rows = (deals || []).map((d: any) => {
           <tbody id="deals-body">
             {rows.map(deal => (
               <tr data-id={deal.id} data-cat={deal.category} data-active={deal.is_active ? '1' : '0'}>
-                <td class="col-provider">{deal.provider}</td>
+                <td class="col-provider"><span title={deal.provider}>{deal.provider}</span></td>
                 <td class="col-product">
                   <span class="ellipsis" title={deal.product}>
                     {deal.url ? <a href={deal.url} target="_blank" rel="noopener">{deal.product}</a> : deal.product}
                   </span>
                 </td>
                 <td class="col-price">
-                  <span class="price-main">{deal._priceMain}</span>
+                  <span class="ellipsis price-main">{deal._priceMain}</span>
                   {deal._priceCny && <span class="price-cny">{deal._priceCny}</span>}
                 </td>
                 <td class="col-config"><span class="ellipsis" title={deal.config || ''}>{deal.config || '-'}</span></td>
-                <td><span class="badge">{deal.category}</span></td>
+                <td><span class="badge">{catLabel(deal.category)}</span></td>
                 <td>
                   <button class={`toggle-btn ${deal.is_active ? 'on' : 'off'}`} data-id={deal.id} data-active={deal.is_active ? '1' : '0'}>
                     <span class="dot"></span>{deal.is_active ? '启用' : '禁用'}
@@ -184,26 +194,41 @@ const rows = (deals || []).map((d: any) => {
   .filter-count { font-size: 0.75rem; color: var(--text-muted); margin-left: auto; }
 
   .deals-table { overflow-x: auto; }
-  .table { width: 100%; min-width: 900px; border-collapse: collapse; font-size: 0.8125rem; }
-  .table th { text-align: left; padding: 0.75rem 1rem; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); white-space: nowrap; }
-  .table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  /* 固定表格布局 + colgroup 定宽：列宽不再随内容互相挤压，长文本一律省略号 */
+  .table { width: 100%; min-width: 840px; table-layout: fixed; border-collapse: collapse; font-size: 0.8125rem; }
+  .c-provider { width: 92px; }
+  .c-product { width: 21%; }
+  .c-price { width: 118px; }
+  .c-config { width: 27%; }
+  .c-cat { width: 92px; }
+  .c-status { width: 84px; }
+  .c-ops { width: 58px; }
+
+  .table th { text-align: left; padding: 0.75rem; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .table td { padding: 0.75rem; border-bottom: 1px solid var(--border); vertical-align: middle; overflow: hidden; }
   .table tr:last-child td { border-bottom: none; }
   .table tbody tr:hover td { background: var(--surface-hover); }
 
-  .col-provider { font-weight: 600; color: var(--text); white-space: nowrap; }
-  .col-product { min-width: 180px; }
+  .col-provider { font-weight: 600; color: var(--text); }
+  .col-provider span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .col-product a { color: var(--primary); text-decoration: none; }
   .col-product a:hover { text-decoration: underline; }
-  .col-price { font-weight: 600; color: var(--green); white-space: nowrap; }
-  .price-main { display: block; }
-  .price-cny { display: block; font-size: 0.6875rem; font-weight: 400; color: var(--text-muted); }
+  .col-price { font-weight: 600; color: var(--green); }
+  .price-main { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .price-cny { display: block; font-size: 0.6875rem; font-weight: 400; color: var(--text-muted); white-space: nowrap; }
 
   /* 长文本单行截断，避免把整张表挤变形 */
   .ellipsis {
-    display: block; max-width: 240px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    display: block; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
   }
-  .col-config .ellipsis { max-width: 200px; color: var(--text-muted); }
+  .col-config .ellipsis { color: var(--text-muted); }
+
+  .table .badge {
+    display: inline-block; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    vertical-align: middle;
+  }
 
   .toggle-btn {
     display: inline-flex; align-items: center; gap: 0.375rem;
