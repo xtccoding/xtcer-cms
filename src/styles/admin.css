@@ -133,13 +133,42 @@
 
 select.input {
   appearance: none;
-  padding-right: 1.75rem;
-  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
-                    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
-  background-position: calc(100% - 14px) 52%, calc(100% - 9px) 52%;
-  background-size: 5px 5px, 5px 5px;
-  background-repeat: no-repeat;
+  -webkit-appearance: none;
+  height: 2.125rem;
+  padding: 0 2.25rem 0 0.75rem;
+  line-height: 1.2;
   cursor: pointer;
+  /* 自绘 chevron：内联 SVG，颜色跟随 --text-secondary，避免各浏览器原生箭头样式不一 */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a1a1a6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 12px 12px;
+}
+
+:root.light select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236e6e73' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+
+select.input:hover {
+  border-color: var(--glass-border-hover);
+  background-color: var(--surface-hover);
+}
+
+/* 下拉面板本身由浏览器绘制，color-scheme 已让其转暗；这里再兜一层底色 */
+select.input option {
+  background-color: #1c1c1e;
+  color: #f5f5f7;
+  padding: 0.375rem 0.5rem;
+}
+
+:root.light select.input option {
+  background-color: #fff;
+  color: #1d1d1f;
+}
+
+select.input option:checked {
+  background-color: color-mix(in srgb, var(--primary) 22%, #1c1c1e);
+  color: #fff;
 }
 
 .form-group {
@@ -159,6 +188,15 @@ select.input {
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--text-muted);
+}
+
+/* 复选框统一用主题色，避免原生蓝/灰方块 */
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--primary);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
 }
 
 /* ---------------------------------------------------------------- 标记 */

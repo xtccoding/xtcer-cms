@@ -756,49 +756,49 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
   .date-dropdown input:focus { border-color: var(--primary); }
 
   .tags-row { display: flex; flex-wrap: wrap; gap: 0.375rem; align-items: center; }
-  .tags-label { font-size: 0.6875rem; color: var(--text-muted); margin-right: 0.25rem; }
-  .tag-btn {
+  :global(.tags-label) { font-size: 0.6875rem; color: var(--text-muted); margin-right: 0.25rem; }
+  :global(.tag-btn) {
     padding: 0.1875rem 0.625rem; border-radius: 999px; border: 1px solid var(--glass-border);
     background: rgba(255,255,255,0.03); color: var(--text-muted); font-size: 0.6875rem;
     cursor: pointer; transition: all 0.15s;
   }
-  .tag-btn:hover { color: var(--text); border-color: var(--glass-border-hover); background: var(--surface-hover); }
-  .tag-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+  :global(.tag-btn:hover) { color: var(--text); border-color: var(--glass-border-hover); background: var(--surface-hover); }
+  :global(.tag-btn.active) { background: var(--primary); color: white; border-color: var(--primary); }
 
-  .img-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem; }
-  .img-tag {
+  :global(.img-tags) { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem; }
+  :global(.img-tag) {
     padding: 0.0625rem 0.375rem; border-radius: 999px; cursor: pointer;
     font-size: 0.5625rem; background: rgba(41,151,255,0.08); color: var(--primary);
     border: 1px solid rgba(41,151,255,0.12); transition: all 0.15s;
   }
-  .img-tag:hover { background: rgba(41,151,255,0.15); }
+  :global(.img-tag:hover) { background: rgba(41,151,255,0.15); }
 
   .tag-edit-list { display: flex; flex-wrap: wrap; gap: 0.375rem; min-height: 2rem; }
-  .edit-tag {
+  :global(.edit-tag) {
     display: inline-flex; align-items: center; gap: 0.375rem;
     padding: 0.25rem 0.5rem; border-radius: 999px;
     font-size: 0.75rem; background: rgba(41,151,255,0.1); color: var(--primary);
     border: 1px solid rgba(41,151,255,0.2);
   }
-  .edit-tag-remove {
+  :global(.edit-tag-remove) {
     background: none; border: none; color: var(--text-muted); cursor: pointer;
     font-size: 0.875rem; padding: 0; line-height: 1;
   }
-  .edit-tag-remove:hover { color: var(--red); }
+  :global(.edit-tag-remove:hover) { color: var(--red); }
 
   .gallery-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 0.5rem;
   }
-  .gallery-item { border-radius: var(--radius-sm); overflow: hidden; }
-  .gallery-item:hover .gallery-img-overlay { opacity: 1 !important; }
+  :global(.gallery-item) { border-radius: var(--radius-sm); overflow: hidden; }
+  :global(.gallery-item:hover .gallery-img-overlay) { opacity: 1 !important; }
 
-  .empty-state { text-align: center; padding: 3rem; color: var(--text-muted); }
+  :global(.empty-state) { text-align: center; padding: 3rem; color: var(--text-muted); }
 
   .gallery-pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border); }
-  .page-info { font-size: 0.75rem; color: var(--text-muted); }
-  .page-btns { display: flex; gap: 0.375rem; }
+  :global(.page-info) { font-size: 0.75rem; color: var(--text-muted); }
+  :global(.page-btns) { display: flex; gap: 0.375rem; }
 
   .lightbox {
     position: fixed; inset: 0; z-index: 2000;
@@ -860,5 +860,4 @@ if (!gallerySlug || slug !== gallerySlug) return Astro.redirect('/admin')
     .lightbox-nav { width: 36px; height: 36px; }
     .lightbox-prev { left: 0.5rem; }
     .lightbox-next { right: 0.5rem; }
-  }
-</style>
+  }</style>
