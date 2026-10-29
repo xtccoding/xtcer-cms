@@ -12,6 +12,21 @@ if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
 
 const { data: deals } = await supabase.from('deals').select('*').order('created_at', { ascending: false })
 const categories = [...new Set(deals?.map(d => d.category) || [])]
+
+// price 字段本身经常已经带了「¥33.75/首年」这种完整文案，
+// 再叠加 price_cny 就会显示成「¥33.75/首年 ¥33.75」。这里做一次去重。
+const rows = (deals || []).map((d: any) => {
+  const priceText = String(d.price ?? '').trim()
+  const cnyNum = d.price_cny
+  const cnyText = cnyNum === null || cnyNum === undefined || cnyNum === '' ? '' : `¥${cnyNum}`
+  const alreadyHasCny =
+    !!cnyText && (priceText.includes('¥') || priceText.includes(String(cnyNum)))
+  return {
+    ...d,
+    _priceMain: priceText || cnyText || '—',
+    _priceCny: alreadyHasCny ? '' : cnyText,
+  }
+})
 ---
 
 <Layout title="优惠管理 - XTCer">
@@ -52,21 +67,23 @@ const categories = [...new Set(deals?.map(d => d.category) || [])]
             </tr>
           </thead>
           <tbody id="deals-body">
-            {deals && deals.map(deal => (
+            {rows.map(deal => (
               <tr data-id={deal.id} data-cat={deal.category} data-active={deal.is_active ? '1' : '0'}>
                 <td class="col-provider">{deal.provider}</td>
                 <td class="col-product">
-                  {deal.url ? <a href={deal.url} target="_blank" rel="noopener">{deal.product}</a> : deal.product}
+                  <span class="ellipsis" title={deal.product}>
+                    {deal.url ? <a href={deal.url} target="_blank" rel="noopener">{deal.product}</a> : deal.product}
+                  </span>
                 </td>
                 <td class="col-price">
-                  <span class="price-main">{deal.price}</span>
-                  {deal.price_cny && <span class="price-cny">¥{deal.price_cny}</span>}
+                  <span class="price-main">{deal._priceMain}</span>
+                  {deal._priceCny && <span class="price-cny">{deal._priceCny}</span>}
                 </td>
-                <td class="col-config">{deal.config || '-'}</td>
+                <td class="col-config"><span class="ellipsis" title={deal.config || ''}>{deal.config || '-'}</span></td>
                 <td><span class="badge">{deal.category}</span></td>
                 <td>
-                  <button class={`toggle-btn ${deal.is_active ? 'on' : 'off'}`} data-id={deal.id} data-active={deal.is_active}>
-                    {deal.is_active ? '启用' : '禁用'}
+                  <button class={`toggle-btn ${deal.is_active ? 'on' : 'off'}`} data-id={deal.id} data-active={deal.is_active ? '1' : '0'}>
+                    <span class="dot"></span>{deal.is_active ? '启用' : '禁用'}
                   </button>
                 </td>
                 <td>
@@ -117,7 +134,7 @@ const categories = [...new Set(deals?.map(d => d.category) || [])]
       document.getElementById('filter-count')!.textContent = count + ' 条'
     }
 
-    document.querySelectorAll('.toggle-active').forEach(btn => {
+    document.querySelectorAll('.toggle-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = (btn as HTMLElement).dataset.id
         const active = (btn as HTMLElement).dataset.active === '1'
@@ -167,22 +184,39 @@ const categories = [...new Set(deals?.map(d => d.category) || [])]
   .filter-count { font-size: 0.75rem; color: var(--text-muted); margin-left: auto; }
 
   .deals-table { overflow-x: auto; }
-  .table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
-  .table th { text-align: left; padding: 0.75rem 1rem; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
+  .table { width: 100%; min-width: 900px; border-collapse: collapse; font-size: 0.8125rem; }
+  .table th { text-align: left; padding: 0.75rem 1rem; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); white-space: nowrap; }
   .table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
   .table tr:last-child td { border-bottom: none; }
-  .col-provider { font-weight: 600; color: var(--text); white-space: nowrap; }
-  .col-product { max-width: 200px; }
-  .col-product a { color: var(--primary); }
-  .col-price { font-weight: 600; color: var(--green); white-space: nowrap; }
+  .table tbody tr:hover td { background: var(--surface-hover); }
 
-  .toggle-active {
-    display: inline-flex; align-items: center; gap: 0.375rem;
-    padding: 0.25rem 0.625rem; border-radius: 999px; border: none; cursor: pointer;
-    font-size: 0.6875rem; font-weight: 500; transition: all 0.15s;
+  .col-provider { font-weight: 600; color: var(--text); white-space: nowrap; }
+  .col-product { min-width: 180px; }
+  .col-product a { color: var(--primary); text-decoration: none; }
+  .col-product a:hover { text-decoration: underline; }
+  .col-price { font-weight: 600; color: var(--green); white-space: nowrap; }
+  .price-main { display: block; }
+  .price-cny { display: block; font-size: 0.6875rem; font-weight: 400; color: var(--text-muted); }
+
+  /* 长文本单行截断，避免把整张表挤变形 */
+  .ellipsis {
+    display: block; max-width: 240px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .toggle-active.on { background: rgba(48,209,88,0.12); color: var(--green); }
-  .toggle-active.off { background: rgba(255,69,58,0.1); color: var(--red); }
+  .col-config .ellipsis { max-width: 200px; color: var(--text-muted); }
+
+  .toggle-btn {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    padding: 0.3125rem 0.625rem; border-radius: 999px; border: 1px solid transparent;
+    cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    font-size: 0.6875rem; font-weight: 500; line-height: 1;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .toggle-btn .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .toggle-btn.on { background: rgba(48, 209, 88, 0.12); border-color: rgba(48, 209, 88, 0.28); color: var(--green); }
+  .toggle-btn.on:hover { background: rgba(48, 209, 88, 0.2); }
+  .toggle-btn.off { background: rgba(255, 69, 58, 0.1); border-color: rgba(255, 69, 58, 0.26); color: var(--red); }
+  .toggle-btn.off:hover { background: rgba(255, 69, 58, 0.18); }
 
   .empty { text-align: center; padding: 3rem; }
   .empty p { color: var(--text-muted); }
