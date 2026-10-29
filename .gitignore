@@ -37,3 +37,10 @@ tmpwork/
 
 # 数据备份（含访客 IP 等隐私数据，绝不入库）
 backups/
+
+# agent 工作区数据（会话记忆/自动化状态，属本机私有，绝不入库）
+.workbuddy-ai/
+
+# 抓取缓存与临时产物（内容随时可重新生成）
+drafts/_feeds_*.json
+.shots_deals_all.json
