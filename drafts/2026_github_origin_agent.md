@@ -1,3 +1,9 @@
+---
+title: "GitHub 宕机 7 小时背后：Agent 时代的代码托管之争，Cursor Origin 想颠覆什么"
+summary: "GitHub 一次 7 小时宕机暴露了代码世界的单点脆弱。Agent 时代，代码托管正在从'存代码'转向'跑 Agent'，Cursor Origin 想用本地优先 + AI 原生重新定义它。"
+tags: ["github", "devtool", "agent", "industry", "reliability"]
+---
+
 # GitHub 宕机 7 小时背后：Agent 时代的代码托管之争，Cursor Origin 想颠覆什么
 
 ## 一次暴露单点风险的宕机

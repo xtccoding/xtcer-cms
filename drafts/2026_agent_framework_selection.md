@@ -1,3 +1,9 @@
+---
+title: "AI Agent 框架选型实战 2026：LangGraph、CrewAI、OpenAI Agents SDK 怎么选"
+summary: "LangGraph、CrewAI、OpenAI Agents SDK 在架构层面互相反对，选错等于让团队重写一遍。用一个真实调研类 Agent 做贯穿案例，给出按故障模式选型的决策矩阵。"
+tags: ["ai", "agent", "framework", "devtool", "architecture"]
+---
+
 # AI Agent 框架选型实战 2026：LangGraph、CrewAI、OpenAI Agents SDK 怎么选
 
 ## 为什么 2026 年还要纠结框架

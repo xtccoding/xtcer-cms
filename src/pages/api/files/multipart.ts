@@ -1,48 +1,27 @@
-import {
-  S3Client,
-  CreateMultipartUploadCommand,
-  UploadPartCommand,
-  CompleteMultipartUploadCommand,
-  AbortMultipartUploadCommand,
-} from '@aws-sdk/client-s3'
-import { DOMParser as XmlDOMParser } from '@xmldom/xmldom'
+import { AwsClient } from 'aws4fetch'
 import { createAdminClient } from '../../../lib/supabase-admin'
 import { isAdminRequest } from '../../../lib/admin-auth'
 
 /**
- * ⚠️ Cloudflare Workers 没有 DOMParser，而 @aws-sdk/client-s3 检测到 `fetch` 存在时
- * 会把运行环境判定为「浏览器」，用 DOMParser 解析 S3 的 XML 响应。
- * CreateMultipartUpload 必须从响应 XML 里取 UploadId，缺了会直接抛
- * `DOMParser is not defined`（实测 500）。原来的 PutObject 不解析响应体，所以一直没暴露。
- * 这里在模块加载时注入 polyfill，早于任何 handler 调用。
- */
-if (typeof (globalThis as any).DOMParser === 'undefined') {
-  (globalThis as any).DOMParser = XmlDOMParser
-}
-
-/**
- * 大文件分片上传（S3 Multipart Upload）。
+ * 大文件分片上传（R2 / S3 Multipart Upload）。
  *
- * 背景：原实现把整个文件塞进 Worker —— `request.formData()` 缓冲一份、
- * `file.arrayBuffer()` 再一份、SHA-256 与 S3 签名各持有一份，
- * 50MB 左右就撞上 Cloudflare Workers 的 **128MB 内存上限**，
- * 返回 `error code: 1102` / HTTP 503（实测 30MB 过、50MB 挂）。
+ * 为什么不用 @aws-sdk/client-s3：Worker 里整个文件读进内存会撞 128MB 上限
+ * （实测 30MB 通过、50MB 起 `error code: 1102` / HTTP 503）。
  *
- * 分片后每次请求只处理 CHUNK（8MB），Worker 内存占用恒定在 ~30MB，
- * 与文件总大小无关，上限只受 R2 单对象（5TB）和片数（10000）约束。
+ * 为什么不用 SDK 的 Multipart 命令：SDK 检测到 `fetch` 存在就把环境当浏览器，
+ * 用 `DOMParser` 解析 S3 的 XML 响应；Workers 没有 DOMParser，补了之后又缺
+ * `Node` 常量 —— 在 Workers 上给 SDK 补 DOM 是个无底洞。改用 aws4fetch 只做
+ * SigV4 签名、拿原生 Response，UploadId 用正则从 XML 里取，零 DOM 依赖。
  *
  * 协议（三步，全部要求后台登录态）：
- *   POST  {action:'init', filename, size, contentType, slug, password, expires}
- *         -> { key, uploadId, slug, chunkSize }
- *   PUT   ?key=&uploadId=&part=N   (body = 二进制片)
- *         -> { etag }
- *   POST  {action:'complete', key, uploadId, parts:[{PartNumber,ETag}], ...meta}
- *         -> files 表记录
- *   POST  {action:'abort', key, uploadId}   // 失败时清理，避免残留分片
+ *   POST {action:'init', ...}                 -> { key, uploadId, slug, chunkSize }
+ *   PUT  ?key=&uploadId=&part=N  (二进制片)    -> { etag }
+ *   POST {action:'complete', ...}             -> files 表记录
+ *   POST {action:'abort', key, uploadId}      -> 失败时清理未完成分片
  */
 
 const CHUNK_SIZE = 8 * 1024 * 1024 // 8MB，S3 要求除最后一片外 ≥5MB
-const MAX_SIZE = 500 * 1024 * 1024 // 500MB
+const MAX_SIZE = 500 * 1024 * 1024
 // key 只允许本端点生成的形态，避免调用方伪造 key 覆盖/删除其它对象
 const KEY_RE = /^files\/[a-z0-9]{8,40}\.[a-z0-9]{1,12}$/i
 
@@ -68,12 +47,33 @@ function r2Config(locals: any) {
   const bucket = env.R2_BUCKET_NAME || import.meta.env.R2_BUCKET_NAME || 'xtcer-assets'
   const publicUrl = env.R2_PUBLIC_URL || import.meta.env.R2_PUBLIC_URL || 'https://oss.xtcer.cn'
   if (!accountId || !accessKeyId || !secretAccessKey) return null
-  const s3 = new S3Client({
+
+  const client = new AwsClient({
+    accessKeyId,
+    secretAccessKey,
+    service: 's3',
     region: 'auto',
-    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-    credentials: { accessKeyId, secretAccessKey },
   })
-  return { s3, bucket, publicUrl }
+  const endpoint = `https://${accountId}.r2.cloudflarestorage.com/${bucket}`
+  return { client, endpoint, bucket, publicUrl }
+}
+
+/** key 里的 `/` 要保留，其余段按需编码 */
+function objectUrl(endpoint: string, key: string, query = ''): string {
+  const path = key.split('/').map(encodeURIComponent).join('/')
+  return `${endpoint}/${path}${query}`
+}
+
+function xmlTag(xml: string, tag: string): string | null {
+  const m = xml.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`))
+  return m ? m[1].trim() : null
+}
+
+/** RFC 5987 编码文件名，避免中文直接塞进头里触发 ByteString 错误 */
+function contentDisposition(filename: string): string {
+  const ascii = filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\\r\n]/g, '_')
+  const encoded = encodeURIComponent(filename)
+  return `inline; filename="${ascii}"; filename*=UTF-8''${encoded}`
 }
 
 export async function POST({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
@@ -107,21 +107,25 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
       const { data: existing } = await supabase.from('files').select('id').eq('share_slug', slug).limit(1)
       if (existing && existing.length > 0) return json({ error: 'Slug already exists, choose another' }, 409)
 
-      const ext = (filename.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12) || 'bin'
+      const ext =
+        (filename.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12) || 'bin'
       const key = `files/${Date.now().toString(36)}${randomSlug(8)}.${ext}`
 
-      const created = await cfg.s3.send(
-        new CreateMultipartUploadCommand({
-          Bucket: cfg.bucket,
-          Key: key,
-          ContentType: contentType,
-          CacheControl: 'public, max-age=31536000',
-          ContentDisposition: `inline; filename="${filename.replace(/["\\\r\n]/g, '_')}"`,
-        })
-      )
-      if (!created.UploadId) return json({ error: 'Failed to create multipart upload' }, 500)
+      const res = await cfg.client.fetch(objectUrl(cfg.endpoint, key, '?uploads'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=31536000',
+          'Content-Disposition': contentDisposition(filename),
+        },
+      })
+      const xml = await res.text()
+      if (!res.ok) return json({ error: `Init failed: ${res.status} ${xml.slice(0, 200)}` }, 500)
 
-      return json({ key, uploadId: created.UploadId, slug, chunkSize: CHUNK_SIZE })
+      const uploadId = xmlTag(xml, 'UploadId')
+      if (!uploadId) return json({ error: `No UploadId in response: ${xml.slice(0, 200)}` }, 500)
+
+      return json({ key, uploadId, slug, chunkSize: CHUNK_SIZE })
     }
 
     if (action === 'complete') {
@@ -132,18 +136,22 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
       if (!uploadId) return json({ error: 'Missing uploadId' }, 400)
       if (parts.length === 0) return json({ error: 'Missing parts' }, 400)
 
-      await cfg.s3.send(
-        new CompleteMultipartUploadCommand({
-          Bucket: cfg.bucket,
-          Key: key,
-          UploadId: uploadId,
-          MultipartUpload: {
-            Parts: parts
-              .map((p: any) => ({ PartNumber: Number(p.PartNumber), ETag: String(p.ETag || '') }))
-              .sort((a: any, b: any) => a.PartNumber - b.PartNumber),
-          },
-        })
+      const partsXml = parts
+        .map((p: any) => ({ PartNumber: Number(p.PartNumber), ETag: String(p.ETag || '') }))
+        .sort((a: any, b: any) => a.PartNumber - b.PartNumber)
+        .map((p: any) => `<Part><PartNumber>${p.PartNumber}</PartNumber><ETag>${p.ETag}</ETag></Part>`)
+        .join('')
+
+      const res = await cfg.client.fetch(
+        objectUrl(cfg.endpoint, key, `?uploadId=${encodeURIComponent(uploadId)}`),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/xml' },
+          body: `<CompleteMultipartUpload>${partsXml}</CompleteMultipartUpload>`,
+        }
       )
+      const xml = await res.text()
+      if (!res.ok) return json({ error: `Complete failed: ${res.status} ${xml.slice(0, 200)}` }, 500)
 
       const filename = String(body.filename || '').trim()
       const size = Number(body.size || 0)
@@ -177,9 +185,11 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
       const key = String(body.key || '')
       const uploadId = String(body.uploadId || '')
       if (!KEY_RE.test(key) || !uploadId) return json({ error: 'Invalid key or uploadId' }, 400)
-      await cfg.s3.send(
-        new AbortMultipartUploadCommand({ Bucket: cfg.bucket, Key: key, UploadId: uploadId })
+      const res = await cfg.client.fetch(
+        objectUrl(cfg.endpoint, key, `?uploadId=${encodeURIComponent(uploadId)}`),
+        { method: 'DELETE' }
       )
+      if (!res.ok && res.status !== 404) return json({ error: `Abort failed: ${res.status}` }, 500)
       return json({ success: true })
     }
 
@@ -204,22 +214,20 @@ export async function PUT({ request, cookies, locals, url }: { request: Request;
   if (!(part >= 1 && part <= 10000)) return json({ error: 'Invalid part number' }, 400)
 
   try {
-    // 单片 8MB：Worker 内存占用恒定，不受文件总大小影响
+    // 单片 8MB：Worker 内存占用恒定，与文件总大小无关
     const buf = new Uint8Array(await request.arrayBuffer())
     if (buf.byteLength === 0) return json({ error: 'Empty part' }, 400)
 
-    const res = await cfg.s3.send(
-      new UploadPartCommand({
-        Bucket: cfg.bucket,
-        Key: key,
-        UploadId: uploadId,
-        PartNumber: part,
-        Body: buf,
-        ContentLength: buf.byteLength,
-      })
+    const res = await cfg.client.fetch(
+      objectUrl(cfg.endpoint, key, `?partNumber=${part}&uploadId=${encodeURIComponent(uploadId)}`),
+      { method: 'PUT', body: buf, headers: { 'Content-Type': 'application/octet-stream' } }
     )
-
-    return json({ etag: res.ETag, part })
+    if (!res.ok) {
+      const text = await res.text()
+      return json({ error: `Part ${part} failed: ${res.status} ${text.slice(0, 200)}` }, 500)
+    }
+    // 响应体为空，ETag 只在头里；CompleteMultipartUpload 需要带引号的原样值
+    return json({ etag: res.headers.get('ETag'), part })
   } catch (err: any) {
     return json({ error: err?.message || 'Part upload failed' }, 500)
   }
