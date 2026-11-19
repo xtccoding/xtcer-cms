@@ -1,0 +1,181 @@
+---
+/**
+ * 登录 / 注册共用的表单面板。
+ *
+ * 两种模式只有接口地址和文案不同，逻辑完全一致：
+ * 前端只做「空值 / 长度」的即时提示，真正的校验与限流全在服务端。
+ * 用户输入只通过 textContent 回显，绝不使用 innerHTML。
+ */
+interface Props {
+  mode: 'login' | 'register'
+  /** 登录成功后的跳转地址，只接受站内绝对路径（服务端已校验）。 */
+  next: string
+}
+
+const { mode, next } = Astro.props
+const isLogin = mode === 'login'
+const otherHref = (isLogin ? '/register' : '/login') + `?next=${encodeURIComponent(next)}`
+---
+
+<div class="auth-card glass-card">
+  <div class="auth-head">
+    <h1>{isLogin ? '欢迎回来' : '加入 XTcer'}</h1>
+    <p>{isLogin ? '登录后可以签到领积分、收藏福利' : '注册一个账号，开始每日开蛋'}</p>
+  </div>
+
+  <form id="auth-form" data-mode={mode} data-next={next} novalidate>
+    <label class="auth-field">
+      <span>用户名</span>
+      <input
+        name="username"
+        type="text"
+        inputmode="text"
+        autocomplete="username"
+        maxlength="20"
+        required
+        placeholder={isLogin ? '你的用户名' : '2–20 位，中英文 / 数字 / 下划线'}
+      />
+    </label>
+
+    <label class="auth-field">
+      <span>密码</span>
+      <input
+        name="password"
+        type="password"
+        autocomplete={isLogin ? 'current-password' : 'new-password'}
+        maxlength="72"
+        required
+        placeholder={isLogin ? '输入密码' : '至少 8 位，最多 72 位'}
+      />
+    </label>
+
+    <p class="auth-error" id="auth-error" role="alert" aria-live="polite"></p>
+
+    <button type="submit" class="auth-submit" id="auth-submit">
+      {isLogin ? '登录' : '注册并登录'}
+    </button>
+  </form>
+
+  <p class="auth-alt">
+    {isLogin ? '还没有账号？' : '已经有账号了？'}
+    <a href={otherHref}>{isLogin ? '立即注册' : '去登录'}</a>
+  </p>
+
+  <p class="auth-note">
+    只用用户名 + 密码，不需要邮箱或手机；密码仅保存不可逆摘要。
+  </p>
+</div>
+
+<script>
+  const form = document.getElementById('auth-form') as HTMLFormElement | null
+  const errorEl = document.getElementById('auth-error')
+  const submitBtn = document.getElementById('auth-submit') as HTMLButtonElement | null
+
+  function setError(message: string) {
+    if (errorEl) errorEl.textContent = message
+  }
+
+  function safeNext(raw: string | undefined): string {
+    // 只允许站内路径，挡掉 //evil.com 这种协议相对跳转
+    if (!raw || !raw.startsWith('/') || raw.startsWith('//')) return '/account'
+    return raw
+  }
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault()
+    setError('')
+
+    const data = new FormData(form)
+    const username = String(data.get('username') || '').trim()
+    const password = String(data.get('password') || '')
+    const mode = form.dataset.mode === 'register' ? 'register' : 'login'
+
+    if (username.length < 2) return setError('用户名至少 2 位')
+    if (password.length < 8) return setError('密码至少 8 位')
+
+    if (submitBtn) submitBtn.disabled = true
+    try {
+      const res = await fetch(`/api/auth/${mode}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(typeof body?.error === 'string' ? body.error : '操作失败，请稍后再试')
+        if (submitBtn) submitBtn.disabled = false
+        return
+      }
+      location.href = safeNext(form.dataset.next)
+    } catch {
+      setError('网络异常，请稍后再试')
+      if (submitBtn) submitBtn.disabled = false
+    }
+  })
+</script>
+
+<style>
+  .auth-card {
+    width: 100%;
+    max-width: 400px;
+    margin: 3rem auto;
+    padding: 2rem 1.75rem;
+  }
+  .auth-head h1 { font-size: 1.5rem; margin: 0 0 0.375rem; }
+  .auth-head p { font-size: 0.8125rem; color: var(--text-muted); margin: 0 0 1.5rem; }
+
+  .auth-field { display: block; margin-bottom: 1rem; }
+  .auth-field span { display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.375rem; }
+  .auth-field input {
+    width: 100%;
+    padding: 0.7rem 0.85rem;
+    font-size: 0.9375rem;
+    color: var(--text);
+    background: color-mix(in srgb, var(--surface) 70%, transparent);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .auth-field input:focus { border-color: var(--primary); }
+  .auth-field input::placeholder { color: var(--text-muted); opacity: 0.7; }
+
+  .auth-error {
+    min-height: 1.25rem;
+    margin: 0 0 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--red, #ff453a);
+  }
+
+  .auth-submit {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #fff;
+    background: var(--primary);
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: opacity 0.15s, background 0.15s;
+  }
+  .auth-submit:hover { background: var(--primary-hover, var(--primary)); }
+  .auth-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .auth-alt { margin: 1.25rem 0 0; font-size: 0.8125rem; color: var(--text-muted); text-align: center; }
+  .auth-alt a { color: var(--primary); }
+  .auth-note { margin: 1rem 0 0; font-size: 0.6875rem; color: var(--text-muted); text-align: center; opacity: 0.8; }
+
+  /* 小屏：减少上下留白，输入框保持 16px 以上以避免 iOS 聚焦自动放大 */
+  @media (max-width: 480px) {
+    .auth-card {
+      margin: 1.25rem auto;
+      padding: 1.4rem 1.15rem;
+      border-radius: var(--radius);
+    }
+    .auth-head h1 { font-size: 1.3rem; }
+    .auth-head p { margin-bottom: 1.15rem; }
+    .auth-field input,
+    .auth-submit { font-size: 1rem; }
+  }
+</style>

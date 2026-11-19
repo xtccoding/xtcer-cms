@@ -1,20 +1,16 @@
-import { supabase } from '../../../lib/supabase'
+import { deletePosts, existingPostIds } from '../../../lib/store'
 import { isAdminRequest } from '../../../lib/admin-auth'
-
-function isAuthenticated(cookies: any, env: any): boolean {
-  return isAdminRequest(cookies, env)
-}
 
 /**
  * POST /api/posts/batch-delete
  * Body: { ids: string[] }   (max 200 per request)
  * -> { success: true, deleted: number, requested: number, missing: string[] }
  *
- * 批量删除文章。单次最多 200 条，一条 SQL 完成（.in），
+ * 批量删除文章。单次最多 200 条，一条 SQL 完成（IN），
  * 避免逐篇 DELETE 的往返开销。
  */
 export async function POST({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
-  if (!isAuthenticated(cookies, locals?.runtime?.env)) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
@@ -37,38 +33,26 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
     return new Response(JSON.stringify({ error: 'ids 去重后为空' }), { status: 400 })
   }
 
-  // 先查出实际存在的，便于返回 missing
-  const { data: existing, error: queryError } = await supabase
-    .from('posts')
-    .select('id')
-    .in('id', cleanIds)
+  try {
+    // 先查出实际存在的，便于返回 missing
+    const existingIds = await existingPostIds(cleanIds)
+    const missing = cleanIds.filter((id) => !existingIds.includes(id))
 
-  if (queryError) {
-    return new Response(JSON.stringify({ error: queryError.message }), { status: 500 })
-  }
+    if (existingIds.length === 0) {
+      return new Response(JSON.stringify({
+        success: true, deleted: 0, requested: cleanIds.length, missing,
+      }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+    }
 
-  const existingIds = (existing || []).map((r: any) => r.id)
-  const missing = cleanIds.filter((id) => !existingIds.includes(id))
+    await deletePosts(existingIds)
 
-  if (existingIds.length === 0) {
     return new Response(JSON.stringify({
-      success: true, deleted: 0, requested: cleanIds.length, missing,
+      success: true,
+      deleted: existingIds.length,
+      requested: cleanIds.length,
+      missing,
     }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e?.message || '数据库错误' }), { status: 500 })
   }
-
-  const { error } = await supabase
-    .from('posts')
-    .delete()
-    .in('id', existingIds)
-
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  }
-
-  return new Response(JSON.stringify({
-    success: true,
-    deleted: existingIds.length,
-    requested: cleanIds.length,
-    missing,
-  }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }

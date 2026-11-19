@@ -1,60 +1,29 @@
-import { supabase } from '../../lib/supabase'
+import { deleteAsset, deleteAssetByKey, queryAssets, updateAsset } from '../../lib/store'
 import { isAdminRequest } from '../../lib/admin-auth'
 
-function isAuthenticated(cookies: any, env: any): boolean {
-  return isAdminRequest(cookies, env)
-}
-
 export async function GET({ cookies, request, locals, url }: { cookies: any; request: Request; locals: any; url: URL }) {
-  if (!isAuthenticated(cookies, locals?.runtime?.env)) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
   try {
     const page = parseInt(url.searchParams.get('page') || '1')
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200)
-    const offset = (page - 1) * limit
     const search = url.searchParams.get('q')?.trim()
     const tag = url.searchParams.get('tag')?.trim()
     const dateFrom = url.searchParams.get('from')
     const dateTo = url.searchParams.get('to')
 
-    let query = supabase.from('assets').select('*', { count: 'exact' })
-
-    // Search by filename or content_hash
-    if (search) {
-      query = query.or(`filename.ilike.%${search}%,content_hash.ilike.%${search}%`)
-    }
-
-    // Filter by tag
-    if (tag) {
-      query = query.contains('tags', [tag])
-    }
-
-    // Date range
-    if (dateFrom) query = query.gte('created_at', dateFrom)
-    if (dateTo) query = query.lte('created_at', dateTo + 'T23:59:59')
-
-    const { data: files, count, error } = await query
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
-
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message, code: error.code }), { status: 500 })
-    }
-
-    // Get all unique tags for filter UI
-    const { data: allAssets } = await supabase.from('assets').select('tags')
-    const allTags = [...new Set((allAssets || []).flatMap(a => a.tags || []))].sort()
-
-    const totalSize = (files || []).reduce((sum, f) => sum + (f.size || 0), 0)
+    const { files, total, allTags, totalSize } = await queryAssets({
+      page, limit, search, tag, dateFrom, dateTo,
+    })
 
     return new Response(JSON.stringify({
-      files: files || [],
-      total: count || 0,
+      files,
+      total,
       page,
       limit,
-      totalPages: Math.ceil((count || 0) / limit),
+      totalPages: Math.ceil(total / limit),
       totalSize,
       allTags,
     }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
@@ -64,7 +33,7 @@ export async function GET({ cookies, request, locals, url }: { cookies: any; req
 }
 
 export async function PUT({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
-  if (!isAuthenticated(cookies, locals?.runtime?.env)) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
@@ -77,14 +46,7 @@ export async function PUT({ request, cookies, locals }: { request: Request; cook
     if (tags !== undefined) updates.tags = tags
     if (filename !== undefined) updates.filename = filename
 
-    const { data, error } = await supabase
-      .from('assets')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single()
-
-    if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+    const data = await updateAsset(id, updates)
     return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500 })
@@ -92,7 +54,7 @@ export async function PUT({ request, cookies, locals }: { request: Request; cook
 }
 
 export async function DELETE({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
-  if (!isAuthenticated(cookies, locals?.runtime?.env)) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
@@ -118,9 +80,8 @@ export async function DELETE({ request, cookies, locals }: { request: Request; c
       await s3.send(new DeleteObjectCommand({ Bucket: bucketName, Key: key }))
     }
 
-    const query = supabase.from('assets').delete()
-    if (id) { await query.eq('id', id) }
-    else if (key) { await query.eq('key', key) }
+    if (id) await deleteAsset(id)
+    else if (key) await deleteAssetByKey(key)
 
     return new Response(JSON.stringify({ success: true }))
   } catch (err: any) {

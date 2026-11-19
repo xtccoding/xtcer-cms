@@ -1,0 +1,39 @@
+---
+import Layout from '../layouts/Layout.astro'
+import AuthPanel from '../components/AuthPanel.astro'
+import { resolveCurrentUser } from '../lib/accounts'
+
+// 已登录用户不需要再看登录页
+const runtimeEnv = (Astro.locals as any)?.runtime?.env
+const current = await resolveCurrentUser(Astro.cookies, runtimeEnv)
+if (current) return Astro.redirect('/account')
+
+// 只接受站内跳转地址，避免被拿去当开放重定向
+const rawNext = Astro.url.searchParams.get('next') || '/account'
+const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/account'
+---
+
+<Layout title="登录 - XTCer" description="登录 XTcer，参与每日开蛋签到、收藏免费福利。">
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">XTcer</a>
+      <div class="nav-links">
+        <a href="/" class="nav-link">首页</a>
+        <a href="/deals" class="nav-link">福利</a>
+        <a href="/feeds" class="nav-link">情报</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="auth-page">
+    <AuthPanel mode="login" next={next} />
+  </main>
+</Layout>
+
+<style>
+  .auth-page {
+    padding: calc(var(--nav-height) + 1rem) 1.25rem 3rem;
+    display: flex;
+    justify-content: center;
+  }
+</style>

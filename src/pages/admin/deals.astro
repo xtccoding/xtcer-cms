@@ -2,7 +2,7 @@
 import '../../styles/admin.css'
 import Layout from '../../layouts/Layout.astro'
 import Sidebar from '../../components/Sidebar.astro'
-import { supabase } from '../../lib/supabase'
+import { listAllDeals } from '../../lib/store'
 import { catLabel } from '../../lib/deal-categories'
 
 const runtimeEnv = (Astro.locals as any)?.runtime?.env
@@ -11,7 +11,7 @@ if (!ADMIN_PASSWORD) return new Response('ADMIN_PASSWORD not configured', { stat
 const cookie = Astro.cookies.get('admin_auth')
 if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
 
-const { data: deals } = await supabase.from('deals').select('*').order('created_at', { ascending: false })
+const deals = await listAllDeals()
 const categories = [...new Set(deals?.map(d => d.category) || [])]
 
 // price 字段本身经常已经带了「¥33.75/首年」这种完整文案，

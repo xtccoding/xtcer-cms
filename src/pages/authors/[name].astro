@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro'
-import { supabase } from '../../lib/supabase'
+import { listPostsPage } from '../../lib/store'
 
 const authors: Record<string, { name: string; title: string; bio: string; avatar: string; expertise: string[]; social: { github?: string; twitter?: string; website?: string } }> = {
   xtcer: {
@@ -21,13 +21,9 @@ if (!name || !authors[name]) return Astro.redirect('/about')
 
 const author = authors[name]
 
-const { data: posts } = await supabase
-  .from('posts')
-  .select('id, title, summary, created_at, views, tags')
-  .order('created_at', { ascending: false })
-  .limit(50)
+const posts = await listPostsPage(50, 0)
 
-const totalViews = posts?.reduce((sum, p) => sum + (p.views || 0), 0) || 0
+const totalViews = posts.reduce((sum, p) => sum + (p.views || 0), 0)
 
 const schemas = [
   {

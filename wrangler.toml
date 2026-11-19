@@ -1,9 +1,17 @@
 name = "xtcer-web"
 compatibility_date = "2025-05-28"
 compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "dist"
 
 [vars]
-PUBLIC_SUPABASE_URL = "https://ltwwyznurskgsphujarm.supabase.co"
+# 数据源：Cloudflare D1（见 [[d1_databases]] 与 src/lib/db.ts）。
+# 访问统计：Cloudflare Web Analytics（无需写入数据库）。
 
-# 部署时设置环境变量:
-# wrangler pages secret put PUBLIC_SUPABASE_ANON_KEY
+[[d1_databases]]
+binding = "DB"
+database_name = "xtcer-content"
+database_id = "7396e16f-a21a-491d-9852-af670b75698a"
+
+# 部署时设置环境变量（Cloudflare Pages → Settings → Environment variables）:
+#   ADMIN_PASSWORD / ADMIN_PATH / FEED_API_KEY / LIKE_SALT / UPLOAD_API_KEY
+#   R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_BUCKET_NAME / R2_PUBLIC_URL

@@ -1,67 +1,49 @@
 ---
 import Layout from '../layouts/Layout.astro'
-import { supabase } from '../lib/supabase'
-import { countRows } from '../lib/query'
+import DealCard from '../components/DealCard.astro'
+import { listRecentPosts, listLinks, listRecentFeeds, getSetting, countPosts, listDeals } from '../lib/store'
+import { resolveFreebie } from '../lib/freebie'
+import { resolveCuration } from '../data/deal-curation'
+import { catLabel } from '../lib/deal-categories'
 
 // 首页只展示最近的文章。
 // ⚠️ 不能全量拉：PostgREST max-rows=1000 会把结果静默截断（文章已 1041 篇），
 // 且 posts 正文约 11.8MB，全量拉会拖慢首屏。总数用 countRows 单独取。
 //
-// ⚡ 性能：以下 6 个查询彼此独立，必须用 Promise.all 并发执行。
+// ⚡ 性能：以下查询彼此独立，必须用 Promise.all 并发执行。
 // 之前是串行 await，每个查询都要等上一个返回（含 Supabase 冷启动），
 // 实测 TTFB 1.5–3.5s 且波动大。并发后冷启动 TTFB 可砍掉一半以上。
-const [
-  { data: posts },
-  postCount,
-  feedCount,
-  { data: links },
-  { data: recentFeeds },
-  { data: bannerData },
-  { data: particlesData },
-] = await Promise.all([
-  supabase
-    .from('posts')
-    .select('id, title, summary, content, created_at, views')
-    .order('created_at', { ascending: false })
-    .limit(12),
-
-  // 真实总数（count 不受 max-rows 影响）
-  countRows('posts'),
-  countRows('feeds'),
-
-  supabase
-    .from('links')
-    .select('*')
-    .order('sort_order', { ascending: true }),
-
-  supabase
-    .from('feeds')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(12),
-
-  // Fetch site settings
-  supabase
-    .from('site_settings')
-    .select('value')
-    .eq('key', 'banner')
-    .single(),
-
-  supabase
-    .from('site_settings')
-    .select('value')
-    .eq('key', 'particles')
-    .single(),
+const [posts, postCount, links, recentFeeds, particlesValue, dealsRaw] = await Promise.all([
+  listRecentPosts(6),
+  countPosts(),
+  listLinks(),
+  listRecentFeeds(6),
+  getSetting<any>('particles'),
+  listDeals({ includeExpired: false }),
 ])
 
-const banner = bannerData?.value || {
-  title_line1: '探索前沿',
-  title_line2: '洞见未来',
-  title_dot: '·',
-  tagline_en: 'eXploring Tech',
-  tagline_cn: '技术探索者',
-  desc_items: ['AI 情报', '安全漏洞', '云服务优惠', '技术深度']
-}
+// ---- 今日可领福利：免费可领的 deal，按「完全免费 → 额度 → 试用」排 ----
+const KIND_RANK: Record<string, number> = { full: 0, quota: 1, trial: 2 }
+const freebieDeals = (dealsRaw || [])
+  .map((d: any) => {
+    const curation = resolveCuration(d.provider, d.product)
+    return { ...d, curation, freebie: resolveFreebie(d, curation) }
+  })
+  .filter((d: any) => d.freebie.isFree && !d.curation.reference)
+  .sort(
+    (a: any, b: any) =>
+      (KIND_RANK[a.freebie.kind] ?? 3) - (KIND_RANK[b.freebie.kind] ?? 3) ||
+      a.provider.localeCompare(b.provider, 'zh-Hans-CN'),
+  )
+const todayFreebies = freebieDeals.slice(0, 9)
+const freebieTotal = freebieDeals.length
+// 首屏统计直接告诉访客「有多少能领」，按免费类型拆开
+const countKind = (kind: string) => freebieDeals.filter((d: any) => d.freebie.kind === kind).length
+const fullFreeCount = countKind('full')
+const quotaFreeCount = countKind('quota')
+const trialFreeCount = countKind('trial')
+
+const particlesData = { value: particlesValue }
 
 const particlesConfig = particlesData?.value || {
   mode: 'siri',
@@ -98,8 +80,9 @@ function stripMarkdown(text: string) {
       <div class="nav-inner">
         <a href="/" class="nav-logo">XTcer</a>
         <div class="nav-links">
+          <a href="/deals" class="nav-link">福利</a>
+          <a href="/account" class="nav-link">签到</a>
           <a href="/posts" class="nav-link">文章</a>
-          <a href="/deals" class="nav-link">优惠</a>
           <a href="/feeds" class="nav-link">情报</a>
           <button class="nav-search-btn" id="nav-search" title="搜索 (⌘K)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -128,83 +111,93 @@ function stripMarkdown(text: string) {
           
           <!-- Tagline -->
           <div class="hero-tagline">
-            <span class="tagline-en">{banner.tagline_en}</span>
+            <span class="tagline-en">Freebies</span>
             <span class="tagline-divider"></span>
-            <span class="tagline-cn">{banner.tagline_cn}</span>
+            <span class="tagline-cn">免费福利站</span>
           </div>
           
           <!-- Slogan -->
           <h1 class="hero-slogan">
-            <span class="slogan-line">{banner.title_line1}</span>
-            <span class="slogan-dot">{banner.title_dot}</span>
-            <span class="slogan-line slogan-gradient">{banner.title_line2}</span>
+            <span class="slogan-line">免费福利</span>
+            <span class="slogan-dot">·</span>
+            <span class="slogan-line slogan-gradient">能领先领</span>
           </h1>
           
           <!-- Description -->
-          <p class="hero-desc">
-            <a href="/topics/ai" class="desc-item">AI 情报</a>
-            <span class="desc-dot">·</span>
-            <a href="/topics/security" class="desc-item">安全漏洞</a>
-            <span class="desc-dot">·</span>
-            <a href="/deals" class="desc-item">云服务优惠</a>
-            <span class="desc-dot">·</span>
-            <a href="/topics/github" class="desc-item">GitHub 热门</a>
+          <p class="hero-sub">
+            0 元的云服务器、免费额度、AI Token 与限时试用 —— 能领的先领，别急着花钱。
           </p>
           
-          <!-- Stats -->
+          <!-- Stats：按「能领的类型」给数字，点进去就是对应筛选 -->
           <div class="hero-stats">
-            <a href="/" class="stat-item glass-card">
-              <span class="stat-number">{postCount}</span>
-              <span class="stat-label">技术文章</span>
+            <a href="/deals?f=full" class="stat-item glass-card">
+              <span class="stat-number">{fullFreeCount}</span>
+              <span class="stat-label">完全免费</span>
             </a>
-            <a href="/feeds" class="stat-item glass-card">
-              <span class="stat-number">{feedCount}</span>
-              <span class="stat-label">实时情报</span>
+            <a href="/deals?f=quota" class="stat-item glass-card">
+              <span class="stat-number">{quotaFreeCount}</span>
+              <span class="stat-label">免费额度</span>
             </a>
-            <a href="/" class="stat-item glass-card">
-              <span class="stat-number">{links?.length || 0}</span>
-              <span class="stat-label">精选导航</span>
+            <a href="/deals?f=trial" class="stat-item glass-card">
+              <span class="stat-number">{trialFreeCount}</span>
+              <span class="stat-label">限时试用</span>
             </a>
           </div>
 
           <!-- Actions -->
           <div class="hero-actions">
-            <a href="/feeds" class="btn-primary">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 019 9M4 4a16 16 0 0116 16"/><circle cx="5" cy="19" r="1"/></svg>
-              查看情报
+            <a href="/deals" class="btn-primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              全部 {freebieTotal} 个福利
             </a>
-            <a href="/about" class="btn-ghost">
-              了解更多
+            <a href="/account" class="btn-ghost">
+              每日签到
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
             </a>
+          </div>
+
+          <!-- 每日开蛋：首屏互动入口。
+               用户态由 /api/user/summary 在客户端水合，页面 HTML 保持公共边缘缓存，
+               绝不把用户名 / 积分写进会被所有人共享的缓存里。 -->
+          <div class="egg-widget" id="egg-widget">
+            <button type="button" class="egg-btn" id="egg-btn" aria-label="每日开蛋">
+              <span class="egg-emoji" id="egg-emoji">🥚</span>
+            </button>
+            <div class="egg-body">
+              <div class="egg-title" id="egg-title">每日开蛋</div>
+              <div class="egg-sub" id="egg-sub">登录后每天敲一颗蛋，连签越多积分越多</div>
+            </div>
+            <div class="egg-meta">
+              <span>积分 <b id="egg-points">—</b></span>
+              <span>连签 <b id="egg-streak">—</b></span>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    {links && links.length > 0 && (
-      <section class="links-section">
+    {todayFreebies.length > 0 && (
+      <section class="freebies-section">
         <div class="container-wide">
           <div class="section-header">
-            <h2>常用导航</h2>
-            <span class="count">{links.length} 个</span>
+            <h2>今天能领的</h2>
+            <a href="/deals" class="see-all">全部 {freebieTotal} 个免费福利 →</a>
           </div>
-          {linkCategories.map(cat => (
-            <div class="link-category">
-              <h3 class="cat-label">{cat}</h3>
-              <div class="links-grid">
-                {links.filter(l => l.category === cat).map(link => (
-                  <a href={link.url} target="_blank" rel="noopener" class="link-card glass-card hover-lift">
-                    <span class="link-icon">{link.icon || '🔗'}</span>
-                    <div>
-                      <h4>{link.title}</h4>
-                      {link.description && <p>{link.description}</p>}
-                    </div>
-                  </a>
-                ))}
-              </div>
-            </div>
-          ))}
+          <p class="freebies-sub">
+            按「完全免费 → 免费额度 → 限时试用」排序，先领不花钱的。
+          </p>
+          <div class="freebies-grid">
+            {todayFreebies.map((deal: any) => (
+              <DealCard
+                deal={deal}
+                freebie={deal.freebie}
+                categoryLabel={catLabel(deal.category)}
+                likeCount={0}
+                likesEnabled={false}
+                userActions={true}
+              />
+            ))}
+          </div>
         </div>
       </section>
     )}
@@ -260,46 +253,33 @@ function stripMarkdown(text: string) {
       </section>
     )}
 
-    <section class="topics-section">
-      <div class="container-wide">
-        <div class="section-header">
-          <h2>专题看板</h2>
-          <span class="count">6 个专区</span>
+    {links && links.length > 0 && (
+      <section class="links-section">
+        <div class="container-wide">
+          <div class="section-header">
+            <h2>常用导航</h2>
+            <span class="count">{links.length} 个</span>
+          </div>
+          {linkCategories.map(cat => (
+            <div class="link-category">
+              <h3 class="cat-label">{cat}</h3>
+              <div class="links-grid">
+                {links.filter(l => l.category === cat).map(link => (
+                  <a href={link.url} target="_blank" rel="noopener" class="link-card glass-card hover-lift">
+                    <span class="link-icon">{link.icon || '🔗'}</span>
+                    <div>
+                      <h4>{link.title}</h4>
+                      {link.description && <p>{link.description}</p>}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
-        <div class="topics-grid">
-          <a href="/topics/ai" class="topic-card glass-card hover-lift">
-            <span class="topic-icon">🤖</span>
-            <h3>AI 模型专区</h3>
-            <p>ChatGPT、Claude、开源模型、AI 工具</p>
-          </a>
-          <a href="/topics/security" class="topic-card glass-card hover-lift">
-            <span class="topic-icon">🛡️</span>
-            <h3>漏洞预警中心</h3>
-            <p>CVE、0day、安全漏洞、渗透测试</p>
-          </a>
-          <a href="/topics/deals" class="topic-card glass-card hover-lift">
-            <span class="topic-icon">💰</span>
-            <h3>白嫖捡漏专区</h3>
-            <p>VPS 优惠、免费资源、薅羊毛</p>
-          </a>
-          <a href="/topics/github" class="topic-card glass-card hover-lift">
-            <span class="topic-icon">⭐</span>
-            <h3>GitHub 热门项目</h3>
-            <p>每日 Trending、开源项目推荐</p>
-          </a>
-          <a href="/topics/crypto" class="topic-card glass-card hover-lift">
-            <span class="topic-icon">🪙</span>
-            <h3>加密情报</h3>
-            <p>空投、DeFi、链上分析</p>
-          </a>
-          <a href="/topics/tools" class="topic-card glass-card hover-lift">
-            <span class="topic-icon">🔧</span>
-            <h3>开发者工具</h3>
-            <p>IDE、CLI、API、效率工具</p>
-          </a>
-        </div>
-      </div>
-    </section>
+      </section>
+    )}
+
   </main>
 
   <footer class="footer">
@@ -332,11 +312,12 @@ function stripMarkdown(text: string) {
 <style>
   /* Hero Section */
   .hero { 
-    padding: 6rem 0 4rem; 
+    padding: clamp(2.5rem, 7vh, 6rem) 0 clamp(2.5rem, 5vh, 4rem); 
     text-align: center; 
     position: relative;
     overflow: hidden;
-    min-height: 85vh;
+    /* 长屏下不再无限拉高首屏，避免屏幕越高留白越大 */
+    min-height: clamp(420px, 85vh, 760px);
     display: flex;
     align-items: center;
   }
@@ -361,7 +342,7 @@ function stripMarkdown(text: string) {
   .brand-logo {
     position: relative;
     display: inline-block;
-    margin-bottom: 2.5rem;
+    margin-bottom: clamp(1.25rem, 3vh, 2.5rem);
     animation: fadeIn 0.8s ease-out;
   }
   
@@ -371,7 +352,7 @@ function stripMarkdown(text: string) {
     justify-content: center;
     gap: 0;
     font-family: 'Space Grotesk', 'Inter', -apple-system, sans-serif;
-    font-size: 6rem;
+    font-size: clamp(3.25rem, 9vw, 6rem);
     font-weight: 700;
     letter-spacing: -0.06em;
     line-height: 1;
@@ -416,7 +397,7 @@ function stripMarkdown(text: string) {
     align-items: center;
     justify-content: center;
     gap: 1.25rem;
-    margin-bottom: 2rem;
+    margin-bottom: clamp(1rem, 2.5vh, 2rem);
     animation: slideUp 0.6s ease-out;
   }
   
@@ -451,7 +432,7 @@ function stripMarkdown(text: string) {
     font-weight: 700;
     letter-spacing: -0.02em;
     line-height: 1.2;
-    margin-bottom: 2rem;
+    margin-bottom: clamp(1rem, 2.5vh, 2rem);
     animation: slideUp 0.7s ease-out;
   }
   
@@ -482,47 +463,13 @@ function stripMarkdown(text: string) {
   }
   
   /* Description */
-  .hero-desc {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 0.875rem;
-    margin-bottom: 3.5rem;
-    animation: slideUp 0.8s ease-out;
-  }
-  
-  .desc-item {
-    font-family: 'Inter', sans-serif;
-    padding: 0.5rem 1.25rem;
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.05);
-    border-radius: 100px;
-    font-size: 0.875rem;
-    font-weight: 450;
+  .hero-sub {
+    max-width: 620px;
+    margin: 0 auto clamp(1.25rem, 3.5vh, 2.25rem);
+    font-size: 0.9375rem;
+    line-height: 1.8;
     color: var(--text-secondary);
-    transition: all 0.3s ease;
-    letter-spacing: 0.02em;
-    cursor: pointer;
-    text-decoration: none;
-  }
-  
-  .desc-item:hover {
-    background: rgba(41,151,255,0.08);
-    border-color: rgba(41,151,255,0.15);
-    color: var(--primary);
-    transform: translateY(-1px);
-  }
-  
-  :root.light .desc-item {
-    background: rgba(0,0,0,0.02);
-    border-color: rgba(0,0,0,0.05);
-  }
-  
-  .desc-dot {
-    color: var(--text-muted);
-    font-size: 0.5rem;
-    opacity: 0.5;
+    animation: slideUp 0.8s ease-out;
   }
   
   /* Stats */
@@ -530,7 +477,7 @@ function stripMarkdown(text: string) {
     display: flex;
     justify-content: center;
     gap: 1.25rem;
-    margin-bottom: 3.5rem;
+    margin-bottom: clamp(1.5rem, 3.5vh, 3.5rem);
     animation: slideUp 0.9s ease-out;
   }
   
@@ -688,6 +635,19 @@ function stripMarkdown(text: string) {
     border-color: rgba(0,0,0,0.05);
   }
 
+  /* Freebies Section —— 首屏第一块：免费可领的福利 */
+  .freebies-section { padding: 2.5rem 0 3.5rem; }
+  .freebies-sub {
+    color: var(--text-muted); font-size: 0.875rem;
+    margin: -1rem 0 1.5rem;
+  }
+  .freebies-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(292px, 1fr));
+    gap: 0.75rem;
+    align-items: start;
+  }
+
   /* Links Section */
   .links-section { padding: 0 0 4rem; }
   
@@ -840,17 +800,6 @@ function stripMarkdown(text: string) {
   .posts-section { padding: 0 0 4rem; }
 
   /* Topics Section */
-  .topics-section { padding: 0 0 5rem; }
-  .topics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem; }
-  .topic-card {
-    display: flex; flex-direction: column; gap: 0.5rem;
-    padding: 1.5rem; transition: all 0.3s ease; border-radius: 16px;
-    cursor: pointer; text-decoration: none;
-  }
-  .topic-card:hover { color: var(--text); }
-  .topic-icon { font-size: 2rem; }
-  .topic-card h3 { font-family: 'Inter', sans-serif; font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; }
-  .topic-card p { font-family: 'Inter', sans-serif; font-size: 0.8125rem; color: var(--text-muted); line-height: 1.5; }
   
   .posts-grid { 
     display: grid; 
@@ -987,16 +936,10 @@ function stripMarkdown(text: string) {
     background-clip: text;
   }
   
-  .nav-links { display: flex; gap: 1.25rem; align-items: center; }
+  /* .nav-links / .nav-link / .nav-search-btn 的基础样式与移动端收缩统一由 Layout 的全局样式提供 */
   .nav-link {
     font-family: 'Inter', sans-serif;
   }
-  .nav-search-btn {
-    background: none; border: none; color: var(--text-muted); cursor: pointer;
-    padding: 0.375rem; border-radius: var(--radius-sm); transition: all 0.15s;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .nav-search-btn:hover { color: var(--text); background: var(--surface); }
 
   /* Responsive */
   @media (max-width: 1024px) { 
@@ -1005,69 +948,83 @@ function stripMarkdown(text: string) {
   
   @media (max-width: 640px) {
     .hero { 
-      padding: 4rem 0 2rem; 
+      padding: 2.5rem 0 2rem; 
       min-height: auto;
     }
     
+    .brand-logo { margin-bottom: 1rem; }
     .logo-wrapper {
-      font-size: 4rem;
+      font-size: 3.25rem;
     }
+    .logo-underline { margin-top: 0.5rem; height: 2px; }
     
+    /* 保持横排小字号，不再纵向堆成三行 */
     .hero-tagline {
-      flex-direction: column;
-      gap: 0.5rem;
+      flex-direction: row;
+      gap: 0.6rem;
+      margin-bottom: 0.85rem;
     }
+    .tagline-en { font-size: 0.9375rem; }
+    .tagline-cn { font-size: 0.8125rem; letter-spacing: 0.06em; }
     
     .tagline-divider {
-      width: 2px;
-      height: 16px;
+      width: 18px;
+      height: 1px;
     }
     
     .hero-slogan {
-      font-size: 1.75rem;
+      font-size: clamp(1.5rem, 7.5vw, 2rem);
+      margin-bottom: 1rem;
+    }
+    .slogan-dot { margin: 0 0.35rem; }
+    
+    /* 2×2 描述，代替 4 行纵向堆叠 */
+    .hero-sub {
+      font-size: 0.875rem;
+      line-height: 1.7;
+      margin-bottom: 1.25rem;
     }
     
-    .hero-desc {
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-    
-    .desc-dot {
-      display: none;
-    }
-    
+    /* 3 列统计，一屏内即可看完 */
     .hero-stats { 
-      flex-direction: column; 
-      align-items: center; 
-      gap: 0.75rem; 
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
     }
     
     .stat-item { 
-      width: 100%; 
-      max-width: 220px; 
-      padding: 1.25rem 1.5rem;
+      min-width: 0;
+      padding: 0.8rem 0.4rem;
+      border-radius: 12px;
     }
     
     .stat-number {
-      font-size: 1.75rem;
+      font-size: 1.25rem;
+      margin-bottom: 0.15rem;
     }
+    .stat-label { font-size: 0.6875rem; }
     
     .hero-actions { 
-      flex-direction: column; 
-      align-items: center; 
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.6rem;
     }
     
     .btn-primary, .btn-ghost { 
-      width: 100%; 
-      max-width: 280px; 
+      width: 100%;
       justify-content: center; 
-      padding: 0.875rem 1.75rem;
+      padding: 0.8rem 0.75rem;
+      font-size: 0.875rem;
+      gap: 0.5rem;
     }
     
+    .egg-widget { margin-top: 1.25rem; }
+    
+    .freebies-grid { gap: 0.75rem; }
     .posts-grid { grid-template-columns: 1fr; }
     .post-card { padding: 1.25rem; border-radius: 14px; }
     .links-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
-    .topics-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
     .link-card { padding: 0.875rem; border-radius: 12px; }
     .feed-row { padding: 0.625rem 0.875rem; border-radius: 10px; }
     .feed-summary { display: none; }
@@ -1075,6 +1032,82 @@ function stripMarkdown(text: string) {
     .footer-brand { align-items: center; }
     .footer-links { gap: 1.5rem; flex-wrap: wrap; justify-content: center; }
     .section-header h2 { font-size: 1.25rem; }
+    .section-header { flex-wrap: wrap; gap: 0.35rem; }
+  }
+
+  /* 超窄屏（iPhone SE 等 320–360px）：再收一档 */
+  @media (max-width: 360px) {
+    .logo-wrapper { font-size: 2.75rem; }
+    .hero-slogan { font-size: 1.35rem; }
+    .stat-label { font-size: 0.625rem; }
+    .btn-primary, .btn-ghost { font-size: 0.8125rem; padding: 0.7rem 0.5rem; }
+  }
+
+  /* ---- 每日开蛋（首屏互动） ---- */
+  .egg-widget {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-top: 1.75rem;
+    padding: 0.6rem 1.1rem 0.6rem 0.6rem;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  :root.light .egg-widget { background: rgba(255, 255, 255, 0.6); }
+
+  .egg-btn {
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 35% 30%, rgba(255, 214, 102, 0.28), rgba(255, 255, 255, 0.04));
+    border: 1px solid rgba(255, 214, 102, 0.35);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .egg-btn:hover { transform: scale(1.06); }
+  .egg-btn:disabled { cursor: default; }
+  .egg-emoji { font-size: 1.6rem; line-height: 1; display: block; }
+  .egg-emoji.crack { animation: egg-shake 0.55s ease; }
+  @keyframes egg-shake {
+    0%, 100% { transform: rotate(0) scale(1); }
+    20% { transform: rotate(-14deg) scale(1.08); }
+    40% { transform: rotate(12deg) scale(1.12); }
+    60% { transform: rotate(-8deg) scale(1.05); }
+    80% { transform: rotate(6deg) scale(1.03); }
+  }
+
+  .egg-body { min-width: 0; }
+  .egg-title { font-size: 0.875rem; font-weight: 600; color: var(--text); }
+  .egg-sub { margin-top: 0.15rem; font-size: 0.6875rem; color: var(--text-muted); }
+  .egg-meta {
+    display: flex;
+    gap: 0.75rem;
+    padding-left: 0.9rem;
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    border-left: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .egg-meta b { color: var(--primary); font-weight: 600; }
+
+  @media (max-width: 768px) {
+    .egg-widget {
+      width: 100%;
+      max-width: 360px;
+      flex-wrap: wrap;
+      justify-content: center;
+      border-radius: var(--radius-lg);
+      padding: 0.7rem 0.9rem;
+    }
+    .egg-meta { width: 100%; justify-content: center; padding-left: 0; border-left: none; }
   }
 </style>
 
@@ -1317,4 +1350,104 @@ function stripMarkdown(text: string) {
   if (canvas) {
     new ParticleSystem(canvas)
   }
+</script>
+
+<script>
+  // ---- 每日开蛋（首屏互动） ----
+  // 所有用户数据只通过 textContent 写入，绝不拼 HTML —— 杜绝 XSS。
+  const eggBtn = document.getElementById('egg-btn') as HTMLButtonElement | null
+  const eggEmoji = document.getElementById('egg-emoji')
+  const eggTitle = document.getElementById('egg-title')
+  const eggSub = document.getElementById('egg-sub')
+  const eggPoints = document.getElementById('egg-points')
+  const eggStreak = document.getElementById('egg-streak')
+
+  let eggAuthed = false
+  let eggChecked = false
+  let eggBusy = false
+
+  const toast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    ;(window as any).showToast?.(message, type)
+  }
+
+  async function loadEgg() {
+    try {
+      const res = await fetch('/api/user/summary')
+      if (!res.ok) {
+        eggAuthed = false
+        if (eggSub) eggSub.textContent = '点一下登录，每天敲蛋领积分'
+        return
+      }
+      const data = await res.json()
+      eggAuthed = true
+      eggChecked = !!data?.checkedInToday
+
+      if (eggPoints) eggPoints.textContent = String(data?.user?.points ?? 0)
+      if (eggStreak) eggStreak.textContent = String(data?.user?.streak ?? 0)
+
+      if (eggChecked) {
+        if (eggEmoji) eggEmoji.textContent = '🐣'
+        if (eggTitle) eggTitle.textContent = '今天已开蛋'
+        if (eggSub) eggSub.textContent = '明天再来，别断连签'
+      } else {
+        if (eggEmoji) eggEmoji.textContent = '🥚'
+        if (eggTitle) eggTitle.textContent = `${String(data?.user?.username ?? '你')}，开一颗？`
+        if (eggSub) eggSub.textContent = '点一下敲开，今天有积分拿'
+      }
+    } catch {
+      // 接口不可用（例如还没建表）：保持默认文案，不报错
+    }
+  }
+
+  eggBtn?.addEventListener('click', async () => {
+    if (eggBusy) return
+    if (!eggAuthed) {
+      location.href = '/login?next=/'
+      return
+    }
+    if (eggChecked) {
+      toast('今天已经开过啦，明天再来', 'info')
+      return
+    }
+
+    eggBusy = true
+    eggEmoji?.classList.add('crack')
+    try {
+      const res = await fetch('/api/user/checkin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      })
+      if (res.status === 401) {
+        location.href = '/login?next=/'
+        return
+      }
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(typeof data?.error === 'string' ? data.error : '签到失败')
+
+      if (data?.already) {
+        eggChecked = true
+        toast('今天已经开过啦', 'info')
+      } else {
+        eggChecked = true
+        if (eggEmoji) eggEmoji.textContent = '🐣'
+        if (eggTitle) eggTitle.textContent = `+${data.awarded} 积分`
+        if (eggSub) eggSub.textContent = `连签 ${data.streak} 天，明天继续`
+        if (eggPoints) eggPoints.textContent = String(data.points)
+        if (eggStreak) eggStreak.textContent = String(data.streak)
+        const badges = Array.isArray(data?.newBadges) ? data.newBadges : []
+        toast(
+          `+${data.awarded} 积分${badges.length ? ` · 解锁 ${badges[0].icon}${badges[0].name}` : ''}`,
+          'success',
+        )
+      }
+    } catch (err: any) {
+      toast(err?.message || '签到失败，稍后再试', 'error')
+    } finally {
+      eggBusy = false
+      setTimeout(() => eggEmoji?.classList.remove('crack'), 600)
+    }
+  })
+
+  loadEgg()
 </script>

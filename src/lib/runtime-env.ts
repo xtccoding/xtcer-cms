@@ -1,7 +1,7 @@
 /**
  * 请求期的 Cloudflare 运行时环境（bindings + 环境变量）。
  *
- * 为什么要这个：`src/lib/supabase.ts` 是个**模块级单例**，被 50 个文件 import，
+ * 为什么要这个：`src/lib/db.ts` 是**模块级单例**，被几十个文件 import，
  * 而 D1 绑定只能从 `Astro.locals.runtime.env` 拿到 —— 单例在 import 期拿不到它。
  * 所以在 middleware 里把 env 塞进来，查询层再从这里取。
  *

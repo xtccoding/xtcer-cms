@@ -1,5 +1,5 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
-import { createAdminClient } from '../../../lib/supabase-admin'
+import { createFile, deleteFile, fileSlugExists, getFileById, listFilesPage, updateFile } from '../../../lib/store'
 import { isAdminRequest } from '../../../lib/admin-auth'
 
 function randomSlug(len = 8): string {
@@ -9,21 +9,9 @@ function randomSlug(len = 8): string {
   return s
 }
 
-// files 表在 RLS v3 里已对 anon 撤销全部权限（REVOKE SELECT/INSERT/UPDATE/DELETE），
-// 所以后台的文件管理**必须**用 service_role 客户端，否则每次查询都是
-// `permission denied for table files` → 前端拿到非 JSON/缺 total → 显示 undefined。
-function adminClient(locals: any) {
-  return createAdminClient(locals?.runtime?.env)
-}
-
 export async function GET({ cookies, locals, url }: { cookies: any; locals: any; url: URL }) {
   if (!isAdminRequest(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
-  }
-
-  const supabase = adminClient(locals)
-  if (!supabase) {
-    return new Response(JSON.stringify({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' }), { status: 500 })
   }
 
   try {
@@ -32,24 +20,14 @@ export async function GET({ cookies, locals, url }: { cookies: any; locals: any;
     const offset = (page - 1) * limit
     const q = (url.searchParams.get('q') || '').trim()
 
-    let query = supabase
-      .from('files')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
-
-    if (q) query = query.ilike('filename', `%${q}%`)
-
-    const { data: files, count, error } = await query
-
-    if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+    const { rows: files, total } = await listFilesPage({ limit, offset, q })
 
     return new Response(JSON.stringify({
-      files: files || [],
-      total: count || 0,
+      files,
+      total,
       page,
       limit,
-      totalPages: Math.ceil((count || 0) / limit),
+      totalPages: Math.ceil(total / limit),
     }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500 })
@@ -59,11 +37,6 @@ export async function GET({ cookies, locals, url }: { cookies: any; locals: any;
 export async function POST({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
   if (!isAdminRequest(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
-  }
-
-  const supabase = adminClient(locals)
-  if (!supabase) {
-    return new Response(JSON.stringify({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' }), { status: 500 })
   }
 
   const env = locals?.runtime?.env || {}
@@ -90,8 +63,7 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
     const slug = customSlug || randomSlug()
 
     // Check slug uniqueness
-    const { data: existingSlug } = await supabase.from('files').select('id').eq('share_slug', slug).limit(1)
-    if (existingSlug && existingSlug.length > 0) {
+    if (await fileSlugExists(slug)) {
       return new Response(JSON.stringify({ error: 'Slug already exists, choose another' }), { status: 409 })
     }
 
@@ -119,7 +91,7 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
     const url = `${publicUrl}/${key}`
     const expiresAt = expiresIn > 0 ? new Date(Date.now() + expiresIn * 3600000).toISOString() : null
 
-    const { data: inserted, error: insertError } = await supabase.from('files').insert({
+    const inserted = await createFile({
       key,
       url,
       filename: file.name,
@@ -128,9 +100,7 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
       share_slug: slug,
       password,
       expires_at: expiresAt,
-    }).select().single()
-
-    if (insertError) return new Response(JSON.stringify({ error: insertError.message }), { status: 500 })
+    })
 
     return new Response(JSON.stringify(inserted), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
   } catch (err: any) {
@@ -143,11 +113,6 @@ export async function PUT({ request, cookies, locals }: { request: Request; cook
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
-  const supabase = adminClient(locals)
-  if (!supabase) {
-    return new Response(JSON.stringify({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' }), { status: 500 })
-  }
-
   try {
     const body = await request.json()
     const { id, share_slug, password, expires_at } = body
@@ -155,8 +120,7 @@ export async function PUT({ request, cookies, locals }: { request: Request; cook
 
     const updates: any = {}
     if (share_slug !== undefined) {
-      const { data: existing } = await supabase.from('files').select('id').eq('share_slug', share_slug).neq('id', id).limit(1)
-      if (existing && existing.length > 0) {
+      if (await fileSlugExists(share_slug, id)) {
         return new Response(JSON.stringify({ error: 'Slug already exists' }), { status: 409 })
       }
       updates.share_slug = share_slug
@@ -164,8 +128,7 @@ export async function PUT({ request, cookies, locals }: { request: Request; cook
     if (password !== undefined) updates.password = password || null
     if (expires_at !== undefined) updates.expires_at = expires_at || null
 
-    const { data, error } = await supabase.from('files').update(updates).eq('id', id).select().single()
-    if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+    const data = await updateFile(id, updates)
 
     return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
   } catch (err: any) {
@@ -178,11 +141,6 @@ export async function DELETE({ request, cookies, locals }: { request: Request; c
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
-  const supabase = adminClient(locals)
-  if (!supabase) {
-    return new Response(JSON.stringify({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' }), { status: 500 })
-  }
-
   const env = locals?.runtime?.env || {}
   const accountId = env.R2_ACCOUNT_ID || import.meta.env.R2_ACCOUNT_ID
   const accessKeyId = env.R2_ACCESS_KEY_ID || import.meta.env.R2_ACCESS_KEY_ID
@@ -193,7 +151,7 @@ export async function DELETE({ request, cookies, locals }: { request: Request; c
     const { id } = await request.json()
     if (!id) return new Response(JSON.stringify({ error: 'Missing id' }), { status: 400 })
 
-    const { data: file } = await supabase.from('files').select('key').eq('id', id).single()
+    const file = await getFileById(id)
     if (file?.key && accountId && accessKeyId && secretAccessKey) {
       const s3 = new S3Client({
         region: 'auto',
@@ -203,7 +161,7 @@ export async function DELETE({ request, cookies, locals }: { request: Request; c
       await s3.send(new DeleteObjectCommand({ Bucket: bucketName, Key: file.key }))
     }
 
-    await supabase.from('files').delete().eq('id', id)
+    await deleteFile(id)
     return new Response(JSON.stringify({ success: true }))
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500 })

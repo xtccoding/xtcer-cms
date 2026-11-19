@@ -1,4 +1,4 @@
-import { supabase } from '../../../lib/supabase'
+import { incrementPostViews } from '../../../lib/store'
 
 export async function POST({ request }: { request: Request }) {
   const { id } = await request.json()
@@ -7,22 +7,13 @@ export async function POST({ request }: { request: Request }) {
     return new Response(JSON.stringify({ error: 'id required' }), { status: 400 })
   }
 
-  const { data: post } = await supabase
-    .from('posts')
-    .select('views')
-    .eq('id', id)
-    .single()
-
-  const newViews = (post?.views || 0) + 1
-
-  const { error } = await supabase
-    .from('posts')
-    .update({ views: newViews })
-    .eq('id', id)
-
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+  try {
+    const views = await incrementPostViews(id)
+    if (views === null) {
+      return new Response(JSON.stringify({ error: 'id required' }), { status: 404 })
+    }
+    return new Response(JSON.stringify({ views }))
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e?.message || '数据库错误' }), { status: 500 })
   }
-
-  return new Response(JSON.stringify({ views: newViews }))
 }

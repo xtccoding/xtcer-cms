@@ -1,5 +1,4 @@
 import { defineMiddleware } from 'astro:middleware'
-import { supabase } from './lib/supabase'
 import { setRuntimeEnv } from './lib/runtime-env'
 
 /**
@@ -27,6 +26,11 @@ function cacheControlFor(path: string): string | null {
     path.startsWith('/api/') ||
     path === '/api'
   ) {
+    return 'no-store'
+  }
+
+  // 账号页与登录页是「按用户渲染」的，绝不能进公共边缘缓存
+  if (path === '/login' || path === '/register' || path === '/account') {
     return 'no-store'
   }
 
@@ -63,10 +67,12 @@ function cacheControlFor(path: string): string | null {
 
 /** 给响应补上 Cache-Control（仅当上游没显式设置时）。 */
 function applyCacheControl(response: Response, path: string): Response {
+  const value = cacheControlFor(path)
+
   // 只缓存成功响应：重定向(3xx)、报错(4xx/5xx) 一律不缓存，
   // 否则一个 302/404 会被边缘缓存整整一小时（文章被删或改 ID 后会很麻烦）。
   if (response.status !== 200) {
-    if (!response.headers.has('cache-control') && response.status >= 400) {
+    if (!response.headers.has('cache-control') && (response.status >= 400 || value === 'no-store')) {
       const headers = new Headers(response.headers)
       headers.set('cache-control', 'no-store')
       return new Response(response.body, {
@@ -78,7 +84,6 @@ function applyCacheControl(response: Response, path: string): Response {
     return response
   }
 
-  const value = cacheControlFor(path)
   if (!value) return response
   // 已有显式缓存策略（如静态资源 immutable）则不覆盖
   if (response.headers.has('cache-control')) return response
@@ -159,31 +164,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const cfCtx = (context.locals as any)?.runtime?.ctx
 
   // ---- 访客统计 ----
-  // ⚠️ 必须放在缓存查找**之前**：命中边缘缓存时不会再执行页面逻辑，
-  // 但这次访问仍然应该被记录，否则统计会严重偏低（只有未命中的才被计数）。
-  // 写入通过 waitUntil 异步执行，不阻塞响应。
-  const ip = context.request.headers.get('cf-connecting-ip') ||
-             context.request.headers.get('x-forwarded-for') ||
-             context.request.headers.get('x-real-ip') ||
-             'unknown'
-
-  const ua = context.request.headers.get('user-agent') || ''
-  const referer = context.request.headers.get('referer') || ''
-  const country = context.request.headers.get('cf-ipcountry') || ''
-
-  const insertPromise = supabase.from('visitors').insert({
-    ip: String(ip).substring(0, 45),
-    path: path,
-    user_agent: ua.substring(0, 500),
-    referer: referer.substring(0, 500),
-    country: country.substring(0, 10),
-  }).then(({ error }) => {
-    if (error) console.error('[visitor tracking]', error.message)
-  })
-
-  if (cfCtx?.waitUntil) {
-    cfCtx.waitUntil(insertPromise)
-  }
+  // 已改用 Cloudflare Web Analytics（零写入、不需要在 Worker 里记日志）。
+  // 原来的 supabase visitors 写入已移除，避免为每次请求多打一次数据库。
 
   // ---- 边缘缓存查找（Cache API）----
   // 见文件顶部说明：SSR 响应必须显式走 Cache API 才会真正被边缘缓存。

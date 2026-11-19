@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase'
+import { createFeedback } from '../../lib/store'
 import {
   JSON_HEADERS,
   getClientIp,
@@ -6,7 +6,6 @@ import {
   resolveSalt,
   validateMessage,
   sanitizeOptionalText,
-  isTableMissing,
   CONTACT_MAX_LEN,
   PATH_MAX_LEN,
 } from '../../lib/interactions'
@@ -49,14 +48,10 @@ export async function POST({ request, locals }: { request: Request; locals: any 
   const ip = getClientIp(request)
   const ipHash = await hashIp(ip, salt)
 
-  const { error } = await supabase
-    .from('feedback')
-    .insert({ message, contact, ip_hash: ipHash, path })
-
-  if (error) {
-    // 表不存在（用户还没执行 interactions.sql）→ 明确告知暂不可用。
-    if (isTableMissing(error)) return json({ error: 'unavailable' }, 503)
-    return json({ error: error.message }, 500)
+  try {
+    await createFeedback({ message, contact, ip_hash: ipHash, path })
+  } catch (e: any) {
+    return json({ error: e?.message || 'db error' }, 500)
   }
 
   return json({ ok: true })

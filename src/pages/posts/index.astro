@@ -1,8 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro'
 import Pagination from '../../components/Pagination.astro'
-import { supabase } from '../../lib/supabase'
-import { countRows } from '../../lib/query'
+import { countPosts, listPostsPage } from '../../lib/store'
 
 // 文章归档页 —— 服务端分页，URL 即状态（?page=N）。
 // 为什么需要它：首页只展示最近 12 篇（全量拉会被 PostgREST max-rows=1000 截断且拖慢首屏），
@@ -12,17 +11,13 @@ const PAGE_SIZE = 24
 const pageParam = Number.parseInt(Astro.url.searchParams.get('page') || '1', 10)
 const requestedPage = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1
 
-const total = await countRows('posts')
+const total = await countPosts()
 const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 // 页码越界钳到末页
 const page = Math.min(requestedPage, totalPages)
 const offset = (page - 1) * PAGE_SIZE
 
-const { data: posts } = await supabase
-  .from('posts')
-  .select('id, title, summary, content, created_at, views')
-  .order('created_at', { ascending: false })
-  .range(offset, offset + PAGE_SIZE - 1)
+const posts = await listPostsPage(PAGE_SIZE, offset)
 
 const stripMd = (s: string) =>
   s.replace(/<[^>]*>/g, '').replace(/[#*_`~\[\]>|]/g, '').replace(/\s+/g, ' ').trim()
@@ -54,8 +49,8 @@ const schema = {
       <a href="/" class="nav-logo">XTCer</a>
       <div class="nav-links">
         <a href="/" class="nav-link">首页</a>
+        <a href="/deals" class="nav-link">福利</a>
         <a href="/posts" class="nav-link" style="color:var(--text)">文章</a>
-        <a href="/deals" class="nav-link">优惠</a>
         <a href="/feeds" class="nav-link">情报</a>
         <button class="nav-search-btn" id="nav-search" title="搜索 (⌘K)">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>

@@ -5,9 +5,10 @@ import DealsTable from '../components/DealsTable.astro'
 import Pagination from '../components/Pagination.astro'
 import FeedbackBox from '../components/FeedbackBox.astro'
 import FestivalBanner from '../components/FestivalBanner.astro'
-import { supabase } from '../lib/supabase'
-import { isTableMissing, resolveSalt } from '../lib/interactions'
+import { listDeals, listLikeTargets } from '../lib/store'
+import { resolveSalt } from '../lib/interactions'
 import { monthlyCny } from '../lib/price.mjs'
+import { resolveFreebie, FREEBIE_META, type FreebieKind } from '../lib/freebie'
 import { FESTIVALS, dealMatchesFestival } from '../data/festivals'
 import {
   resolveCuration,
@@ -28,7 +29,7 @@ import {
 const PAGE_SIZE = 24
 
 const SORT_OPTIONS = [
-  { key: 'difficulty', label: '难度优先', hint: '容易成功、国内能付款的排前面' },
+  { key: 'difficulty', label: '容易领优先', hint: '完全免费 → 免费额度 → 试用，同档内越好领的排前面' },
   { key: 'price', label: '价格', hint: '按月付人民币从低到高，解析不出价格的沉底' },
   { key: 'payment', label: '支付方式', hint: '完全免费 → 微信 → 支付宝 → 银联 → 信用卡 → PayPal' },
   { key: 'provider', label: '厂商', hint: '按厂商名分组，方便同厂比价' },
@@ -36,6 +37,8 @@ const SORT_OPTIONS = [
 
 const VIEWS: readonly string[] = ['card', 'table']
 const SORTS: readonly string[] = SORT_OPTIONS.map(o => o.key)
+/** 「领鸡蛋」类型筛选：默认全部免费；付费优惠降级成一个独立 Tab。 */
+const FREE_TABS = ['all', 'full', 'quota', 'trial', 'paid'] as const
 
 const sp = Astro.url.searchParams
 const pick = (v: string | null, allowed: readonly string[], fallback: string) =>
@@ -43,28 +46,35 @@ const pick = (v: string | null, allowed: readonly string[], fallback: string) =>
 
 const view = pick(sp.get('view'), VIEWS, 'card')
 const sort = pick(sp.get('sort'), SORTS, 'difficulty')
+const freeTab = pick(sp.get('f'), FREE_TABS, 'all')
 const catRaw = (sp.get('cat') || '').trim()
 const pageParam = Number.parseInt(sp.get('page') || '1', 10)
 const requestedPage = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1
 
 // ---------------------------------------------------------------- 取数
-const { data: dealsRaw } = await supabase
-  .from('deals')
-  .select('*')
-  .eq('is_active', true)
-  // 过期即隐藏：expiry 为空 = 长期有效；有值则必须 >= 今天。
-  // expiry 统一存 YYYY-MM-DD，按字符串比较即可。
-  .or(`expiry.is.null,expiry.gte.${new Date().toISOString().slice(0, 10)}`)
+const dealsRaw = await listDeals({ includeExpired: false })
 
-const deals = (dealsRaw || []).map(d => ({
-  ...d,
-  curation: resolveCuration(d.provider, d.product),
-}))
+const deals = (dealsRaw || []).map(d => {
+  const curation = resolveCuration(d.provider, d.product)
+  return { ...d, curation, freebie: resolveFreebie(d, curation) }
+})
 
 // 大厂标准价参考卡不是优惠，是基准线 —— 单独一个 Tab，不混进主列表。
 const referenceDeals = deals.filter(d => d.curation.reference)
 // 主列表 = 普通优惠 + 「买赠」补充权益（补充卡在卡片上有 🧩 徽标区分）
 const mainDeals = deals.filter(d => !d.curation.reference)
+
+// 免费 / 付费拆开：页面默认只给「能领的」，付费优惠收进独立 Tab。
+const freeDeals = mainDeals.filter(d => d.freebie.isFree)
+const paidDeals = mainDeals.filter(d => !d.freebie.isFree)
+const freeKind = (k: FreebieKind) => freeDeals.filter(d => d.freebie.kind === k)
+const freeTabs = [
+  { key: 'all', label: '全部免费', icon: '🥚', count: freeDeals.length },
+  { key: 'full', label: FREEBIE_META.full.label, icon: FREEBIE_META.full.icon, count: freeKind('full').length },
+  { key: 'quota', label: FREEBIE_META.quota.label, icon: FREEBIE_META.quota.icon, count: freeKind('quota').length },
+  { key: 'trial', label: FREEBIE_META.trial.label, icon: FREEBIE_META.trial.icon, count: freeKind('trial').length },
+  { key: 'paid', label: '付费优惠', icon: '💳', count: paidDeals.length },
+] as const
 
 const isReferenceTab = catRaw === 'reference'
 
@@ -83,7 +93,18 @@ for (const f of FESTIVALS) {
 }
 
 // ---------------------------------------------------------------- 分类
-const allCategories = [...new Set(mainDeals.map(d => d.category))]
+// 分类只从「当前 Tab 的数据」里取 —— 免费区里没有的分类不该出现在筛选条上。
+const baseList = isReferenceTab
+  ? referenceDeals
+  : isFestivalTab
+    ? mainDeals.filter(d => dealMatchesFestival(d, festivalMeta!))
+    : freeTab === 'paid'
+      ? paidDeals
+      : freeTab === 'all'
+        ? freeDeals
+        : freeKind(freeTab as FreebieKind)
+
+const allCategories = [...new Set(baseList.map(d => d.category))]
 const categoryMap: Record<string, string> = {
   'compute': '云服务器',
   'nat': 'NAT VPS',
@@ -112,11 +133,6 @@ const categories = [...sortedCategories, ...remainingCats]
 const cat = isReferenceTab || isFestivalTab || allCategories.includes(catRaw) ? catRaw : ''
 
 // ---------------------------------------------------------------- 过滤 + 排序
-const baseList = isReferenceTab
-  ? referenceDeals
-  : isFestivalTab
-    ? mainDeals.filter(d => dealMatchesFestival(d, festivalMeta!))
-    : mainDeals
 const filtered =
   cat && !isReferenceTab && !isFestivalTab ? baseList.filter(d => d.category === cat) : baseList
 
@@ -132,6 +148,11 @@ const priceKey = (d: (typeof deals)[number]) =>
 const payKey = (d: (typeof deals)[number]) =>
   paymentRank(d.curation.payments, d.curation.freeNoCard)
 
+/** 默认排序第一优先级：完全免费(0) → 免费额度(1) → 试用(2) → 付费(3) */
+const FREEBIE_RANK: Record<FreebieKind, number> = { full: 0, quota: 1, trial: 2 }
+const freeRank = (d: (typeof deals)[number]) =>
+  d.freebie.kind ? FREEBIE_RANK[d.freebie.kind] : 3
+
 const sorted = [...filtered].sort((a, b) => {
   switch (sort) {
     case 'price':
@@ -145,6 +166,8 @@ const sorted = [...filtered].sort((a, b) => {
       return byName !== 0 ? byName : priceKey(a) - priceKey(b)
     }
     default: {
+      const byKind = freeRank(a) - freeRank(b)
+      if (byKind !== 0) return byKind
       const byDifficulty =
         DIFFICULTY_RANK[a.curation.difficulty] - DIFFICULTY_RANK[b.curation.difficulty]
       if (byDifficulty !== 0) return byDifficulty
@@ -161,20 +184,23 @@ const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 const page = Math.min(requestedPage, totalPages)
 const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-/** 生成 URL：只写非默认值，保持地址干净。切换分类/排序/视图时把 page 归 1。 */
+/** 生成 URL：只写非默认值，保持地址干净。切换分类/排序/视图/Tab 时把 page 归 1。 */
 function makeUrl(overrides: {
   view?: string
   sort?: string
+  f?: string
   cat?: string
   page?: number
 } = {}) {
   const v = overrides.view ?? view
   const s = overrides.sort ?? sort
+  const ft = overrides.f ?? freeTab
   const c = overrides.cat ?? cat
   const p = overrides.page ?? page
   const qs = new URLSearchParams()
   if (v !== 'card') qs.set('view', v)
   if (s !== 'difficulty') qs.set('sort', s)
+  if (ft !== 'all' && c !== 'reference') qs.set('f', ft)
   if (c) qs.set('cat', c)
   if (p > 1) qs.set('page', String(p))
   const str = qs.toString()
@@ -182,33 +208,38 @@ function makeUrl(overrides: {
 }
 
 // ---------------------------------------------------------------- 卡片分组
-// 只有「难度优先」这一种排序下，按难度分区才有意义；其它排序一律平铺网格。
+// 默认排序下分区：免费 Tab 按「免费类型」分（完全免费 / 额度 / 试用），
+// 付费 Tab 按「上手难度」分。其它排序一律平铺网格。
 const sectionOrder: Difficulty[] = ['easy', 'medium', 'hard']
+const freeSectionOrder: FreebieKind[] = ['full', 'quota', 'trial']
 const groupedSections =
   sort === 'difficulty' && !isReferenceTab && !isFestivalTab
-    ? sectionOrder
-        .map(key => ({ key, items: pageItems.filter(d => d.curation.difficulty === key) }))
-        .filter(s => s.items.length > 0)
+    ? (freeTab === 'paid'
+        ? sectionOrder.map(key => ({
+            key,
+            meta: DIFFICULTY_META[key],
+            items: pageItems.filter(d => d.curation.difficulty === key),
+          }))
+        : freeSectionOrder.map(key => ({
+            key,
+            meta: FREEBIE_META[key],
+            items: pageItems.filter(d => d.freebie.kind === key),
+          }))
+      ).filter(s => s.items.length > 0)
     : null
 
 const sortHint = SORT_OPTIONS.find(o => o.key === sort)?.hint || ''
 
 // ---------------------------------------------------------------- 点赞
 // 一次性拉取全站点赞数，在 JS 里聚合成 { target: count }，再传给每张 DealCard，
-// 避免每张卡各发一次请求。表不存在（还没执行 interactions.sql）时按 0 处理。
-// 已知限制：PostgREST 默认 max-rows=1000，点赞记录超过 1000 行后计数会静默少算。
+// 避免每张卡各发一次请求。
 const likeCounts: Record<string, number> = {}
 let likesTableReady = false
 try {
-  const { data: likeRows, error: likeError } = await supabase.from('deal_likes').select('target')
-  if (!likeError && likeRows) {
-    likesTableReady = true
-    for (const row of likeRows) {
-      const target = (row as { target?: unknown }).target
-      if (typeof target === 'string') likeCounts[target] = (likeCounts[target] || 0) + 1
-    }
-  } else if (likeError && !isTableMissing(likeError)) {
-    console.error('[deals] like counts fetch failed:', likeError.message)
+  const targets = await listLikeTargets()
+  likesTableReady = true
+  for (const target of targets) {
+    if (typeof target === 'string') likeCounts[target] = (likeCounts[target] || 0) + 1
   }
 } catch (err) {
   console.error('[deals] like counts fetch threw:', err)
@@ -220,15 +251,15 @@ const likesEnabled = likesTableReady && saltReady
 
 // ---------------------------------------------------------------- SEO
 // 结构化数据只在第 1 页铺全量，其余页只放当前页，避免 13 份重复的大 JSON-LD。
-const schemaDeals = page === 1 && !cat ? deals : pageItems
+const schemaDeals = page === 1 && !cat ? baseList : pageItems
 const schema = {
   "@context": "https://schema.org",
   "@type": "CollectionPage",
-  "name": "云服务优惠 - XTCer",
-  "description": "精选云服务器、AI Token、域名、存储等优惠信息，按上手难度与价格排序",
+  "name": "免费福利 · 云服务免费额度 - XTCer",
+  "description": "精选 0 元可领的云服务器、免费额度、AI Token 与限时试用，按领取难度排序",
   "url": "https://xtcer.cn/deals",
   "isPartOf": { "@type": "WebSite", "name": "XTCer", "url": "https://xtcer.cn" },
-  "about": { "@type": "Thing", "name": "云服务优惠" },
+  "about": { "@type": "Thing", "name": "云服务免费福利" },
   "hasPart": schemaDeals.map(deal => ({
     "@type": "Offer",
     "name": deal.product,
@@ -242,18 +273,19 @@ const schema = {
 }
 
 const pageTitle =
-  page > 1 ? `云服务优惠 第 ${page} 页 - XTCer` : '云服务优惠 - XTCer'
+  page > 1 ? `免费福利 第 ${page} 页 - XTCer` : '免费福利 · 云服务免费额度 - XTCer'
 ---
 
-<Layout title={pageTitle} description="精选云服务器、AI Token、域名、存储等优惠信息，按上手难度与价格排序" schema={schema}>
+<Layout title={pageTitle} description="精选 0 元可领的云服务器、免费额度、AI Token 与限时试用，按领取难度排序" schema={schema}>
   <nav class="nav">
     <div class="nav-inner">
       <a href="/" class="nav-logo">XTCer</a>
       <div class="nav-links">
         <a href="/" class="nav-link">首页</a>
+        <a href="/deals" class="nav-link" style="color:var(--text)">福利</a>
         <a href="/posts" class="nav-link">文章</a>
-        <a href="/deals" class="nav-link" style="color:var(--text)">优惠</a>
         <a href="/feeds" class="nav-link">情报</a>
+        <a href="/account" class="nav-link">签到</a>
         <button class="nav-search-btn" id="nav-search" title="搜索 (⌘K)">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
@@ -265,18 +297,18 @@ const pageTitle =
     <div class="container-wide">
       <header class="page-header">
         <div class="page-header-main">
-          <h1>云服务优惠</h1>
+          <h1>免费福利</h1>
           <p class="page-desc">
-            默认排序：<strong>上手难度</strong> → <strong>国内支付友好度</strong> → 价格。
-            容易成功、能微信 / 支付宝付款的排前面，只能刷海外信用卡、风控严格的沉到最后。
-            每页 {PAGE_SIZE} 条，右上角可切换<strong>卡片 / 表格</strong>视图与排序方式。
+            0 元可领的云服务器、免费额度、AI Token 与限时试用 —— 大家说的「<strong>领鸡蛋</strong>」都在这。
+            默认按 <strong>完全免费 → 免费额度 → 试用</strong> 排，越好领越靠前；
+            付费优惠已收进独立 Tab，不占版面。
           </p>
         </div>
-        {/* 支付优先级：压成一行小字，放在标题块右侧的空白处，不额外占高度 */}
+        {/* 免费优先级：压成一行小字，放在标题块右侧的空白处，不额外占高度 */}
         <p class="pay-order">
-          <span class="pay-order-title">支付优先级</span>
-          <span class="pay-order-cn">微信 › 支付宝 › 银联</span>
-          <span class="pay-order-intl">信用卡 › PayPal › 加密货币</span>
+          <span class="pay-order-title">领取优先级</span>
+          <span class="pay-order-cn">完全免费 › 免费额度 › 试用</span>
+          <span class="pay-order-intl">付费优惠见独立 Tab</span>
         </p>
       </header>
 
@@ -315,9 +347,19 @@ const pageTitle =
 
       <p class="sort-hint">{sortHint}</p>
 
+      {/* 主 Tab：免费类型。默认「全部免费」，付费优惠独立成一个 Tab。 */}
+      <div class="tabs free-tabs">
+        {freeTabs.map(t => (
+          <a
+            class:list={['tab', 'tab-free', freeTab === t.key && !isReferenceTab && 'active']}
+            href={makeUrl({ f: t.key, cat: '', page: 1 })}
+          >{t.icon} {t.label}<span class="tab-badge">{t.count}</span></a>
+        ))}
+      </div>
+
       {/* 分类 Tab：服务端筛选（分页之后前端筛选只能筛到当前页，所以必须走 URL） */}
-      <div class="tabs">
-        <a class:list={['tab', !cat && 'active']} href={makeUrl({ cat: '', page: 1 })}>全部</a>
+      <div class="tabs tabs-sub">
+        <a class:list={['tab', !cat && !isReferenceTab && 'active']} href={makeUrl({ cat: '', page: 1 })}>全部</a>
         {/* 节日专区 Tab 放在最前：节令期间是用户最关心的入口，别让它被挤出可视区 */}
         {FESTIVALS.map(f => (
           <a
@@ -374,20 +416,22 @@ const pageTitle =
           <section class="diff-section" data-diff={section.key}>
             <div class="section-head">
               <h2 class="section-title">
-                <span class="section-icon">{DIFFICULTY_META[section.key].icon}</span>
-                {DIFFICULTY_META[section.key].label}
+                <span class="section-icon">{section.meta.icon}</span>
+                {section.meta.label}
                 <span class="section-count">{section.items.length}</span>
               </h2>
-              <p class="section-desc">{DIFFICULTY_META[section.key].desc}</p>
+              <p class="section-desc">{section.meta.desc}</p>
             </div>
 
             <div class="deals-grid">
               {section.items.map(deal => (
                 <DealCard
                   deal={deal}
+                  freebie={deal.freebie}
                   categoryLabel={catLabel(deal.category)}
                   likeCount={likeCounts[deal.id] || 0}
                   likesEnabled={likesEnabled}
+                  userActions={true}
                 />
               ))}
             </div>
@@ -400,9 +444,11 @@ const pageTitle =
           {pageItems.map(deal => (
             <DealCard
               deal={deal}
+              freebie={deal.freebie}
               categoryLabel={catLabel(deal.category)}
               likeCount={likeCounts[deal.id] || 0}
               likesEnabled={likesEnabled}
+              userActions={true}
             />
           ))}
         </div>
@@ -410,7 +456,7 @@ const pageTitle =
 
       {total === 0 && (
         <div class="empty">
-          <p>该分类下暂无优惠信息</p>
+          <p>该分类下暂无可领的福利</p>
         </div>
       )}
 
@@ -423,7 +469,7 @@ const pageTitle =
       />
 
       <p class="disclaimer">
-        优惠信息与价格会变动，下单前请以官网为准。标注「高难度」的免费额度
+        免费额度与试用政策随时会变，领取前请以官网为准。标注「高难度」的免费额度
         <strong>不保证注册成功</strong>，详见 <a href="/posts/df92ea33-2962-4531-acf2-9c57c433b7fb">免费云额度注册避坑指南</a>。
         <br />
         域名：价格为 2026-10 核实的参考价，促销随时变动。<strong>低价后缀首年便宜、续费常翻数倍</strong>，
@@ -574,6 +620,16 @@ const pageTitle =
     opacity: 0.7;
   }
 
+  /* 免费类型主 Tab：比分类行更重，选中态用绿色呼应「0 元」 */
+  .free-tabs { margin-bottom: 0.625rem; }
+  .tab-free { font-weight: 600; }
+  .tab-free.active {
+    background: var(--green); border-color: var(--green); color: #fff;
+  }
+  /* 分类行降一级：更小、更淡，避免和主 Tab 抢注意力 */
+  .tabs-sub { margin-bottom: 1.25rem; }
+  .tabs-sub .tab { padding: 0.3125rem 0.75rem; font-size: 0.75rem; }
+
   /* 大块（难度分区）之间收紧，卡片内部也收紧 —— 纯信息展示，密集优先 */
   .diff-section { margin-bottom: 1.5rem; }
   .section-head {
@@ -617,7 +673,7 @@ const pageTitle =
   .footer-links a { color: var(--text-muted); }
   .footer-links a:hover { color: var(--text); }
 
-  .nav-links { display: flex; gap: 1.25rem; align-items: center; }
+  /* .nav-links 的基础与移动端收缩统一由 Layout 全局样式提供 */
   .nav-search-btn {
     background: none; border: none; color: var(--text-muted); cursor: pointer;
     padding: 0.375rem; border-radius: var(--radius-sm); transition: all 0.15s;

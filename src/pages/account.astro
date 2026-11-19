@@ -1,0 +1,486 @@
+---
+import Layout from '../layouts/Layout.astro'
+import { getAccountOverview, resolveCurrentUser } from '../lib/accounts'
+import { listDeals } from '../lib/store'
+import { BADGES, PLAY_MODULES, checkinPoints } from '../data/gamification'
+import { shiftDay, siteDay } from '../lib/http'
+
+// 这个页面是**按用户渲染**的，middleware 已把 /account 设为 no-store。
+const runtimeEnv = (Astro.locals as any)?.runtime?.env
+const user = await resolveCurrentUser(Astro.cookies, runtimeEnv)
+if (!user) return Astro.redirect('/login?next=/account')
+
+const overview = await getAccountOverview(user, runtimeEnv)
+
+// 收藏 / 领取需要展示福利名称：一次性拉全量 deal 在内存里建索引，避免 N 次查询。
+let deals: any[] = []
+try {
+  deals = await listDeals({ includeExpired: true }, runtimeEnv)
+} catch {
+  deals = []
+}
+const dealMap = new Map(deals.map((d) => [d.id, d]))
+const favoriteDeals = overview.favoriteIds
+  .map((id) => dealMap.get(id))
+  .filter((d): d is any => !!d)
+  .slice(0, 30)
+const claimedDeals = overview.claimIds
+  .map((id) => dealMap.get(id))
+  .filter((d): d is any => !!d)
+  .slice(0, 30)
+
+const today = siteDay()
+const calendar = Array.from({ length: 14 }, (_, i) => {
+  const day = shiftDay(today, i - 13)
+  return { day, checked: overview.checkinDays.includes(day) }
+})
+
+const owned = new Set(overview.badgeIds)
+const autoBadges = BADGES.filter((b) => b.kind === 'auto')
+const shopBadges = BADGES.filter((b) => b.kind === 'shop')
+
+// 下一次签到能拿多少分（今天已签则展示今天的成绩）
+const nextStreak = overview.checkedInToday
+  ? user.streak
+  : user.last_checkin === shiftDay(today, -1)
+    ? Number(user.streak) + 1
+    : 1
+const nextAward = checkinPoints(nextStreak)
+---
+
+<Layout title="我的账号 - XTCer" description="签到、积分、徽章、收藏与领取记录。">
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">XTcer</a>
+      <div class="nav-links">
+        <a href="/" class="nav-link">首页</a>
+        <a href="/deals" class="nav-link">福利</a>
+        <a href="/feeds" class="nav-link">情报</a>
+        <a href="/account" class="nav-link" style="color:var(--text)">我的</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="account-page">
+    <div class="container">
+      <header class="profile glass-card">
+        <div class="avatar" aria-hidden="true">{user.username.slice(0, 1)}</div>
+        <div class="profile-main">
+          <h1>{user.username}</h1>
+          <p>加入于 {siteDay(new Date(user.created_at))} · 用户名登录，未绑定邮箱 / 手机</p>
+        </div>
+        <button type="button" class="logout-btn" id="logout-btn">退出登录</button>
+      </header>
+
+      <div class="stats">
+        <div class="stat glass-card">
+          <span class="stat-num" id="stat-points">{user.points}</span>
+          <span class="stat-label">积分</span>
+        </div>
+        <div class="stat glass-card">
+          <span class="stat-num">{user.streak}</span>
+          <span class="stat-label">连续签到</span>
+        </div>
+        <div class="stat glass-card">
+          <span class="stat-num">{overview.checkinDays.length}</span>
+          <span class="stat-label">近 60 天签到</span>
+        </div>
+        <div class="stat glass-card">
+          <span class="stat-num">{overview.badgeIds.length}</span>
+          <span class="stat-label">徽章</span>
+        </div>
+      </div>
+
+      <!-- 每日开蛋 -->
+      <section class="panel glass-card" id="checkin">
+        <div class="panel-head">
+          <h2>🥚 每日开蛋</h2>
+          <span class="panel-badge">{overview.checkedInToday ? '今天已完成' : `连签第 ${nextStreak} 天`}</span>
+        </div>
+        <p class="panel-desc">
+          每天来敲一颗蛋，基础 5 分，连签每多一天多 1 分（最多 12 分）。
+          断签不会清零积分，但连签会从头算。
+        </p>
+        <button
+          type="button"
+          class="checkin-btn"
+          id="checkin-btn"
+          data-done={overview.checkedInToday ? 'true' : 'false'}
+          disabled={overview.checkedInToday}
+        >
+          {overview.checkedInToday ? '今天已开蛋 ✓' : `敲开今日蛋 · +${nextAward} 积分`}
+        </button>
+      </section>
+
+      <!-- 打卡日历 -->
+      <section class="panel glass-card" id="calendar">
+        <div class="panel-head">
+          <h2>🗓️ 最近 14 天</h2>
+        </div>
+        <div class="calendar">
+          {calendar.map((d) => (
+            <div class:list={['day-cell', d.checked && 'checked']} title={d.day}>
+              <span class="day-num">{d.day.slice(8)}</span>
+              <span class="day-dot" aria-hidden="true">{d.checked ? '🥚' : '·'}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <!-- 徽章墙 -->
+      <section class="panel glass-card" id="badges">
+        <div class="panel-head">
+          <h2>🎖️ 徽章墙</h2>
+          <span class="panel-badge">{overview.badgeIds.length} / {BADGES.length}</span>
+        </div>
+
+        <h3 class="sub-title">自动解锁</h3>
+        <div class="badge-grid">
+          {autoBadges.map((b) => (
+            <div class:list={['badge-card', owned.has(b.id) && 'owned']}>
+              <span class="badge-icon">{b.icon}</span>
+              <div class="badge-body">
+                <strong>{b.name}</strong>
+                <span>{b.desc}</span>
+              </div>
+              <span class="badge-state">{owned.has(b.id) ? '已获得' : '未解锁'}</span>
+            </div>
+          ))}
+        </div>
+
+        <h3 class="sub-title">积分商店</h3>
+        <div class="badge-grid">
+          {shopBadges.map((b) => (
+            <div class:list={['badge-card', owned.has(b.id) && 'owned']}>
+              <span class="badge-icon">{b.icon}</span>
+              <div class="badge-body">
+                <strong>{b.name}</strong>
+                <span>{b.desc}</span>
+              </div>
+              {owned.has(b.id) ? (
+                <span class="badge-state">已拥有</span>
+              ) : (
+                <button
+                  type="button"
+                  class="redeem-btn"
+                  data-redeem={b.id}
+                  data-cost={b.cost}
+                  disabled={user.points < (b.cost || 0)}
+                >{b.cost} 分兑换</button>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <!-- 收藏 -->
+      <section class="panel glass-card">
+        <div class="panel-head">
+          <h2>⭐ 我的收藏</h2>
+          <span class="panel-badge">{favoriteDeals.length} 个</span>
+        </div>
+        {favoriteDeals.length === 0 ? (
+          <p class="empty-hint">在 <a href="/deals">福利页</a> 点「收藏」，好羊毛就不会丢。</p>
+        ) : (
+          <ul class="deal-list">
+            {favoriteDeals.map((d) => (
+              <li>
+                <span class="deal-provider">{d.provider}</span>
+                {d.url
+                  ? <a href={d.url} target="_blank" rel="noopener">{d.product}</a>
+                  : <span>{d.product}</span>}
+                <span class="deal-price">{d.price}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <!-- 领取记录 -->
+      <section class="panel glass-card">
+        <div class="panel-head">
+          <h2>🧺 已领取</h2>
+          <span class="panel-badge">{claimedDeals.length} 个</span>
+        </div>
+        {claimedDeals.length === 0 ? (
+          <p class="empty-hint">领过哪个福利，就在卡片上点「已领」，方便以后续期时核对。</p>
+        ) : (
+          <ul class="deal-list">
+            {claimedDeals.map((d) => (
+              <li>
+                <span class="deal-provider">{d.provider}</span>
+                {d.url
+                  ? <a href={d.url} target="_blank" rel="noopener">{d.product}</a>
+                  : <span>{d.product}</span>}
+                <span class="deal-price">{d.price}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <!-- 玩法模块：新增玩法只在 src/data/gamification.ts 注册即可 -->
+      <section class="panel glass-card">
+        <div class="panel-head">
+          <h2>🎮 玩法</h2>
+        </div>
+        <div class="play-grid">
+          {PLAY_MODULES.map((m) => (
+            <div class:list={['play-card', m.status === 'planned' && 'planned']}>
+              <span class="play-icon">{m.icon}</span>
+              <div class="play-body">
+                <strong>{m.name}</strong>
+                <span>{m.desc}</span>
+              </div>
+              {m.status === 'live' && m.href ? (
+                <a href={m.href} class="play-link">去玩 →</a>
+              ) : (
+                <span class="play-state">筹备中</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <p class="account-note">
+        账号安全：密码只保存 PBKDF2 摘要，登录态放在 HttpOnly Cookie 里，页面脚本读不到；
+        所有写操作都会校验来源并限流。本站不收集邮箱、手机号。
+      </p>
+    </div>
+  </main>
+</Layout>
+
+<script>
+  const toast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    ;(window as any).showToast?.(message, type)
+  }
+
+  async function postJson(endpoint: string, payload?: unknown) {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload ?? {}),
+    })
+    const data = await res.json().catch(() => ({}))
+    return { res, data }
+  }
+
+  const checkinBtn = document.getElementById('checkin-btn') as HTMLButtonElement | null
+  checkinBtn?.addEventListener('click', async () => {
+    if (checkinBtn.disabled) return
+    checkinBtn.disabled = true
+    checkinBtn.textContent = '正在敲蛋…'
+    try {
+      const { res, data } = await postJson('/api/user/checkin')
+      if (!res.ok) throw new Error(typeof data?.error === 'string' ? data.error : '签到失败')
+      if (data?.already) {
+        toast('今天已经开过蛋啦，明天再来', 'info')
+        checkinBtn.textContent = '今天已开蛋 ✓'
+        return
+      }
+      const badges = Array.isArray(data?.newBadges) ? data.newBadges : []
+      toast(
+        `+${data.awarded} 积分 · 连签 ${data.streak} 天${badges.length ? ` · 解锁 ${badges[0].icon}${badges[0].name}` : ''}`,
+        'success',
+      )
+      const pointsEl = document.getElementById('stat-points')
+      if (pointsEl) pointsEl.textContent = String(data.points)
+      checkinBtn.textContent = '今天已开蛋 ✓'
+      setTimeout(() => location.reload(), 1200)
+    } catch (err: any) {
+      toast(err?.message || '签到失败', 'error')
+      checkinBtn.disabled = false
+      checkinBtn.textContent = '再试一次'
+    }
+  })
+
+  document.querySelectorAll<HTMLButtonElement>('[data-redeem]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const badgeId = btn.dataset.redeem
+      if (!badgeId || btn.disabled) return
+      btn.disabled = true
+      try {
+        const { res, data } = await postJson('/api/user/redeem', { badgeId })
+        if (!res.ok) throw new Error(typeof data?.error === 'string' ? data.error : '兑换失败')
+        toast(`兑换成功：${data?.badge?.icon || ''}${data?.badge?.name || ''}`)
+        setTimeout(() => location.reload(), 1200)
+      } catch (err: any) {
+        toast(err?.message || '兑换失败', 'error')
+        btn.disabled = false
+      }
+    })
+  })
+
+  document.getElementById('logout-btn')?.addEventListener('click', async () => {
+    try {
+      await postJson('/api/auth/logout')
+    } catch {
+      // 忽略网络异常，Cookie 已由服务端清掉
+    }
+    location.href = '/'
+  })
+</script>
+
+<style>
+  .account-page { padding: calc(var(--nav-height) + 1.5rem) 0 4rem; }
+
+  .profile {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .avatar {
+    width: 56px; height: 56px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    border-radius: 50%;
+  }
+  .profile-main { flex: 1; min-width: 0; }
+  .profile-main h1 { margin: 0 0 0.25rem; font-size: 1.25rem; }
+  .profile-main p { margin: 0; font-size: 0.75rem; color: var(--text-muted); }
+  .logout-btn {
+    padding: 0.4rem 0.85rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+  .logout-btn:hover { color: var(--text); border-color: var(--text-muted); }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1rem; }
+  .stat { padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.2rem; }
+  .stat-num { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+  .stat-label { font-size: 0.6875rem; color: var(--text-muted); }
+
+  .panel { padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+  .panel-head h2 { margin: 0; font-size: 1rem; }
+  .panel-badge {
+    padding: 0.15rem 0.55rem;
+    font-size: 0.6875rem;
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 26%, transparent);
+    border-radius: 999px;
+  }
+  .panel-desc { margin: 0.5rem 0 1rem; font-size: 0.8125rem; color: var(--text-muted); line-height: 1.6; }
+
+  .checkin-btn {
+    padding: 0.65rem 1.5rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: transform 0.15s, opacity 0.15s;
+  }
+  .checkin-btn:hover:not(:disabled) { transform: translateY(-1px); }
+  .checkin-btn:disabled { opacity: 0.55; cursor: default; }
+
+  .calendar { display: grid; grid-template-columns: repeat(14, 1fr); gap: 0.35rem; margin-top: 0.9rem; }
+  .day-cell {
+    display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
+    padding: 0.4rem 0;
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    background: color-mix(in srgb, var(--surface) 60%, transparent);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .day-cell.checked {
+    color: var(--green);
+    border-color: color-mix(in srgb, var(--green) 40%, transparent);
+    background: color-mix(in srgb, var(--green) 10%, transparent);
+  }
+  .day-dot { font-size: 0.75rem; }
+
+  .sub-title { margin: 1.1rem 0 0.6rem; font-size: 0.8125rem; color: var(--text-muted); font-weight: 600; }
+  .badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.6rem; }
+  .badge-card {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    opacity: 0.55;
+  }
+  .badge-card.owned { opacity: 1; border-color: color-mix(in srgb, var(--primary) 35%, transparent); }
+  .badge-icon { font-size: 1.5rem; }
+  .badge-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+  .badge-body strong { font-size: 0.8125rem; }
+  .badge-body span { font-size: 0.6875rem; color: var(--text-muted); }
+  .badge-state { font-size: 0.6875rem; color: var(--text-muted); white-space: nowrap; }
+  .redeem-btn {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.6875rem;
+    white-space: nowrap;
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .redeem-btn:disabled { opacity: 0.45; cursor: default; }
+
+  .deal-list { list-style: none; margin: 0.75rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+  .deal-list li {
+    display: flex; align-items: baseline; gap: 0.6rem;
+    padding: 0.45rem 0;
+    font-size: 0.8125rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .deal-list li:last-child { border-bottom: none; }
+  .deal-provider { font-size: 0.6875rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .deal-list a { flex: 1; color: var(--text); }
+  .deal-list a:hover { color: var(--primary); }
+  .deal-price { font-size: 0.75rem; color: var(--green); white-space: nowrap; }
+
+  .empty-hint { margin: 0.75rem 0 0; font-size: 0.8125rem; color: var(--text-muted); }
+  .empty-hint a { color: var(--primary); }
+
+  .play-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.6rem; margin-top: 0.9rem; }
+  .play-card {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .play-card.planned { opacity: 0.6; }
+  .play-icon { font-size: 1.4rem; }
+  .play-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+  .play-body strong { font-size: 0.8125rem; }
+  .play-body span { font-size: 0.6875rem; color: var(--text-muted); }
+  .play-link { font-size: 0.75rem; color: var(--primary); white-space: nowrap; }
+  .play-state { font-size: 0.6875rem; color: var(--text-muted); white-space: nowrap; }
+
+  .account-note { margin: 1.5rem 0 0; font-size: 0.6875rem; line-height: 1.7; color: var(--text-muted); text-align: center; }
+
+  /* 宽屏下账户页不需要拉满 1200px，收窄更好读 */
+  .account-page .container { max-width: 1000px; }
+
+  @media (max-width: 640px) {
+    .account-page { padding-top: calc(var(--nav-height) + 1rem); }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .calendar { grid-template-columns: repeat(7, 1fr); gap: 0.25rem; }
+    .day-cell { padding: 0.3rem 0; font-size: 0.625rem; }
+    .profile { flex-wrap: wrap; }
+    .panel { padding: 1rem; }
+    .panel-head { flex-wrap: wrap; }
+    .deal-list li { flex-wrap: wrap; }
+    .deal-provider { flex-basis: 100%; }
+    .play-grid { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 480px) {
+    .badge-grid { grid-template-columns: 1fr; }
+    .profile-main h1 { font-size: 1.1rem; }
+    .stat-num { font-size: 1.25rem; }
+  }
+</style>

@@ -1,17 +1,10 @@
-import { fetchAll } from '../lib/query'
+import { listAllFeeds, listAllPosts } from '../lib/store'
 
 const SITE = 'https://xtcer.cn'
 
 export async function GET() {
-  // ⚠️ 必须用 fetchAll 分页拉取：PostgREST max-rows=1000 会把直接 select 静默截断，
-  // 文章已 1041 篇 —— 之前 sitemap 里有 41 篇永远进不去。
-  const posts = await fetchAll<{ id: string; created_at: string; tags: string[] | null }>(
-    'posts',
-    'id, created_at, tags',
-    { order: { column: 'created_at', ascending: false } }
-  )
-
-  const feeds = await fetchAll<{ tags: string[] | null }>('feeds', 'tags')
+  const posts = await listAllPosts()
+  const feeds = await listAllFeeds()
 
   const staticPages = [
     { path: '', changefreq: 'daily', priority: '1.0' },

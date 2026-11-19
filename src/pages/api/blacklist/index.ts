@@ -1,11 +1,15 @@
-import { supabase } from '../../../lib/supabase'
+import { addBlacklist, deleteBlacklist, listBlacklist } from '../../../lib/store'
 import { isAdminRequest } from '../../../lib/admin-auth'
 
 export async function GET({ cookies, locals }: { cookies: any; locals: any }) {
   if (!isAdminRequest(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
-  const { data } = await supabase.from('blacklist').select('*').order('created_at', { ascending: false })
-  return new Response(JSON.stringify(data || []), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  try {
+    const data = await listBlacklist()
+    return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e?.message || '数据库错误' }), { status: 500 })
+  }
 }
 
 export async function POST({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
@@ -15,13 +19,12 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
   const { ip, reason } = body
   if (!ip) return new Response(JSON.stringify({ error: 'IP required' }), { status: 400 })
 
-  const { data, error } = await supabase
-    .from('blacklist')
-    .insert({ ip, reason: reason || '' })
-    .select().single()
-
-  if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  try {
+    const data = await addBlacklist(ip, reason || '')
+    return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e?.message || '数据库错误' }), { status: 500 })
+  }
 }
 
 export async function DELETE({ url, cookies, locals }: { url: URL; cookies: any; locals: any }) {
@@ -30,6 +33,10 @@ export async function DELETE({ url, cookies, locals }: { url: URL; cookies: any;
   const id = url.searchParams.get('id')
   if (!id) return new Response(JSON.stringify({ error: 'ID required' }), { status: 400 })
 
-  await supabase.from('blacklist').delete().eq('id', id)
-  return new Response(JSON.stringify({ success: true }))
+  try {
+    await deleteBlacklist(id)
+    return new Response(JSON.stringify({ success: true }))
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e?.message || '数据库错误' }), { status: 500 })
+  }
 }

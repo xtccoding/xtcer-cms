@@ -4,8 +4,7 @@ import Layout from '../../layouts/Layout.astro'
 import Sidebar from '../../components/Sidebar.astro'
 import { getAdminFullPath } from '../../lib/admin-path'
 import { resolveAdminPassword, isAdminRequest } from '../../lib/admin-auth'
-import { createAdminClient } from '../../lib/supabase-admin'
-import { isTableMissing } from '../../lib/interactions'
+import { listFeedback } from '../../lib/store'
 
 const runtimeEnv = (Astro.locals as any)?.runtime?.env
 
@@ -28,31 +27,18 @@ type FeedbackRow = {
 
 /**
  * state 说明：
- * - ok       正常
- * - no-key   未配置 SUPABASE_SERVICE_ROLE_KEY（anon 读不到 feedback，只能走 service_role）
- * - no-table 用户还没执行 database/interactions.sql
- * - error    其它数据库错误
+ * - ok     正常
+ * - error  数据库错误
  */
-let state: 'ok' | 'no-key' | 'no-table' | 'error' = 'ok'
+let state: 'ok' | 'error' = 'ok'
 let errorMessage = ''
 let items: FeedbackRow[] = []
 
-const admin = createAdminClient(runtimeEnv)
-if (!admin) {
-  state = 'no-key'
-} else {
-  const { data, error } = await admin
-    .from('feedback')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(500)
-
-  if (error) {
-    state = isTableMissing(error) ? 'no-table' : 'error'
-    errorMessage = error.message
-  } else {
-    items = (data ?? []) as FeedbackRow[]
-  }
+try {
+  items = (await listFeedback()) as FeedbackRow[]
+} catch (e: any) {
+  state = 'error'
+  errorMessage = e?.message || 'unknown error'
 }
 
 const pendingCount = items.filter((i) => !i.handled).length
@@ -83,37 +69,6 @@ function fmt(iso: string): string {
           <button class="btn btn-ghost btn-sm" id="fb-refresh">刷新</button>
         </div>
       </header>
-
-      {state === 'no-key' && (
-        <section class="panel glass-card notice notice-warn">
-          <h2>⚠️ 还没配置 service_role 密钥，暂时读不到反馈</h2>
-          <p>
-            <code>feedback</code> 表故意只允许匿名用户「写入」、不允许「读取」（匿名密钥会打进浏览器，等于公开，
-            开放读权限任何人都能拉走全部反馈）。所以后台需要一把仅在服务端使用的
-            <code>SUPABASE_SERVICE_ROLE_KEY</code>。
-          </p>
-          <ol>
-            <li>打开 Supabase Dashboard → <strong>Project Settings → API</strong>。</li>
-            <li>复制 <code>service_role</code> 那一行的密钥（<strong>不是</strong> anon key）。</li>
-            <li>在 Cloudflare Pages → Settings → Environment variables 新增
-              <code>SUPABASE_SERVICE_ROLE_KEY</code>，值粘贴进去，保存后重新部署。</li>
-          </ol>
-          <p class="notice-foot">
-            注意：变量名<strong>不能</strong>加 <code>PUBLIC_</code> 前缀，否则会被打进浏览器产物。
-          </p>
-        </section>
-      )}
-
-      {state === 'no-table' && (
-        <section class="panel glass-card notice notice-warn">
-          <h2>⚠️ 数据库里还没有 feedback 表</h2>
-          <p>
-            请到 Supabase Dashboard → <strong>SQL Editor</strong>，把仓库里
-            <code>database/interactions.sql</code> 的内容整段粘贴执行一次。
-            该脚本是幂等的，重复执行不会报错。
-          </p>
-        </section>
-      )}
 
       {state === 'error' && (
         <section class="panel glass-card notice notice-error">

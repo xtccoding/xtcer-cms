@@ -1,11 +1,10 @@
-import { supabase } from '../../lib/supabase'
+import { addLike, countLikes, listLikeTargets } from '../../lib/store'
 import {
   JSON_HEADERS,
   getClientIp,
   hashIp,
   resolveSalt,
   validateTarget,
-  isTableMissing,
 } from '../../lib/interactions'
 
 function json(body: unknown, status = 200): Response {
@@ -15,25 +14,19 @@ function json(body: unknown, status = 200): Response {
 /**
  * GET → 返回全站点赞数映射 { "<target>": count }。
  * 一次性取出所有 target 后在 JS 里聚合，避免 /deals 页 332 张卡各发一次请求。
- * 表不存在（用户还没执行 interactions.sql）时返回空对象，前端按 0 处理。
  */
 export async function GET() {
-  // 已知限制：PostgREST 默认 max-rows=1000，这里拉全表后在 JS 里聚合，
-  // 点赞记录超过 1000 行后计数会静默少算。点赞量接近上限时需改为视图 / RPC 聚合。
-  const { data, error } = await supabase.from('deal_likes').select('target')
-
-  if (error) {
-    if (isTableMissing(error)) return json({})
-    return json({ error: error.message }, 500)
+  try {
+    const targets = await listLikeTargets()
+    const counts: Record<string, number> = {}
+    for (const target of targets) {
+      if (typeof target !== 'string') continue
+      counts[target] = (counts[target] || 0) + 1
+    }
+    return json(counts)
+  } catch {
+    return json({})
   }
-
-  const counts: Record<string, number> = {}
-  for (const row of data || []) {
-    const target = (row as { target?: unknown }).target
-    if (typeof target !== 'string') continue
-    counts[target] = (counts[target] || 0) + 1
-  }
-  return json(counts)
 }
 
 /**
@@ -42,10 +35,9 @@ export async function GET() {
  * 安全：
  * - target 经 validateTarget 白名单校验，非法直接 400。
  * - 请求体 JSON 解析失败 try/catch 兜 400，不抛 500。
- * - 数据库写入只走 PostgREST（supabase-js），无任何 SQL 字符串拼接。
  * - IP 仅以 SHA-256(salt+ip) 哈希入库。
  *
- * 幂等：靠唯一约束 (target, ip_hash) + upsert(ignoreDuplicates)，
+ * 幂等：靠唯一约束 (target, ip_hash) + INSERT OR IGNORE，
  * 重复点赞不报错、不重复计数。
  */
 export async function POST({ request, locals }: { request: Request; locals: any }) {
@@ -69,28 +61,11 @@ export async function POST({ request, locals }: { request: Request; locals: any 
   const ip = getClientIp(request)
   const ipHash = await hashIp(ip, salt)
 
-  const { error: insertError } = await supabase
-    .from('deal_likes')
-    .upsert(
-      { target, ip_hash: ipHash },
-      { onConflict: 'target,ip_hash', ignoreDuplicates: true }
-    )
-
-  if (insertError) {
-    // 表不存在 → 优雅降级：告诉前端隐藏按钮，而不是报错。
-    if (isTableMissing(insertError)) return json({ count: 0, liked: false, disabled: true })
-    return json({ error: insertError.message }, 500)
+  try {
+    await addLike(target, ipHash)
+    const count = await countLikes(target)
+    return json({ count, liked: true })
+  } catch (e: any) {
+    return json({ error: e?.message || 'db error' }, 500)
   }
-
-  const { count, error: countError } = await supabase
-    .from('deal_likes')
-    .select('id', { count: 'exact', head: true })
-    .eq('target', target)
-
-  if (countError) {
-    if (isTableMissing(countError)) return json({ count: 0, liked: true, disabled: true })
-    return json({ error: countError.message }, 500)
-  }
-
-  return json({ count: count || 0, liked: true })
 }

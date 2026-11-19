@@ -1,9 +1,5 @@
-import { supabase } from '../../../lib/supabase'
+import { createFeed, findFeedByUrlHash, listRecentFeedsOfType, updateFeed, upsertFeed } from '../../../lib/store'
 import { isAdminOrFeedRequest } from '../../../lib/admin-auth'
-
-function isAuthenticated(cookies: any, request: Request, env: any): boolean {
-  return isAdminOrFeedRequest(cookies, request, env)
-}
 
 function normalizeUrl(url: string): string {
   return url.replace(/\/$/, '').replace(/#\w+$/, '').replace(/\?.*$/, '').toLowerCase()
@@ -31,7 +27,7 @@ function similarity(a: string, b: string): number {
 }
 
 export async function POST({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
-  if (!isAuthenticated(cookies, request, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+  if (!isAdminOrFeedRequest(cookies, request, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const body = await request.json()
 
@@ -64,7 +60,6 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
       priority: priority || 'normal',
       metadata: metadata || {},
       published_at: published_at || now,
-      updated_at: now,
     }
     if (feedUrl) {
       insertData.url = feedUrl
@@ -72,61 +67,50 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
       insertData.url_hash = urlHash(feedUrl)
     }
 
-    // Layer 1: UNIQUE(feed_type, title) upsert
-    const { data, error } = await supabase
-      .from('feeds')
-      .upsert(insertData, { onConflict: 'feed_type,title' })
-      .select()
-
-    if (!error && data && data.length > 0) {
+    try {
+      // Layer 1: UNIQUE(feed_type, title) upsert
+      await upsertFeed(insertData)
       results.inserted++
       continue
+    } catch {
+      // 落到下一层去重逻辑
     }
 
-    // Layer 2: url_hash dedup
-    if (insertData.url_hash) {
-      const { data: existing } = await supabase
-        .from('feeds')
-        .select('id')
-        .eq('feed_type', feed_type)
-        .eq('url_hash', insertData.url_hash)
-        .limit(1)
-
-      if (existing && existing.length > 0) {
-        await supabase.from('feeds').update({ ...insertData, updated_at: now }).eq('id', existing[0].id)
-        results.updated++
-        continue
+    try {
+      // Layer 2: url_hash dedup
+      if (insertData.url_hash) {
+        const existing = await findFeedByUrlHash(feed_type, insertData.url_hash)
+        if (existing) {
+          await updateFeed(existing.id, { ...insertData, updated_at: now })
+          results.updated++
+          continue
+        }
       }
-    }
 
-    // Layer 3: Title fuzzy match (same feed_type, last 24h)
-    const { data: recent } = await supabase
-      .from('feeds')
-      .select('id, title')
-      .eq('feed_type', feed_type)
-      .gte('created_at', oneDayAgo)
-      .limit(100)
+      // Layer 3: Title fuzzy match (same feed_type, last 24h)
+      const recent = await listRecentFeedsOfType(feed_type, oneDayAgo, 100)
 
-    let merged = false
-    if (recent) {
+      let merged = false
       for (const r of recent) {
         if (similarity(r.title, title) > 0.6) {
-          await supabase.from('feeds').update({
-            summary: summary || (r as any).summary,
-            tags: tags || (r as any).tags,
+          await updateFeed(r.id, {
+            summary: summary || r.summary,
+            tags: tags || r.tags,
             updated_at: now,
-          }).eq('id', r.id)
+          })
           results.updated++
           merged = true
           break
         }
       }
-    }
 
-    if (!merged) {
-      const { error: insertErr } = await supabase.from('feeds').insert(insertData)
-      if (insertErr) { results.skipped++; results.errors.push(insertErr.message) }
-      else results.inserted++
+      if (!merged) {
+        await createFeed(insertData)
+        results.inserted++
+      }
+    } catch (e: any) {
+      results.skipped++
+      results.errors.push(e?.message || 'unknown error')
     }
   }
 

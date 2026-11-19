@@ -2,7 +2,7 @@
 import '../../styles/admin.css'
 import Layout from '../../layouts/Layout.astro'
 import Sidebar from '../../components/Sidebar.astro'
-import { supabase } from '../../lib/supabase'
+import { listLinks } from '../../lib/store'
 
 const runtimeEnv = (Astro.locals as any)?.runtime?.env
 const ADMIN_PASSWORD = runtimeEnv?.ADMIN_PASSWORD || import.meta.env.ADMIN_PASSWORD
@@ -10,7 +10,7 @@ if (!ADMIN_PASSWORD) return new Response('ADMIN_PASSWORD not configured', { stat
 const cookie = Astro.cookies.get('admin_auth')
 if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
 
-const { data: links } = await supabase.from('links').select('*').order('sort_order', { ascending: true })
+const links = await listLinks()
 const categories = [...new Set(links?.map(l => l.category) || [])]
 ---
 

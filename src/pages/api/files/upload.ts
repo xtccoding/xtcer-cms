@@ -1,5 +1,5 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
-import { createAdminClient } from '../../../lib/supabase-admin'
+import { createFile, deleteFile, fileSlugExists, getFileById, getFileBySlug } from '../../../lib/store'
 
 function randomSlug(len = 8): string {
   const chars = 'abcdefghijkmnpqrstuvwxyz23456789'
@@ -8,16 +8,7 @@ function randomSlug(len = 8): string {
   return s
 }
 
-// files 表已对 anon 撤销权限（RLS v3），本端点虽是 bearer token 鉴权，
-// 但表操作仍需 service_role 客户端，否则权限报错。
-function adminClient(locals: any) {
-  return createAdminClient(locals?.runtime?.env)
-}
-
 export async function POST({ request, locals }: { request: Request; locals: any }) {
-  const supabase = adminClient(locals)
-  if (!supabase) return new Response(JSON.stringify({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' }), { status: 500 })
-
   const env = locals?.runtime?.env || {}
   const validKey = env.UPLOAD_API_KEY || import.meta.env.UPLOAD_API_KEY
   if (!validKey) return new Response(JSON.stringify({ error: 'UPLOAD_API_KEY not configured' }), { status: 500 })
@@ -47,8 +38,7 @@ export async function POST({ request, locals }: { request: Request; locals: any 
     const expiresIn = parseInt(formData.get('expires') as string || '0')
     const slug = customSlug || randomSlug()
 
-    const { data: existingSlug } = await supabase.from('files').select('id').eq('share_slug', slug).limit(1)
-    if (existingSlug && existingSlug.length > 0) {
+    if (await fileSlugExists(slug)) {
       return new Response(JSON.stringify({ error: 'Slug already exists' }), { status: 409 })
     }
 
@@ -76,7 +66,7 @@ export async function POST({ request, locals }: { request: Request; locals: any 
     const url = `${publicUrl}/${key}`
     const expiresAt = expiresIn > 0 ? new Date(Date.now() + expiresIn * 3600000).toISOString() : null
 
-    const { data: inserted, error: insertError } = await supabase.from('files').insert({
+    const inserted = await createFile({
       key,
       url,
       filename: file.name,
@@ -85,9 +75,7 @@ export async function POST({ request, locals }: { request: Request; locals: any 
       share_slug: slug,
       password,
       expires_at: expiresAt,
-    }).select().single()
-
-    if (insertError) return new Response(JSON.stringify({ error: insertError.message }), { status: 500 })
+    })
 
     const siteUrl = new URL(request.url).origin
     return new Response(JSON.stringify({
@@ -100,9 +88,6 @@ export async function POST({ request, locals }: { request: Request; locals: any 
 }
 
 export async function DELETE({ request, locals }: { request: Request; locals: any }) {
-  const supabase = adminClient(locals)
-  if (!supabase) return new Response(JSON.stringify({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' }), { status: 500 })
-
   const env = locals?.runtime?.env || {}
   const validKey = env.UPLOAD_API_KEY || import.meta.env.UPLOAD_API_KEY
   if (!validKey) return new Response(JSON.stringify({ error: 'UPLOAD_API_KEY not configured' }), { status: 500 })
@@ -120,10 +105,7 @@ export async function DELETE({ request, locals }: { request: Request; locals: an
     const { id, slug } = await request.json()
     if (!id && !slug) return new Response(JSON.stringify({ error: 'Provide id or slug' }), { status: 400 })
 
-    let query = supabase.from('files').select('id, key')
-    if (id) query = query.eq('id', id)
-    else query = query.eq('share_slug', slug)
-    const { data: file } = query.single ? await query.single() : await query.limit(1).maybeSingle()
+    const file = id ? await getFileById(id) : await getFileBySlug(slug)
 
     if (!file) return new Response(JSON.stringify({ error: 'File not found' }), { status: 404 })
 
@@ -136,7 +118,7 @@ export async function DELETE({ request, locals }: { request: Request; locals: an
       await s3.send(new DeleteObjectCommand({ Bucket: bucketName, Key: file.key }))
     }
 
-    await supabase.from('files').delete().eq('id', file.id)
+    await deleteFile(file.id)
     return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500 })

@@ -2,7 +2,7 @@
 import '../../styles/admin.css'
 import Layout from '../../layouts/Layout.astro'
 import Sidebar from '../../components/Sidebar.astro'
-import { supabase } from '../../lib/supabase'
+import { listAllFeeds } from '../../lib/store'
 
 const runtimeEnv = (Astro.locals as any)?.runtime?.env
 const ADMIN_PASSWORD = runtimeEnv?.ADMIN_PASSWORD || import.meta.env.ADMIN_PASSWORD
@@ -10,7 +10,7 @@ if (!ADMIN_PASSWORD) return new Response('ADMIN_PASSWORD not configured', { stat
 const cookie = Astro.cookies.get('admin_auth')
 if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
 
-const { data: feeds } = await supabase.from('feeds').select('*').order('created_at', { ascending: false })
+const feeds = await listAllFeeds()
 const feedTypes = [...new Set(feeds?.map(f => f.feed_type) || [])]
 const typeLabels: Record<string, string> = {
   security: '安全', github_trending: 'GitHub', ai_monetization: 'AI',

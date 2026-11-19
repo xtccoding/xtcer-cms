@@ -1,9 +1,5 @@
-import { supabase } from '../../../lib/supabase'
+import { getPostTagsMap, updatePost } from '../../../lib/store'
 import { isAdminRequest } from '../../../lib/admin-auth'
-
-function isAuthenticated(cookies: any, env: any): boolean {
-  return isAdminRequest(cookies, env)
-}
 
 interface TagItem {
   id: string
@@ -11,7 +7,7 @@ interface TagItem {
 }
 
 export async function PATCH({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
-  if (!isAuthenticated(cookies, locals?.runtime?.env)) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
@@ -31,13 +27,7 @@ export async function PATCH({ request, cookies, locals }: { request: Request; co
   }
 
   const ids = items.map(i => i.id).filter(Boolean)
-  const { data: currentPosts } = await supabase
-    .from('posts')
-    .select('id, tags')
-    .in('id', ids)
-
-  const currentMap = new Map<string, string[]>()
-  for (const p of currentPosts || []) currentMap.set(p.id, p.tags || [])
+  const currentMap = await getPostTagsMap(ids)
 
   const results = []
 
@@ -59,12 +49,12 @@ export async function PATCH({ request, cookies, locals }: { request: Request; co
       finalTags = [...new Set(cleanTags)]
     }
 
-    const { error } = await supabase
-      .from('posts')
-      .update({ tags: finalTags })
-      .eq('id', item.id)
-
-    results.push({ id: item.id, status: error ? 'error' : 'ok', tags: finalTags, error: error?.message })
+    try {
+      await updatePost(item.id, { tags: finalTags })
+      results.push({ id: item.id, status: 'ok', tags: finalTags })
+    } catch (e: any) {
+      results.push({ id: item.id, status: 'error', tags: finalTags, error: e?.message })
+    }
   }
 
   return new Response(JSON.stringify({ updated: results.filter(r => r.status === 'ok').length, total: items.length, results }), {

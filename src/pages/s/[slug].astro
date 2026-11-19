@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro'
-import { createAdminClient } from '../../lib/supabase-admin'
+import { getFileBySlug } from '../../lib/store'
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B'
@@ -11,15 +11,8 @@ function formatSize(bytes: number): string {
 const { slug } = Astro.params
 if (!slug) return Astro.redirect('/')
 
-// RLS 收紧后 anon 无法读 files 表；分享页走 service_role 客户端
-const admin = createAdminClient((Astro.locals as any)?.runtime?.env)
-if (!admin) return new Response('File service unavailable', { status: 503 })
-
-const { data: file } = await admin
-  .from('files')
-  .select('*')
-  .eq('share_slug', slug)
-  .single()
+// 分享页直接读 D1（原 Supabase 因 RLS 需要用 service_role 客户端，这里不再需要）
+const file = await getFileBySlug(slug)
 
 if (!file) return new Response('File not found', { status: 404 })
 

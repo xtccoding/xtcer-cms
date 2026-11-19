@@ -1,132 +1,86 @@
-# xtcer.cn → Cloudflare D1 迁移手册
+# xtcer.cn 数据层：Cloudflare D1 + Drizzle
 
-> 当前状态：**代码已就绪，只需你跑 3 个 CLI 命令 + 1 次 Pages 绑定。**
+> 状态：**已完成迁移并上线验证。** 数据层不再依赖 Supabase。
 
-## 一、你现在需要做的 4 步
+## 一、当前架构
 
-### 第 1 步：登录 Cloudflare CLI（本机只用一次）
+| 项 | 值 |
+|---|---|
+| 数据库 | Cloudflare D1（SQLite） |
+| 库名 / ID | `xtcer-content` / `7396e16f-a21a-491d-9852-af670b75698a` |
+| 绑定名 | `DB`（`wrangler.toml` + Pages 项目均已配置） |
+| ORM | Drizzle（`drizzle-orm/d1`） |
+| 表结构 | `src/lib/schema.ts`（唯一来源）↔ `database/d1-schema.sql`（线上 DDL） |
+| 数据访问 | `src/lib/store.ts`（唯一写 SQL 的地方） |
+| 访客统计 | Cloudflare Web Analytics（零写入，不再有 visitors 表写入） |
 
-```bash
-cd C:/Users/ctooc/Desktop/_projects/workspace/_infra/xtcer/xtcer-cms
-npx wrangler login
-```
+请求链路：`middleware.ts` 把 `locals.runtime.env` 存入 `runtime-env.ts` → `db.ts` 取 `env.DB` 构造 Drizzle 客户端 → `store.ts` 暴露按语义命名的函数 → 页面/API 只调 store。
 
-浏览器会弹授权页，确认后终端显示登录成功。
-
-### 第 2 步：建 D1 数据库 + 跑建表 SQL
-
-```bash
-# 创建数据库（免费档即可）
-npx wrangler d1 create xtcer
-
-# 建表（幂等，可重复执行）
-npx wrangler d1 execute xtcer --remote --file=database/d1-schema.sql
-```
-
-### 第 3 步：导入数据
+## 二、日常操作
 
 ```bash
-# 逐个表导入（visitors 最大，最慢）
-npx wrangler d1 execute xtcer --remote --file=tmpwork/d1-import/deals.sql
-npx wrangler d1 execute xtcer --remote --file=tmpwork/d1-import/posts.sql
-npx wrangler d1 execute xtcer --remote --file=tmpwork/d1-import/feeds.sql
-npx wrangler d1 execute xtcer --remote --file=tmpwork/d1-import/assets.sql
-npx wrangler d1 execute xtcer --remote --file=tmpwork/d1-import/files.sql
-npx wrangler d1 execute xtcer --remote --file=tmpwork/d1-import/deal_likes.sql
-npx wrangler d1 execute xtcer --remote --file=tmpwork/d1-import/visitors.sql
-npx wrangler d1 execute xtcer --remote --file=tmpwork/d1-import/site_settings.sql
+# 本地库（首次）
+npx wrangler d1 execute xtcer-content --local --file=database/d1-schema.sql
 
-# 验证行数
-npx wrangler d1 execute xtcer --remote --command="SELECT 'posts' AS t, COUNT(*) AS n FROM posts UNION ALL SELECT 'deals', COUNT(*) FROM deals UNION ALL SELECT 'feeds', COUNT(*) FROM feeds UNION ALL SELECT 'visitors', COUNT(*) FROM visitors"
+# 线上执行 SQL（需要主账号 token）
+$env:CLOUDFLARE_API_TOKEN='<cfat_...>'
+$env:CLOUDFLARE_ACCOUNT_ID='e0b59ba0845dba41abc02c1b14f7895e'
+npx wrangler d1 execute xtcer-content --remote --file=database/d1-schema.sql
 ```
 
-### 第 4 步：在 Pages 项目里加 D1 绑定 + 重新部署
+> Token 只在 `hm/ASSETS.md §1.5.x` 中保存，不要写进仓库或聊天。
 
-打开 Cloudflare Dashboard → Workers & Pages → xtcer-web → Settings → Bindings：
+## 三、数据导入 / 重新同步
 
-- **Type**: D1 database
-- **Variable name**: `DB`（必须叫这个名字，代码里死编码）
-- **Database**: xtcer
+```bash
+# 1. 从 Supabase 重新导出（可选，历史数据在 backups/）
+node scripts/backup-supabase.mjs --skip visitors
 
-保存后，Pages 会自动重新部署。
+# 2. 生成 D1 SQL（默认取最新 backups 目录，输出 tmpwork/d1-import/）
+node scripts/import-to-d1.mjs
 
-### （可选）不想迁移时的回退
-
-只需在 Pages 项目 Settings → Bindings 里 **删掉 DB 绑定**，站点立刻回到 Supabase，无需改代码。代码里有自动探测逻辑：
-
+# 3. 逐表导入（INSERT OR REPLACE，可重复执行）
+npx wrangler d1 execute xtcer-content --remote --file=tmpwork/d1-import/posts.sql
+npx wrangler d1 execute xtcer-content --remote --file=tmpwork/d1-import/deals.sql
+npx wrangler d1 execute xtcer-content --remote --file=tmpwork/d1-import/feeds.sql
+npx wrangler d1 execute xtcer-content --remote --file=tmpwork/d1-import/assets.sql
+npx wrangler d1 execute xtcer-content --remote --file=tmpwork/d1-import/files.sql
+npx wrangler d1 execute xtcer-content --remote --file=tmpwork/d1-import/site_settings.sql
+npx wrangler d1 execute xtcer-content --remote --file=tmpwork/d1-import/feedback.sql
+npx wrangler d1 execute xtcer-content --remote --file=tmpwork/d1-import/deal_likes.sql
+npx wrangler d1 execute xtcer-content --remote --file=tmpwork/d1-import/links.sql
+npx wrangler d1 execute xtcer-content --remote --file=tmpwork/d1-import/blacklist.sql
 ```
-有 DB 绑定 → D1
-没有 DB 绑定 → Supabase 回退
-```
 
-也可设环境变量 `DATA_BACKEND=supabase` 强制回退。
+最近一次导入（2026-11-19）：posts 928 / deals 408 / feeds 674 / assets 1709 / files 12 / site_settings 2 / feedback 1 / deal_likes 1 / links 0 / blacklist 0。
 
----
+## 四、类型映射注意事项
 
-## 二、迁移前后对比
-
-| 维度 | 之前 Supabase | 之后 D1 |
+| Postgres | SQLite(D1) | 处理方式 |
 |---|---|---|
-| 数据库类型 | Postgres | SQLite |
-| 匿名 key | 公开（浏览器产物里） | **无**（D1 绑定只存在于 Worker 内部） |
-| RLS | 有（部分表没配好） | **无**（不需要，请求全在服务端） |
-| 备份 | 手动导出 / 免费档无自动备份 | Time Travel 7 天（免费档自带） |
-| 闲置暂停 | 7 天无请求暂停 | 无 |
-| 数据层 API | PostgREST REST | **自研兼容层**（同形 supabase.js 查询构造器） |
-| 全库大小 | ~45 MB | ~45 MB（一样） |
+| `uuid` | `TEXT` | 应用侧 `crypto.randomUUID()` |
+| `timestamptz` | `TEXT` | ISO 8601 定长毫秒，字符串排序 == 时间排序 |
+| `text[]` | `TEXT` | JSON 数组字符串，store 层 parse/stringify |
+| `jsonb` | `TEXT` | 同上 |
+| `boolean` | `INTEGER 0/1` | store 层 `is_active` / `handled` 自动转换 |
+| `numeric` | `REAL` | — |
 
-### 已丢弃的列
-- `posts.embedding` —— 线上 1039 行全为 NULL，AI 搜索实际只走 `ilike`，列建了没用，不带过来。
+已知精度损失：`tags` 用 `LIKE '%"tag"%'` 近似包含匹配；全文检索由 `LIKE` 承担（无 FTS）。
 
----
+## 五、验证清单
 
-## 三、改了哪些文件
+1. `/` 首页：文章 / 动态 / Banner / 友链正常
+2. `/posts`、`/posts/:id`：列表与详情、相关推荐、浏览量自增
+3. `/feeds`、`/tags`、`/tags/:tag`、`/topics/:topic`、`/authors/XTcer`
+4. `/deals`：卡片、分类筛选、点赞
+5. `/rss.xml`、`/sitemap.xml`：全量条目（不再受 1000 行截断）
+6. `/xadminx`：概览计数、文章、优惠、情报、文件、反馈、外观
+7. 反馈提交与 `/s/:slug` 分享下载
 
-**新增**：
-- `src/lib/d1-schema.mjs` — 表结构唯一来源（11 表 + 索引）
-- `src/lib/d1.ts` — D1 查询层（~430 行，已用真实 SQLite 跑 45 项测试）
-- `src/lib/runtime-env.ts` — 运行时环境缓存（middleware 注入）
-- `scripts/gen-d1-schema.mjs` — DDL 生成器
-- `scripts/import-to-d1.mjs` — 备份 JSON → D1 SQL
-- `database/d1-schema.sql` — 生成的建表 SQL
+## 六、容量
 
-**修改**：
-- `src/lib/supabase.ts` — 现在是 Proxy：有 D1 绑定走 D1，没有走 Supabase
-- `src/lib/supabase-admin.ts` — D1 模式下不需要 service_role key
-- `src/middleware.ts` — 请求开始时把 runtime env 注入缓存
+免费档：5 GB 存储 / 5M 行读·日 / 100K 行写·日。当前库约 14 MB，按日均几千 PV 远未触顶；去掉 visitors 写入后写压力基本只剩浏览量自增与后台编辑。
 
-**所有 46 处调用点**（`supabase.from(...)`）**一行都没动**——靠 Proxy 自动分派。
+## 七、回退
 
----
-
-## 四、验证清单
-
-部署完后打开以下页面，确认都正常：
-
-1. **首页** `https://xtcer.cn/` —— 文章 / 动态 / Banner 都出现
-2. **优惠页** `https://xtcer.cn/deals` —— 338 张卡片，分类 / 翻页 / 排序
-3. **管理后台** `https://xtcer.cn/admin` —— 数量面板正确
-4. **后台访客** `https://xtcer.cn/admin/visitors` —— 趋势图正常
-5. **后台反馈** `https://xtcer.cn/admin/feedback` —— 不需要 service_role key 就能读
-6. **点赞/反馈** 走一遍 —— 数据写回 D1
-
-如果某个页面崩了：
-1. 看浏览器 Network 有无 500
-2. `npx wrangler tail` 看 Worker 日志
-3. 最坏情况：Pages 项目里删掉 DB 绑定 → 秒级回退到 Supabase
-
----
-
-## 五、常见问题
-
-**Q: 导入 visitors 太大（56 MB SQL），会不会超时？**
-A: `wrangler d1 execute --file` 会自动分片发送。实测单句最多几百行，56 MB 分几百次发送，几分钟完成。如果中途断开，可以先 `DELETE FROM visitors;` 再重跑。
-
-**Q: D1 的 "5 GB / 5M 读·日 / 100K 写·日" 够吗？**
-A: 全库 45 MB → 远不到 5 GB。读：首页 + 文章页 SSR 每页几个 SELECT → 日请求量按现有流量完全够。写：visitors 日均 1,700 行 INSERT → 远超 100K/日。免费档绰绰有余。
-
-**Q: 以后更新文章（前台 or 后台）时数据去哪了？**
-A: 所有写操作现在直接落 D1。不再走 Supabase。后台的 增删改查 / API 接口 全部通过 `supabase` 代理发到 D1。
-
-**Q: 以后还能用 Supabase Dashboard 改数据吗？**
-A: 不能。数据在 D1 了，只能用 `wrangler d1 execute` 或 Cloudflare Dashboard → Workers & Pages → D1 里查看。后台管理页面（/admin/*）本身就是操作入口。
+Supabase 客户端已删除，代码层面不再有回退开关。如需回退：切回上一个 release commit（`git revert` 迁移提交）并在 Pages 环境变量中保留原 Supabase 配置。

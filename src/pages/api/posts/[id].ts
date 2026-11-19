@@ -1,19 +1,9 @@
-import { supabase } from '../../../lib/supabase'
+import { deletePost, getPost, getPostLite, updatePost } from '../../../lib/store'
 import { isAdminRequest } from '../../../lib/admin-auth'
 
-function isAuthenticated(cookies: any, env: any): boolean {
-  return isAdminRequest(cookies, env)
-}
-
 export async function GET({ params }: { params: { id: string } }) {
-  const { id } = params
-  const { data, error } = await supabase
-    .from('posts')
-    .select('*')
-    .eq('id', id)
-    .single()
-
-  if (error || !data) {
+  const data = await getPost(params.id)
+  if (!data) {
     return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 })
   }
 
@@ -23,7 +13,7 @@ export async function GET({ params }: { params: { id: string } }) {
 }
 
 export async function PUT({ params, request, cookies, locals }: { params: { id: string }; request: Request; cookies: any; locals: any }) {
-  if (!isAuthenticated(cookies, locals?.runtime?.env)) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
@@ -39,24 +29,21 @@ export async function PUT({ params, request, cookies, locals }: { params: { id: 
   if (author !== undefined) updateData.author = author
   updateData.updated_at = new Date().toISOString()
 
-  const { data, error } = await supabase
-    .from('posts')
-    .update(updateData)
-    .eq('id', id)
-    .select()
-    .single()
-
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+  try {
+    const data = await updatePost(id, updateData)
+    if (!data) {
+      return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 })
+    }
+    return new Response(JSON.stringify(data), {
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    })
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e?.message || '数据库错误' }), { status: 500 })
   }
-
-  return new Response(JSON.stringify(data), {
-    headers: { 'Content-Type': 'application/json; charset=utf-8' },
-  })
 }
 
 export async function PATCH({ params, request, cookies, locals }: { params: { id: string }; request: Request; cookies: any; locals: any }) {
-  if (!isAuthenticated(cookies, locals?.runtime?.env)) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
@@ -73,53 +60,40 @@ export async function PATCH({ params, request, cookies, locals }: { params: { id
     return new Response(JSON.stringify({ error: 'tags 不能为空' }), { status: 400 })
   }
 
-  const { data: current } = await supabase
-    .from('posts')
-    .select('tags')
-    .eq('id', id)
-    .single()
+  try {
+    const current = await getPostLite(id)
+    if (!current) {
+      return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 })
+    }
 
-  let finalTags: string[]
-  if (mode === 'add') {
-    const existing = current?.tags || []
-    finalTags = [...new Set([...existing, ...cleanTags])]
-  } else if (mode === 'remove') {
-    const existing = current?.tags || []
-    finalTags = existing.filter((t: string) => !cleanTags.includes(t))
-  } else {
-    finalTags = [...new Set(cleanTags)]
+    const existing = current.tags || []
+    let finalTags: string[]
+    if (mode === 'add') {
+      finalTags = [...new Set([...existing, ...cleanTags])]
+    } else if (mode === 'remove') {
+      finalTags = existing.filter((t: string) => !cleanTags.includes(t))
+    } else {
+      finalTags = [...new Set(cleanTags)]
+    }
+
+    const data = await updatePost(id, { tags: finalTags })
+    return new Response(JSON.stringify({ id, title: data?.title, tags: finalTags }), {
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    })
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e?.message || '数据库错误' }), { status: 500 })
   }
-
-  const { data, error } = await supabase
-    .from('posts')
-    .update({ tags: finalTags })
-    .eq('id', id)
-    .select('id, title, tags')
-    .single()
-
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  }
-
-  return new Response(JSON.stringify(data), {
-    headers: { 'Content-Type': 'application/json; charset=utf-8' },
-  })
 }
 
-export async function DELETE({ params, request, cookies, locals }: { params: { id: string }; request: Request; cookies: any; locals: any }) {
-  if (!isAuthenticated(cookies, locals?.runtime?.env)) {
+export async function DELETE({ params, cookies, locals }: { params: { id: string }; cookies: any; locals: any }) {
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
 
-  const { id } = params
-  const { error } = await supabase
-    .from('posts')
-    .delete()
-    .eq('id', id)
-
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+  try {
+    await deletePost(params.id)
+    return new Response(JSON.stringify({ success: true }))
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e?.message || '数据库错误' }), { status: 500 })
   }
-
-  return new Response(JSON.stringify({ success: true }))
 }

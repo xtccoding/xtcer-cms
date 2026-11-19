@@ -1,14 +1,16 @@
-import { supabase } from '../../../lib/supabase'
+import { incrementFileDownloads } from '../../../lib/store'
+
+async function incrementDownloads(slug: string) {
+  // D1 没有 PostgREST 的 RPC，直接 UPDATE 计数即可；文件表只在本端点自增。
+  await incrementFileDownloads(slug)
+}
 
 export async function POST({ request }: { request: Request }) {
   try {
     const { slug } = await request.json()
     if (!slug) return new Response(JSON.stringify({ error: 'Missing slug' }), { status: 400 })
 
-    // increment_downloads is SECURITY DEFINER, so anon can call it via RPC
-    // without needing direct UPDATE access on files table.
-    // Old fallback (from('files').update) would fail under tightened RLS — removed.
-    await supabase.rpc('increment_downloads', { slug })
+    await incrementDownloads(slug)
 
     return new Response(JSON.stringify({ success: true }))
   } catch {

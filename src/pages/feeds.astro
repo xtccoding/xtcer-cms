@@ -1,8 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro'
 import Pagination from '../components/Pagination.astro'
-import { supabase } from '../lib/supabase'
-import { countRows } from '../lib/query'
+import { countFeeds, countFeedsByType, listFeedsPage } from '../lib/store'
 
 // 情报流 —— 服务端分页 + 服务端分类，URL 即状态（?type=xxx&page=N）。
 //
@@ -30,28 +29,14 @@ const activeType = validTypes.has(rawType) ? rawType : ''
 const pageParam = Number.parseInt(Astro.url.searchParams.get('page') || '1', 10)
 const requestedPage = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1
 
-// 精确总数（head:true 不受 max-rows 影响）
-const total = activeType
-  ? (
-      await supabase
-        .from('feeds')
-        .select('id', { count: 'exact', head: true })
-        .eq('feed_type', activeType)
-    ).count ?? 0
-  : await countRows('feeds')
+// 精确总数
+const total = activeType ? await countFeedsByType(activeType) : await countFeeds()
 
 const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 const page = Math.min(requestedPage, totalPages)
 const offset = (page - 1) * PAGE_SIZE
 
-let feedQuery = supabase
-  .from('feeds')
-  .select('*')
-  .order('created_at', { ascending: false })
-  .range(offset, offset + PAGE_SIZE - 1)
-if (activeType) feedQuery = feedQuery.eq('feed_type', activeType)
-
-const { data: feeds } = await feedQuery
+const feeds = await listFeedsPage({ limit: PAGE_SIZE, offset, type: activeType || null })
 
 // 保留 type 参数的链接生成器
 const hrefFor = (n: number) => {
@@ -80,8 +65,8 @@ const schema = {
       <a href="/" class="nav-logo">XTCer</a>
       <div class="nav-links">
         <a href="/" class="nav-link">首页</a>
+        <a href="/deals" class="nav-link">福利</a>
         <a href="/posts" class="nav-link">文章</a>
-        <a href="/deals" class="nav-link">优惠</a>
         <a href="/feeds" class="nav-link" style="color:var(--text)">情报</a>
         <button class="nav-search-btn" id="nav-search" title="搜索 (⌘K)">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -215,7 +200,7 @@ const schema = {
   .footer-links a { color: var(--text-muted); }
   .footer-links a:hover { color: var(--text); }
 
-  .nav-links { display: flex; gap: 1.25rem; align-items: center; }
+  /* .nav-links 的基础与移动端收缩统一由 Layout 全局样式提供 */
   .nav-search-btn {
     background: none; border: none; color: var(--text-muted); cursor: pointer;
     padding: 0.375rem; border-radius: var(--radius-sm); transition: all 0.15s;

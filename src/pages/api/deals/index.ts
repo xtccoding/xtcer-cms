@@ -1,36 +1,26 @@
-import { supabase } from '../../../lib/supabase'
+import { createDeal, deleteDeal, listDeals, updateDeal } from '../../../lib/store'
 import { isAdminRequest } from '../../../lib/admin-auth'
-
-function isAuthenticated(cookies: any, env: any): boolean {
-  return isAdminRequest(cookies, env)
-}
 
 export async function GET({ url }: { url: URL }) {
   const category = url.searchParams.get('category')
   const region = url.searchParams.get('region')
 
-  let query = supabase
-    .from('deals')
-    .select('*')
-    .eq('is_active', true)
+  try {
     // 过期即隐藏：expiry 为空 = 长期有效；有值则必须 >= 今天（YYYY-MM-DD 字符串比较）。
     // 传 ?include_expired=1 可绕过，供后台/核对使用。
-    .order('price_cny', { ascending: true, nullsFirst: false })
-
-  if (url.searchParams.get('include_expired') !== '1') {
-    query = query.or(`expiry.is.null,expiry.gte.${new Date().toISOString().slice(0, 10)}`)
+    const data = await listDeals({
+      includeExpired: url.searchParams.get('include_expired') === '1',
+      category,
+      region,
+    })
+    return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e?.message || '数据库错误' }), { status: 500 })
   }
-
-  if (category) query = query.eq('category', category)
-  if (region) query = query.eq('region', region)
-
-  const { data, error } = await query
-  if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  return new Response(JSON.stringify(data || []), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
 }
 
 export async function POST({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
-  if (!isAuthenticated(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const body = await request.json()
   const { provider, product, price, price_usd, price_cny, config, bandwidth, type, target, renewal_price, url, notes, category, region, expiry } = body
@@ -38,17 +28,16 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
     return new Response(JSON.stringify({ error: 'Missing required fields: provider, product, price, category' }), { status: 400 })
   }
 
-  const { data, error } = await supabase
-    .from('deals')
-    .insert({ provider, product, price, price_usd, price_cny, config, bandwidth, type, target, renewal_price, url, notes, category, region, expiry })
-    .select().single()
-
-  if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  try {
+    const data = await createDeal({ provider, product, price, price_usd, price_cny, config, bandwidth, type, target, renewal_price, url, notes, category, region, expiry })
+    return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e?.message || '数据库错误' }), { status: 500 })
+  }
 }
 
 export async function PUT({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
-  if (!isAuthenticated(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const body = await request.json()
   const { id, ...updates } = body
@@ -56,18 +45,16 @@ export async function PUT({ request, cookies, locals }: { request: Request; cook
 
   updates.updated_at = new Date().toISOString()
 
-  const { data, error } = await supabase
-    .from('deals')
-    .update(updates)
-    .eq('id', id)
-    .select().single()
-
-  if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  try {
+    const data = await updateDeal(id, updates)
+    return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e?.message || '数据库错误' }), { status: 500 })
+  }
 }
 
 export async function DELETE({ request, url, cookies, locals }: { request: Request; url: URL; cookies: any; locals: any }) {
-  if (!isAuthenticated(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   // Support both query param and body
   let id = url.searchParams.get('id')
@@ -76,7 +63,10 @@ export async function DELETE({ request, url, cookies, locals }: { request: Reque
   }
   if (!id) return new Response(JSON.stringify({ error: 'Missing id' }), { status: 400 })
 
-  const { error } = await supabase.from('deals').delete().eq('id', id)
-  if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  return new Response(JSON.stringify({ success: true }))
+  try {
+    await deleteDeal(id)
+    return new Response(JSON.stringify({ success: true }))
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e?.message || '数据库错误' }), { status: 500 })
+  }
 }

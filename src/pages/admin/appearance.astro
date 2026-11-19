@@ -2,7 +2,8 @@
 import '../../styles/admin.css'
 import Layout from '../../layouts/Layout.astro'
 import Sidebar from '../../components/Sidebar.astro'
-import { supabase } from '../../lib/supabase'
+import { getSetting } from '../../lib/store'
+import { normalizeTheme } from '../../lib/theme'
 
 const runtimeEnv = (Astro.locals as any)?.runtime?.env
 const ADMIN_PASSWORD = runtimeEnv?.ADMIN_PASSWORD || import.meta.env.ADMIN_PASSWORD
@@ -10,20 +11,15 @@ if (!ADMIN_PASSWORD) return new Response('ADMIN_PASSWORD not configured', { stat
 const cookie = Astro.cookies.get('admin_auth')
 if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
 
-// Get current settings
-const { data: bannerData } = await supabase
-  .from('site_settings')
-  .select('value')
-  .eq('key', 'banner')
-  .single()
+const [bannerData, particlesData, themeData] = await Promise.all([
+  getSetting('banner'),
+  getSetting('particles'),
+  getSetting('theme'),
+])
 
-const { data: particlesData } = await supabase
-  .from('site_settings')
-  .select('value')
-  .eq('key', 'particles')
-  .single()
+const theme = normalizeTheme(themeData)
 
-const banner = bannerData?.value || {
+const banner = bannerData || {
   title_line1: '探索前沿',
   title_line2: '洞见未来',
   title_dot: '·',
@@ -32,7 +28,7 @@ const banner = bannerData?.value || {
   desc_items: ['AI 情报', '安全漏洞', '云服务优惠', '技术深度']
 }
 
-const particles = particlesData?.value || {
+const particles = particlesData || {
   mode: 'siri',
   background_particles: {
     count: 120,
@@ -89,6 +85,62 @@ const particles = particlesData?.value || {
       </header>
 
       <div class="settings-grid">
+        <!-- Theme Tokens -->
+        <section class="settings-section glass-card">
+          <h2>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="13.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="14.5" r="2.5"/><path d="M12 2a10 10 0 000 20 2 2 0 000-4 3 3 0 013-3h3a4 4 0 004-4 10 10 0 00-10-9z"/></svg>
+            主题令牌
+          </h2>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>主色</label>
+              <div class="color-row">
+                <input type="color" id="theme-primary" class="color-input" value={theme.primary} />
+                <input type="text" id="theme-primary-hex" class="input" value={theme.primary} maxlength="7" spellcheck="false" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label>强调色</label>
+              <div class="color-row">
+                <input type="color" id="theme-accent" class="color-input" value={theme.accent} />
+                <input type="text" id="theme-accent-hex" class="input" value={theme.accent} maxlength="7" spellcheck="false" />
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>圆角 <span class="range-val" id="theme-radius-val">{theme.radius}px</span></label>
+              <input type="range" id="theme-radius" class="range" min="0" max="28" step="1" value={theme.radius} />
+            </div>
+            <div class="form-group">
+              <label>字号缩放 <span class="range-val" id="theme-fontscale-val">{theme.fontScale}x</span></label>
+              <input type="range" id="theme-fontscale" class="range" min="0.85" max="1.25" step="0.05" value={theme.fontScale} />
+            </div>
+          </div>
+
+          <div class="theme-preview">
+            <span class="preview-label">实时预览（改完点右上角「保存设置」才会对访客生效）</span>
+            <div class="preview-card">
+              <div class="preview-title">示例卡片标题</div>
+              <p class="preview-text">主色用于链接、高亮与按钮；强调色用于次要标记；圆角和字号会应用到全站。</p>
+              <div class="preview-actions">
+                <span class="preview-btn">主按钮</span>
+                <span class="preview-ghost">次按钮</span>
+                <span class="preview-accent">强调标签</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="toggle-label">
+              <input type="checkbox" id="theme-reset" />
+              <span>恢复默认（主色 #2997ff / 强调 #bf5af2 / 圆角 12 / 字号 1x）</span>
+            </label>
+          </div>
+        </section>
+
         <!-- Banner Settings -->
         <section class="settings-section glass-card">
           <h2>
@@ -583,6 +635,98 @@ const particles = particlesData?.value || {
       resize: vertical;
       min-height: 100px;
     }
+
+    /* Theme tokens */
+    .color-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .color-input {
+      flex: none;
+      width: 46px;
+      height: 38px;
+      padding: 2px;
+      background: var(--surface);
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .color-input::-webkit-color-swatch-wrapper { padding: 2px; }
+    .color-input::-webkit-color-swatch { border: none; border-radius: 5px; }
+
+    .range {
+      width: 100%;
+      accent-color: var(--primary);
+    }
+
+    .range-val {
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .theme-preview {
+      margin-bottom: 1.25rem;
+    }
+
+    .preview-label {
+      display: block;
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    .preview-card {
+      padding: 1rem 1.25rem;
+      background: var(--surface);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+    }
+
+    .preview-title {
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.35rem;
+    }
+
+    .preview-text {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.875rem;
+    }
+
+    .preview-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .preview-btn {
+      padding: 0.4rem 0.9rem;
+      background: var(--primary);
+      color: #fff;
+      border-radius: var(--radius-sm);
+      font-size: 0.8125rem;
+    }
+
+    .preview-ghost {
+      padding: 0.4rem 0.9rem;
+      border: 1px solid var(--primary);
+      color: var(--primary);
+      border-radius: var(--radius-sm);
+      font-size: 0.8125rem;
+    }
+
+    .preview-accent {
+      padding: 0.15rem 0.55rem;
+      border: 1px solid var(--accent);
+      border-radius: 999px;
+      color: var(--accent);
+      font-size: 0.75rem;
+    }
     
     /* Mode Selector */
     .mode-selector {
@@ -729,6 +873,72 @@ const particles = particlesData?.value || {
     
     updateSettingsVisibility()
     
+    // ---- 主题令牌：实时预览 ----
+    const HEX = /^#[0-9a-fA-F]{6}$/
+    const themePrimary = document.getElementById('theme-primary') as HTMLInputElement
+    const themePrimaryHex = document.getElementById('theme-primary-hex') as HTMLInputElement
+    const themeAccent = document.getElementById('theme-accent') as HTMLInputElement
+    const themeAccentHex = document.getElementById('theme-accent-hex') as HTMLInputElement
+    const themeRadius = document.getElementById('theme-radius') as HTMLInputElement
+    const themeRadiusVal = document.getElementById('theme-radius-val')!
+    const themeFontScale = document.getElementById('theme-fontscale') as HTMLInputElement
+    const themeFontScaleVal = document.getElementById('theme-fontscale-val')!
+    const themeReset = document.getElementById('theme-reset') as HTMLInputElement
+
+    // 与 src/lib/theme.ts 的 shade() 保持一致：hover 色 = 主色压暗 16%
+    function shade(hex: string, percent: number) {
+      const n = parseInt(hex.slice(1), 16)
+      const f = 1 - percent / 100
+      const c = (v: number) => Math.max(0, Math.min(255, Math.round(v * f)))
+      return '#' + (((c((n >> 16) & 255) << 16) | (c((n >> 8) & 255) << 8) | c(n & 255)) >>> 0).toString(16).padStart(6, '0')
+    }
+
+    function applyThemePreview(t: { primary: string; accent: string; radius: number; fontScale: number }) {
+      // 写 inline style，优先级高于任意选择器，改动立即在全站/后台生效
+      const s = document.documentElement.style
+      s.setProperty('--primary', t.primary)
+      s.setProperty('--primary-hover', shade(t.primary, 16))
+      s.setProperty('--accent', t.accent)
+      s.setProperty('--radius', t.radius + 'px')
+      s.setProperty('--radius-sm', Math.max(2, t.radius - 4) + 'px')
+      s.setProperty('--radius-lg', t.radius + 8 + 'px')
+      s.setProperty('--font-scale', String(t.fontScale))
+    }
+
+    function readTheme() {
+      return {
+        primary: HEX.test(themePrimaryHex.value) ? themePrimaryHex.value.toLowerCase() : themePrimary.value,
+        accent: HEX.test(themeAccentHex.value) ? themeAccentHex.value.toLowerCase() : themeAccent.value,
+        radius: parseInt(themeRadius.value, 10),
+        fontScale: parseFloat(themeFontScale.value),
+      }
+    }
+
+    function refreshTheme() {
+      const t = readTheme()
+      themePrimary.value = t.primary
+      themeAccent.value = t.accent
+      themeRadiusVal.textContent = t.radius + 'px'
+      themeFontScaleVal.textContent = String(t.fontScale) + 'x'
+      applyThemePreview(t)
+    }
+
+    themePrimary?.addEventListener('input', () => { themePrimaryHex.value = themePrimary.value; refreshTheme() })
+    themePrimaryHex?.addEventListener('input', refreshTheme)
+    themeAccent?.addEventListener('input', () => { themeAccentHex.value = themeAccent.value; refreshTheme() })
+    themeAccentHex?.addEventListener('input', refreshTheme)
+    themeRadius?.addEventListener('input', refreshTheme)
+    themeFontScale?.addEventListener('input', refreshTheme)
+    themeReset?.addEventListener('change', () => {
+      if (!themeReset.checked) return
+      themePrimary.value = themePrimaryHex.value = '#2997ff'
+      themeAccent.value = themeAccentHex.value = '#bf5af2'
+      themeRadius.value = '12'
+      themeFontScale.value = '1'
+      themeReset.checked = false
+      refreshTheme()
+    })
+
     // Save settings
     document.getElementById('save-btn')?.addEventListener('click', async () => {
       const btn = document.getElementById('save-btn') as HTMLButtonElement
@@ -822,6 +1032,18 @@ const particles = particlesData?.value || {
         })
         
         if (!response2.ok) throw new Error('Failed to save particles')
+
+        // Save theme tokens
+        const response3 = await fetch('/api/settings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${document.cookie.match(/admin_auth=([^;]+)/)?.[1] || ''}`
+          },
+          body: JSON.stringify({ key: 'theme', value: readTheme() })
+        })
+
+        if (!response3.ok) throw new Error('Failed to save theme')
         
         showToast('设置已保存', 'success')
       } catch (err) {

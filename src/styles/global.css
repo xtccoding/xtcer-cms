@@ -286,6 +286,8 @@
     --radius: 12px;
     --radius-sm: 8px;
     --radius-lg: 20px;
+    /* 字号缩放：后台「外观 → 主题」可调（0.85–1.25），Layout.astro 会注入覆盖 */
+    --font-scale: 1;
     --nav-height: 60px;
     --container: 1200px;
     --container-wide: 1400px;
@@ -315,6 +317,11 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+  }
+
+  html {
+    /* 全站字号以 rem 为基准，改这一个值即可整体缩放 */
+    font-size: calc(16px * var(--font-scale));
   }
 
   body {

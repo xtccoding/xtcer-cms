@@ -1,9 +1,5 @@
-import { supabase } from '../../../lib/supabase'
+import { deleteFeed, listFeedsByPriority, updateFeed, upsertFeed } from '../../../lib/store'
 import { isAdminRequest } from '../../../lib/admin-auth'
-
-function isAuthenticated(cookies: any, env: any): boolean {
-  return isAdminRequest(cookies, env)
-}
 
 function normalizeUrl(url: string): string {
   return url
@@ -28,22 +24,16 @@ export async function GET({ url }: { url: URL }) {
   const priority = url.searchParams.get('priority')
   const limit = parseInt(url.searchParams.get('limit') || '100')
 
-  let query = supabase
-    .from('feeds')
-    .select('*')
-    .order('published_at', { ascending: false, nullsFirst: false })
-    .limit(Math.min(limit, 500))
-
-  if (feed_type) query = query.eq('feed_type', feed_type)
-  if (priority) query = query.eq('priority', priority)
-
-  const { data, error } = await query
-  if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  return new Response(JSON.stringify(data || []), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  try {
+    const data = await listFeedsByPriority({ limit: Math.min(limit, 500), type: feed_type, priority })
+    return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e?.message || '数据库错误' }), { status: 500 })
+  }
 }
 
 export async function POST({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
-  if (!isAuthenticated(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const body = await request.json()
   const { feed_type, title, url: feedUrl, source, summary, tags, priority, metadata, published_at } = body
@@ -54,7 +44,6 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
     priority: priority || 'normal',
     metadata: metadata || {},
     published_at: published_at || new Date().toISOString(),
-    updated_at: new Date().toISOString(),
   }
   if (feedUrl) {
     insertData.url = feedUrl
@@ -62,13 +51,16 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
     insertData.url_hash = urlHash(feedUrl)
   }
 
-  const { data, error } = await supabase.from('feeds').upsert(insertData, { onConflict: 'feed_type,title' }).select().single()
-  if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  try {
+    const data = await upsertFeed(insertData)
+    return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e?.message || '数据库错误' }), { status: 500 })
+  }
 }
 
 export async function PUT({ request, cookies, locals }: { request: Request; cookies: any; locals: any }) {
-  if (!isAuthenticated(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const body = await request.json()
   const { id, ...updates } = body
@@ -80,13 +72,16 @@ export async function PUT({ request, cookies, locals }: { request: Request; cook
     updates.url_hash = urlHash(updates.url)
   }
 
-  const { data, error } = await supabase.from('feeds').update(updates).eq('id', id).select().single()
-  if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  try {
+    const data = await updateFeed(id, updates)
+    return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e?.message || '数据库错误' }), { status: 500 })
+  }
 }
 
 export async function DELETE({ request, url, cookies, locals }: { request: Request; url: URL; cookies: any; locals: any }) {
-  if (!isAuthenticated(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+  if (!isAdminRequest(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   let id = url.searchParams.get('id')
   if (!id) {
@@ -94,7 +89,10 @@ export async function DELETE({ request, url, cookies, locals }: { request: Reque
   }
   if (!id) return new Response(JSON.stringify({ error: 'Missing id' }), { status: 400 })
 
-  const { error } = await supabase.from('feeds').delete().eq('id', id)
-  if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
-  return new Response(JSON.stringify({ success: true }))
+  try {
+    await deleteFeed(id)
+    return new Response(JSON.stringify({ success: true }))
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e?.message || '数据库错误' }), { status: 500 })
+  }
 }

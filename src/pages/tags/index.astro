@@ -1,11 +1,10 @@
 ---
 import Layout from '../../layouts/Layout.astro'
-import { fetchAll } from '../../lib/query'
+import { listAllFeeds, listAllPosts } from '../../lib/store'
 
-// 标签聚合必须遍历**全部**文章/情报：PostgREST max-rows=1000 会截断直接 select，
-// 导致标签计数偏低、冷门标签直接消失。用 fetchAll 分页拉全量。
-const posts = await fetchAll<{ tags: string[] | null }>('posts', 'tags')
-const feeds = await fetchAll<{ tags: string[] | null }>('feeds', 'tags')
+// 标签聚合直接遍历 D1 全量数据（无 PostgREST 的 1000 行截断问题）。
+const posts = await listAllPosts()
+const feeds = await listAllFeeds()
 
 const tagCount = new Map<string, number>()
 for (const p of posts) {
@@ -51,8 +50,8 @@ const schema = {
       <a href="/" class="nav-logo">XTCer</a>
       <div class="nav-links">
         <a href="/" class="nav-link">首页</a>
+        <a href="/deals" class="nav-link">福利</a>
         <a href="/posts" class="nav-link">文章</a>
-        <a href="/deals" class="nav-link">优惠</a>
         <a href="/feeds" class="nav-link">情报</a>
         <button class="nav-search-btn" id="nav-search" title="搜索 (⌘K)">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -195,7 +194,7 @@ const schema = {
   .footer-links a { color: var(--text-muted); }
   .footer-links a:hover { color: var(--text); }
 
-  .nav-links { display: flex; gap: 1.25rem; align-items: center; }
+  /* .nav-links 的基础与移动端收缩统一由 Layout 全局样式提供 */
   .nav-search-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0.375rem; border-radius: var(--radius-sm); transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
   .nav-search-btn:hover { color: var(--text); background: var(--surface); }
 

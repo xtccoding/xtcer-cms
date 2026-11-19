@@ -1,5 +1,5 @@
 import { AwsClient } from 'aws4fetch'
-import { createAdminClient } from '../../../lib/supabase-admin'
+import { createFile, fileSlugExists } from '../../../lib/store'
 import { isAdminRequest } from '../../../lib/admin-auth'
 
 /**
@@ -81,8 +81,6 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
 
   const cfg = r2Config(locals)
   if (!cfg) return json({ error: 'R2 not configured' }, 500)
-  const supabase = createAdminClient(locals?.runtime?.env)
-  if (!supabase) return json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' }, 500)
 
   let body: any
   try {
@@ -104,8 +102,7 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
 
       const customSlug = String(body.slug || '').trim()
       const slug = customSlug || randomSlug()
-      const { data: existing } = await supabase.from('files').select('id').eq('share_slug', slug).limit(1)
-      if (existing && existing.length > 0) return json({ error: 'Slug already exists, choose another' }, 409)
+      if (await fileSlugExists(slug)) return json({ error: 'Slug already exists, choose another' }, 409)
 
       const ext =
         (filename.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12) || 'bin'
@@ -162,22 +159,17 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
       const expiresAt = expiresIn > 0 ? new Date(Date.now() + expiresIn * 3600000).toISOString() : null
       const url = `${cfg.publicUrl}/${key}`
 
-      const { data: inserted, error: insertError } = await supabase
-        .from('files')
-        .insert({
-          key,
-          url,
-          filename: filename || key.split('/').pop(),
-          content_type: contentType,
-          size,
-          share_slug: slug,
-          password,
-          expires_at: expiresAt,
-        })
-        .select()
-        .single()
+      const inserted = await createFile({
+        key,
+        url,
+        filename: filename || key.split('/').pop(),
+        content_type: contentType,
+        size,
+        share_slug: slug,
+        password,
+        expires_at: expiresAt,
+      })
 
-      if (insertError) return json({ error: insertError.message }, 500)
       return json(inserted)
     }
 

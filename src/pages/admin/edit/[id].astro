@@ -2,7 +2,7 @@
 import '../../../styles/admin.css'
 import Layout from '../../../layouts/Layout.astro'
 import Sidebar from '../../../components/Sidebar.astro'
-import { supabase } from '../../../lib/supabase'
+import { getPost } from '../../../lib/store'
 
 const runtimeEnv = (Astro.locals as any)?.runtime?.env
 const ADMIN_PASSWORD = runtimeEnv?.ADMIN_PASSWORD || import.meta.env.ADMIN_PASSWORD
@@ -11,7 +11,7 @@ const cookie = Astro.cookies.get('admin_auth')
 if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
 
 const { id } = Astro.params
-const { data: post } = await supabase.from('posts').select('*').eq('id', id).single()
+const post = await getPost(id!)
 if (!post) return Astro.redirect('/admin/dashboard')
 ---
 

@@ -1,5 +1,5 @@
 import { S3Client, PutObjectCommand, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
-import { supabase } from '../../lib/supabase'
+import { createAsset, findAssetsByHash, updateAssetThumbnail } from '../../lib/store'
 import { isAdminRequest } from '../../lib/admin-auth'
 
 function isAuthenticated(cookies: any, env: any): boolean {
@@ -61,42 +61,37 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
 
     const thumbFile = formData.get('thumbnail') as File | null
 
-    // Dedup: check if hash already exists in Supabase
-    const { data: existing } = await supabase
-      .from('assets')
-      .select('url, key, thumbnail_url')
-      .eq('content_hash', hash)
-      .limit(1)
+    // Dedup: check if hash already exists in D1
+    const existing = await findAssetsByHash(hash)
+    const hit = existing[0]
 
-    if (existing && existing.length > 0) {
+    if (hit) {
       // If existing record has no thumbnail, upload one and update
-      if (!existing[0].thumbnail_url) {
-        if (thumbFile && thumbFile.size > 0) {
-          const thumbKey = `thumbs/${hashShort}.webp`
-          const thumbBuffer = new Uint8Array(await thumbFile.arrayBuffer())
-          await s3.send(new PutObjectCommand({
-            Bucket: bucketName,
-            Key: thumbKey,
-            Body: thumbBuffer,
-            ContentType: 'image/webp',
-            CacheControl: 'public, max-age=31536000',
-          }))
-          const thumbnailUrl = `${publicUrl}/${thumbKey}`
-          await supabase.from('assets').update({ thumbnail_url: thumbnailUrl }).eq('content_hash', hash)
-          return new Response(JSON.stringify({
-            url: existing[0].url,
-            key: existing[0].key,
-            thumbnail_url: thumbnailUrl,
-            size: file.size,
-            hash,
-            deduplicated: true,
-          }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
-        }
+      if (!hit.thumbnail_url && thumbFile && thumbFile.size > 0) {
+        const thumbKey = `thumbs/${hashShort}.webp`
+        const thumbBuffer = new Uint8Array(await thumbFile.arrayBuffer())
+        await s3.send(new PutObjectCommand({
+          Bucket: bucketName,
+          Key: thumbKey,
+          Body: thumbBuffer,
+          ContentType: 'image/webp',
+          CacheControl: 'public, max-age=31536000',
+        }))
+        const thumbnailUrl = `${publicUrl}/${thumbKey}`
+        await updateAssetThumbnail(hash, thumbnailUrl)
+        return new Response(JSON.stringify({
+          url: hit.url,
+          key: hit.key,
+          thumbnail_url: thumbnailUrl,
+          size: file.size,
+          hash,
+          deduplicated: true,
+        }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
       }
       return new Response(JSON.stringify({
-        url: existing[0].url,
-        key: existing[0].key,
-        thumbnail_url: existing[0].thumbnail_url,
+        url: hit.url,
+        key: hit.key,
+        thumbnail_url: hit.thumbnail_url,
         size: file.size,
         hash,
         deduplicated: true,
@@ -129,8 +124,8 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
       thumbnailUrl = `${publicUrl}/${thumbKey}`
     }
 
-    // Save metadata to Supabase (only hash-based key, no original filename)
-    await supabase.from('assets').insert({
+    // Save metadata to D1 (only hash-based key, no original filename)
+    await createAsset({
       key,
       url,
       thumbnail_url: thumbnailUrl,

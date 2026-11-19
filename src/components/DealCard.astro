@@ -6,6 +6,7 @@ import {
   isCnFriendly,
   type DealCuration,
 } from '../data/deal-curation'
+import { FREEBIE_META, type FreebieInfo } from '../lib/freebie'
 
 interface Deal {
   id: string
@@ -27,6 +28,8 @@ interface Deal {
 interface Props {
   deal: Deal
   categoryLabel: string
+  /** 免费判定结果（由页面统一算好传入）；不传则按付费卡渲染。 */
+  freebie?: FreebieInfo
   /** 该卡片的点赞数，由 deals.astro 一次性拉取后传入，避免每张卡各发一次请求。 */
   likeCount?: number
   /**
@@ -34,15 +37,26 @@ interface Props {
    * 宁可少渲染，也不渲染一个点了没反应的「死按钮」。
    */
   likesEnabled?: boolean
+  /**
+   * 是否渲染「收藏 / 标记已领」按钮。
+   * 按钮只是静态标记，真实登录态由客户端向 /api/user/summary 水合 ——
+   * 这样 /deals 的公共边缘缓存不会被某个用户的收藏状态污染。
+   */
+  userActions?: boolean
 }
 
-const { deal, categoryLabel, likeCount = 0, likesEnabled = false } = Astro.props
+const { deal, categoryLabel, freebie, likeCount = 0, likesEnabled = false, userActions = false } = Astro.props
 ---
 
-<div class="deal-card glass-card" data-cat={deal.category} data-diff={deal.curation.difficulty} data-ref={deal.curation.reference ? 'true' : undefined} data-supplement={deal.curation.supplement ? 'true' : undefined}>
+<div class="deal-card glass-card" data-cat={deal.category} data-diff={deal.curation.difficulty} data-free={freebie?.kind} data-ref={deal.curation.reference ? 'true' : undefined} data-supplement={deal.curation.supplement ? 'true' : undefined}>
   <div class="deal-header">
     <span class="deal-provider">{deal.provider}</span>
     <span class="deal-badges">
+      {freebie?.isFree && freebie.kind && (
+        <span class:list={['free-chip', FREEBIE_META[freebie.kind].cls]}>
+          {FREEBIE_META[freebie.kind].icon} {FREEBIE_META[freebie.kind].label}
+        </span>
+      )}
       {deal.curation.reference && <span class="ref-chip">📊 标准价</span>}
       {deal.curation.supplement && <span class="supp-chip">🧩 补充 · 买赠</span>}
       {deal.curation.difficulty !== 'easy' && !deal.curation.reference && (
@@ -58,8 +72,17 @@ const { deal, categoryLabel, likeCount = 0, likesEnabled = false } = Astro.props
     {deal.url ? <a href={deal.url} target="_blank" rel="noopener">{deal.product}</a> : deal.product}
   </h3>
   <div class="deal-price">
-    <span class="price-value">{deal.price}</span>
-    {deal.price_cny ? <span class="price-cny">≈ ¥{deal.price_cny}</span> : null}
+    {freebie?.kind === 'full' ? (
+      <>
+        <span class="price-free">¥0</span>
+        {deal.price !== '免费' && <span class="price-orig">{deal.price}</span>}
+      </>
+    ) : (
+      <>
+        <span class="price-value">{deal.price}</span>
+        {deal.price_cny ? <span class="price-cny">≈ ¥{deal.price_cny}</span> : null}
+      </>
+    )}
   </div>
   <div class="deal-specs">
     {deal.config && <span class="spec">🖥 {deal.config}</span>}
@@ -190,8 +213,28 @@ const { deal, categoryLabel, likeCount = 0, likesEnabled = false } = Astro.props
       {deal.expiry && <span class="deal-expiry">截止: {deal.expiry}</span>}
     </div>
     <div class="deal-footer-right">
+      {freebie?.isFree && deal.url && (
+        <a class="claim-btn" href={deal.url} target="_blank" rel="noopener">去领取 →</a>
+      )}
       {deal.curation.tutorialUrl && (
         <a class="tutorial-link" href={deal.curation.tutorialUrl}>注册教程 →</a>
+      )}
+      {userActions && deal.id && (
+        <>
+          <button
+            type="button"
+            class="fav-btn"
+            data-fav-id={deal.id}
+            data-fav="false"
+            aria-pressed="false"
+            title="收藏这个福利">☆ 收藏</button>
+          <button
+            type="button"
+            class="claim-mark-btn"
+            data-claim-id={deal.id}
+            data-claimed="false"
+            title="领过之后点一下，方便以后核对续期">标记已领</button>
+        </>
       )}
       {likesEnabled && deal.id && (
         <button
@@ -253,6 +296,145 @@ const { deal, categoryLabel, likeCount = 0, likesEnabled = false } = Astro.props
   })
 </script>
 
+<script>
+  // 收藏 / 标记已领：状态由 /api/user/summary 水合（页面本身是公共缓存的）。
+  // 所有文案更新只用 textContent，用户输入不参与 HTML 拼接。
+  type AccountState = 'unknown' | 'guest' | 'user'
+
+  let accountState: AccountState = 'unknown'
+  let accountLoading: Promise<void> | null = null
+  const favorited = new Set<string>()
+  const claimed = new Set<string>()
+
+  const toast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    ;(window as any).showToast?.(message, type)
+  }
+
+  function paintAccountButtons() {
+    document.querySelectorAll<HTMLButtonElement>('[data-fav-id]').forEach((btn) => {
+      const id = btn.dataset.favId || ''
+      const on = favorited.has(id)
+      btn.dataset.fav = on ? 'true' : 'false'
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false')
+      btn.classList.toggle('active', on)
+      btn.textContent = on ? '★ 已收藏' : '☆ 收藏'
+    })
+    document.querySelectorAll<HTMLButtonElement>('[data-claim-id]').forEach((btn) => {
+      const id = btn.dataset.claimId || ''
+      const on = claimed.has(id)
+      btn.dataset.claimed = on ? 'true' : 'false'
+      btn.classList.toggle('active', on)
+      btn.textContent = on ? '已领 ✓' : '标记已领'
+      btn.disabled = on
+    })
+  }
+
+  async function hydrateAccount() {
+    if (accountState !== 'unknown') return
+    if (accountLoading) return accountLoading
+
+    accountLoading = (async () => {
+      if (!document.querySelector('[data-fav-id]')) {
+        accountState = 'guest'
+        return
+      }
+      try {
+        const res = await fetch('/api/user/summary')
+        if (!res.ok) {
+          accountState = 'guest'
+          return
+        }
+        const data = await res.json()
+        for (const id of data?.favoriteIds || []) favorited.add(String(id))
+        for (const id of data?.claimIds || []) claimed.add(String(id))
+        accountState = 'user'
+        paintAccountButtons()
+      } catch {
+        accountState = 'guest'
+      }
+    })()
+
+    return accountLoading
+  }
+
+  function gotoLogin() {
+    const next = location.pathname + location.search
+    location.href = `/login?next=${encodeURIComponent(next)}`
+  }
+
+  document.addEventListener('click', async (event) => {
+    const el = event.target as HTMLElement | null
+    const favBtn = el?.closest?.('.fav-btn') as HTMLButtonElement | null
+    const claimBtn = el?.closest?.('.claim-mark-btn') as HTMLButtonElement | null
+    if (!favBtn && !claimBtn) return
+
+    if (accountState === 'unknown') await hydrateAccount()
+    if (accountState === 'guest') return gotoLogin()
+
+    if (favBtn) {
+      const dealId = favBtn.dataset.favId
+      if (!dealId || favBtn.dataset.busy === 'true') return
+      favBtn.dataset.busy = 'true'
+      const next = !favorited.has(dealId)
+      try {
+        const res = await fetch('/api/user/favorite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dealId, favorited: next }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          toast(typeof data?.error === 'string' ? data.error : '收藏失败', 'error')
+          return
+        }
+        if (next) favorited.add(dealId)
+        else favorited.delete(dealId)
+        paintAccountButtons()
+        toast(next ? '已加入收藏，可在「我的」查看' : '已取消收藏', 'info')
+        const badges = Array.isArray(data?.newBadges) ? data.newBadges : []
+        if (badges.length) toast(`解锁徽章 ${badges[0].icon}${badges[0].name}`, 'success')
+      } catch {
+        toast('网络异常，稍后再试', 'error')
+      } finally {
+        favBtn.dataset.busy = 'false'
+      }
+      return
+    }
+
+    if (claimBtn) {
+      const dealId = claimBtn.dataset.claimId
+      if (!dealId || claimBtn.dataset.claimed === 'true' || claimBtn.dataset.busy === 'true') return
+      claimBtn.dataset.busy = 'true'
+      try {
+        const res = await fetch('/api/user/claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dealId }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          toast(typeof data?.error === 'string' ? data.error : '操作失败', 'error')
+          return
+        }
+        claimed.add(dealId)
+        paintAccountButtons()
+        toast(
+          data?.awarded ? `已标记 · +${data.awarded} 积分` : '已标记为领取过',
+          'success',
+        )
+        const badges = Array.isArray(data?.newBadges) ? data.newBadges : []
+        if (badges.length) toast(`解锁徽章 ${badges[0].icon}${badges[0].name}`, 'success')
+      } catch {
+        toast('网络异常，稍后再试', 'error')
+      } finally {
+        claimBtn.dataset.busy = 'false'
+      }
+    }
+  })
+
+  hydrateAccount()
+</script>
+
 <style>
   .deal-card {
     padding: 0.875rem 1rem; display: flex; flex-direction: column; gap: 0.4375rem;
@@ -273,8 +455,28 @@ const { deal, categoryLabel, likeCount = 0, likesEnabled = false } = Astro.props
   .deal-badge {
     padding: 0.125rem 0.5rem; border-radius: 999px;
     font-size: 0.6875rem; font-weight: 500;
-    background: rgba(41,151,255,0.08); color: var(--primary);
-    border: 1px solid rgba(41,151,255,0.15);
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    color: var(--primary);
+    border: 1px solid color-mix(in srgb, var(--primary) 15%, transparent);
+  }
+
+  /* ---- 免费徽标：完全免费用绿色、额度用主色、试用用橙色 ---- */
+  .free-chip {
+    padding: 0.125rem 0.5rem; border-radius: 999px;
+    font-size: 0.6875rem; font-weight: 700; white-space: nowrap;
+    color: var(--green);
+    background: color-mix(in srgb, var(--green) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--green) 38%, transparent);
+  }
+  .free-chip.quota {
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    border-color: color-mix(in srgb, var(--primary) 32%, transparent);
+  }
+  .free-chip.trial {
+    color: var(--orange);
+    background: color-mix(in srgb, var(--orange) 12%, transparent);
+    border-color: color-mix(in srgb, var(--orange) 34%, transparent);
   }
 
   .deal-product { font-size: 0.9375rem; font-weight: 600; line-height: 1.35; }
@@ -284,6 +486,9 @@ const { deal, categoryLabel, likeCount = 0, likesEnabled = false } = Astro.props
   .deal-price { display: flex; align-items: baseline; gap: 0.4375rem; }
   .price-value { font-size: 1.125rem; font-weight: 700; color: var(--green); }
   .price-cny { font-size: 0.75rem; color: var(--text-muted); }
+  /* 完全免费：¥0 放大，原价文案作注脚 */
+  .price-free { font-size: 1.375rem; font-weight: 800; color: var(--green); line-height: 1; }
+  .price-orig { font-size: 0.75rem; color: var(--text-muted); }
 
   .deal-specs { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .spec { font-size: 0.75rem; color: var(--text-secondary); }
@@ -458,14 +663,25 @@ const { deal, categoryLabel, likeCount = 0, likesEnabled = false } = Astro.props
 
   .deal-footer {
     display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
+    flex-wrap: wrap;
     margin-top: auto; padding-top: 0.5rem; border-top: 1px solid var(--border);
   }
   .deal-footer-left { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
-  .deal-footer-right { display: flex; gap: 0.75rem; align-items: center; flex-shrink: 0; }
+  .deal-footer-right { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; min-width: 0; }
   .deal-type { font-size: 0.6875rem; color: var(--text-muted); }
   .deal-expiry { font-size: 0.6875rem; color: var(--orange); }
   .tutorial-link { font-size: 0.75rem; font-weight: 600; color: var(--primary); white-space: nowrap; }
   .tutorial-link:hover { text-decoration: underline; }
+
+  /* 领取按钮：免费卡的唯一主行动，用实心绿撑起视觉重量 */
+  .claim-btn {
+    display: inline-flex; align-items: center; gap: 0.25rem;
+    padding: 0.25rem 0.75rem; border-radius: 999px;
+    background: var(--green); color: #fff;
+    font-size: 0.75rem; font-weight: 700; white-space: nowrap;
+    transition: filter 0.15s;
+  }
+  .claim-btn:hover { filter: brightness(1.08); }
 
   /* ---- 点赞按钮：与 .tutorial-link / .pay-chip 同为小圆角 pill 风格 ---- */
   .like-btn {
@@ -483,4 +699,27 @@ const { deal, categoryLabel, likeCount = 0, likesEnabled = false } = Astro.props
   }
   .like-icon { font-size: 0.6875rem; line-height: 1; }
   .like-count { font-weight: 700; }
+
+  /* ---- 收藏 / 标记已领：与点赞同尺寸的小 pill ---- */
+  .fav-btn,
+  .claim-mark-btn {
+    padding: 0.1875rem 0.5rem; border-radius: 999px;
+    border: 1px solid var(--glass-border); background: transparent;
+    color: var(--text-muted); font-size: 0.6875rem; font-weight: 500;
+    line-height: 1.4; cursor: pointer; white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .fav-btn:hover,
+  .claim-mark-btn:hover { color: var(--text); border-color: var(--glass-border-hover); }
+  .fav-btn.active {
+    color: var(--orange);
+    background: color-mix(in srgb, var(--orange) 10%, transparent);
+    border-color: color-mix(in srgb, var(--orange) 35%, transparent);
+  }
+  .claim-mark-btn.active {
+    color: var(--green);
+    background: color-mix(in srgb, var(--green) 10%, transparent);
+    border-color: color-mix(in srgb, var(--green) 35%, transparent);
+  }
+  .claim-mark-btn:disabled { cursor: default; }
 </style>

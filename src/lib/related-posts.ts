@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { listPostCandidates } from './store'
 
 interface RelatedPost {
   id: string
@@ -16,24 +16,13 @@ export async function getRelatedPosts(
   limit = 5
 ): Promise<RelatedPost[]> {
   if (!currentTags || currentTags.length === 0) {
-    const { data } = await supabase
-      .from('posts')
-      .select('id, title, summary, created_at, views, tags')
-      .neq('id', currentId)
-      .order('created_at', { ascending: false })
-      .limit(limit)
-    return (data || []).map(p => ({ ...p, tags: p.tags || [], score: 0 }))
+    const rows = await listPostCandidates(currentId, limit)
+    return rows.map(p => ({ ...p, tags: p.tags || [], score: 0 }))
   }
 
-  const { data: candidates } = await supabase
-    .from('posts')
-    .select('id, title, summary, created_at, views, tags')
-    .neq('id', currentId)
-    .overlaps('tags', currentTags)
-    .order('created_at', { ascending: false })
-    .limit(30)
-
-  if (!candidates || candidates.length === 0) return []
+  // 先取最近 30 篇作为候选，再在内存里按标签重合度 + 时间新近度 + 热度打分。
+  // （SQLite 没有 Postgres 的数组 overlaps，且候选量很小，内存打分更直观。）
+  const candidates = await listPostCandidates(currentId, 30)
 
   const scored = candidates
     .map(p => {

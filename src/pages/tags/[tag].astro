@@ -1,36 +1,23 @@
 ---
 import Layout from '../../layouts/Layout.astro'
-import { supabase } from '../../lib/supabase'
+import { countFeedsByTag, countPostsByTag, listFeedsByTag, listPostsByTag } from '../../lib/store'
 
 const { tag } = Astro.params
 if (!tag) return Astro.redirect('/feeds')
 
 const decodedTag = decodeURIComponent(tag)
 
-const { data: feedResults } = await supabase
-  .from('feeds')
-  .select('*')
-  .contains('tags', [decodedTag])
-  .order('created_at', { ascending: false })
-  .limit(200)
+const [feedResults, postResults, feedCount, postCount] = await Promise.all([
+  listFeedsByTag(decodedTag, 200),
+  listPostsByTag(decodedTag, 200),
+  countFeedsByTag(decodedTag),
+  countPostsByTag(decodedTag),
+])
 
-const { data: postResults } = await supabase
-  .from('posts')
-  .select('*')
-  .contains('tags', [decodedTag])
-  .order('created_at', { ascending: false })
-  .limit(200)
-
-const hasResults = (feedResults && feedResults.length > 0) || (postResults && postResults.length > 0)
+const hasResults = feedResults.length > 0 || postResults.length > 0
 if (!hasResults) return Astro.redirect('/feeds')
 
-// 「共 N 篇」要显示真实数量：上面的列表各自 limit(200)，直接用 length 相加会在
-// 内容超过 200 条时低报。用 head:true 单独取精确 count（不受 max-rows 影响）。
-const [{ count: feedCount }, { count: postCount }] = await Promise.all([
-  supabase.from('feeds').select('id', { count: 'exact', head: true }).contains('tags', [decodedTag]),
-  supabase.from('posts').select('id', { count: 'exact', head: true }).contains('tags', [decodedTag]),
-])
-const totalCount = (feedCount || 0) + (postCount || 0)
+const totalCount = feedCount + postCount
 
 const relatedTagCount = new Map<string, number>()
 for (const p of postResults || []) {
@@ -77,8 +64,8 @@ const schema = {
       <a href="/" class="nav-logo">XTCer</a>
       <div class="nav-links">
         <a href="/" class="nav-link">首页</a>
+        <a href="/deals" class="nav-link">福利</a>
         <a href="/posts" class="nav-link">文章</a>
-        <a href="/deals" class="nav-link">优惠</a>
         <a href="/feeds" class="nav-link">情报</a>
         <button class="nav-search-btn" id="nav-search" title="搜索 (⌘K)">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -228,7 +215,7 @@ const schema = {
   .footer-links a { color: var(--text-muted); }
   .footer-links a:hover { color: var(--text); }
 
-  .nav-links { display: flex; gap: 1.25rem; align-items: center; }
+  /* .nav-links 的基础与移动端收缩统一由 Layout 全局样式提供 */
   .nav-search-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0.375rem; border-radius: var(--radius-sm); transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
   .nav-search-btn:hover { color: var(--text); background: var(--surface); }
 

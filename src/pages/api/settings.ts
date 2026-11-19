@@ -1,49 +1,40 @@
 import type { APIRoute } from 'astro'
-import { supabase } from '../../lib/supabase'
+import { getSetting, listSettings, upsertSetting } from '../../lib/store'
 import { isAdminRequest } from '../../lib/admin-auth'
 
 export const GET: APIRoute = async ({ url }) => {
   const key = url.searchParams.get('key')
-  
-  if (key) {
-    const { data, error } = await supabase
-      .from('site_settings')
-      .select('value')
-      .eq('key', key)
-      .single()
-    
-    if (error || !data) {
-      return new Response(JSON.stringify({ error: 'Setting not found' }), {
-        status: 404,
+
+  try {
+    if (key) {
+      const value = await getSetting(key)
+      if (value === null) {
+        return new Response(JSON.stringify({ error: 'Setting not found' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      }
+      return new Response(JSON.stringify(value), {
         headers: { 'Content-Type': 'application/json' }
       })
     }
-    
-    return new Response(JSON.stringify(data.value), {
+
+    // Get all settings
+    const rows = await listSettings()
+    const settings: Record<string, any> = {}
+    rows.forEach(item => {
+      settings[item.key] = item.value
+    })
+
+    return new Response(JSON.stringify(settings), {
       headers: { 'Content-Type': 'application/json' }
     })
-  }
-  
-  // Get all settings
-  const { data, error } = await supabase
-    .from('site_settings')
-    .select('key, value')
-  
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e?.message || '数据库错误' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     })
   }
-  
-  const settings: Record<string, any> = {}
-  data?.forEach(item => {
-    settings[item.key] = item.value
-  })
-  
-  return new Response(JSON.stringify(settings), {
-    headers: { 'Content-Type': 'application/json' }
-  })
 }
 
 export const POST: APIRoute = async ({ request, cookies, locals }) => {
@@ -53,32 +44,21 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
       headers: { 'Content-Type': 'application/json' }
     })
   }
-  
+
   try {
     const body = await request.json()
     const { key, value } = body
-    
+
     if (!key || value === undefined) {
       return new Response(JSON.stringify({ error: 'key and value are required' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       })
     }
-    
-    const { data, error } = await supabase
-      .from('site_settings')
-      .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' })
-      .select()
-      .single()
-    
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      })
-    }
-    
-    return new Response(JSON.stringify(data), {
+
+    await upsertSetting(key, value)
+
+    return new Response(JSON.stringify({ key, value }), {
       headers: { 'Content-Type': 'application/json' }
     })
   } catch (err) {

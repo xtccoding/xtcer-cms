@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase'
+import { searchDeals, searchFeeds, searchPosts } from '../../lib/store'
 
 export async function GET({ url, request }: { url: URL; request: Request }) {
   const q = url.searchParams.get('q')?.trim()
@@ -22,87 +22,62 @@ export async function GET({ url, request }: { url: URL; request: Request }) {
     }), { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
   }
 
-  const pattern = `%${q}%`
   const offset = (page - 1) * limit
   const types = type ? type.split(',') : ['post', 'feed', 'deal']
+  const asc = order === 'asc'
 
   try {
     const results: any[] = []
     let totalCount = 0
 
     if (types.includes('post')) {
-      const { data, count } = await supabase
-        .from('posts')
-        .select('id, title, content, summary, created_at, views, tags', { count: 'exact' })
-        .or(`title.ilike.${pattern},content.ilike.${pattern},summary.ilike.${pattern}`)
-        .order('created_at', { ascending: order === 'asc' })
-        .range(offset, offset + limit - 1)
-
-      if (data) {
-        results.push(...data.map(p => ({
-          type: 'post',
-          id: p.id,
-          title: p.title,
-          desc: p.summary || (p.content || '').replace(/[#*_`~\[\]>|]/g, '').substring(0, 150),
-          url: `/posts/${p.id}`,
-          time: p.created_at,
-          views: p.views || 0,
-          tags: p.tags || [],
-          relevance: calculateRelevance(q, p.title, p.content)
-        })))
-        totalCount += count || 0
-      }
+      const { rows, total } = await searchPosts(q, limit, offset, asc)
+      results.push(...rows.map(p => ({
+        type: 'post',
+        id: p.id,
+        title: p.title,
+        desc: p.summary || (p.content || '').replace(/[#*_`~\[\]>|]/g, '').substring(0, 150),
+        url: `/posts/${p.id}`,
+        time: p.created_at,
+        views: p.views || 0,
+        tags: p.tags || [],
+        relevance: calculateRelevance(q, p.title, p.content ?? undefined)
+      })))
+      totalCount += total
     }
 
     if (types.includes('feed')) {
-      const { data, count } = await supabase
-        .from('feeds')
-        .select('id, feed_type, title, url, summary, priority, published_at, created_at, tags', { count: 'exact' })
-        .or(`title.ilike.${pattern},summary.ilike.${pattern},tags.cs.{${q}}`)
-        .order('published_at', { ascending: order === 'asc', nullsFirst: false })
-        .range(offset, offset + limit - 1)
-
-      if (data) {
-        results.push(...data.map(f => ({
-          type: 'feed',
-          id: f.id,
-          title: f.title,
-          desc: f.summary || f.feed_type,
-          url: f.url || '#',
-          time: f.published_at || f.created_at,
-          feed_type: f.feed_type,
-          priority: f.priority,
-          tags: f.tags || [],
-          relevance: calculateRelevance(q, f.title, f.summary)
-        })))
-        totalCount += count || 0
-      }
+      const { rows, total } = await searchFeeds(q, limit, offset, asc)
+      results.push(...rows.map(f => ({
+        type: 'feed',
+        id: f.id,
+        title: f.title,
+        desc: f.summary || f.feed_type,
+        url: f.url || '#',
+        time: f.published_at || f.created_at,
+        feed_type: f.feed_type,
+        priority: f.priority ?? undefined,
+        tags: f.tags || [],
+        relevance: calculateRelevance(q, f.title, f.summary ?? undefined)
+      })))
+      totalCount += total
     }
 
     if (types.includes('deal')) {
-      const { data, count } = await supabase
-        .from('deals')
-        .select('id, provider, product, price, price_cny, config, category, region, url, notes, is_active', { count: 'exact' })
-        .or(`provider.ilike.${pattern},product.ilike.${pattern},config.ilike.${pattern},notes.ilike.${pattern}`)
-        .eq('is_active', true)
-        .order('price_cny', { ascending: order === 'asc', nullsFirst: false })
-        .range(offset, offset + limit - 1)
-
-      if (data) {
-        results.push(...data.map(d => ({
-          type: 'deal',
-          id: d.id,
-          title: `${d.provider} - ${d.product}`,
-          desc: `${d.price} · ${d.config || d.category} · ${d.region || 'cn'}`,
-          url: d.url || '/deals',
-          time: null,
-          price: d.price,
-          price_cny: d.price_cny,
-          category: d.category,
-          relevance: calculateRelevance(q, `${d.provider} ${d.product}`, d.notes)
-        })))
-        totalCount += count || 0
-      }
+      const { rows, total } = await searchDeals(q, limit, offset, asc)
+      results.push(...rows.map(d => ({
+        type: 'deal',
+        id: d.id,
+        title: `${d.provider} - ${d.product}`,
+        desc: `${d.price} · ${d.config || d.category} · ${d.region || 'cn'}`,
+        url: d.url || '/deals',
+        time: null,
+        price: d.price,
+        price_cny: d.price_cny,
+        category: d.category,
+        relevance: calculateRelevance(q, `${d.provider} ${d.product}`, d.notes ?? undefined)
+      })))
+      totalCount += total
     }
 
     if (sort === 'relevance') {

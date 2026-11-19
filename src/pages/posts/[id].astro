@@ -1,37 +1,26 @@
 ---
 import Layout from '../../layouts/Layout.astro'
-import { supabase } from '../../lib/supabase'
+import { getPost, getOtherPosts, listFeedTags } from '../../lib/store'
 import { marked } from 'marked'
 import { getRelatedPosts } from '../../lib/related-posts'
 
 const { id } = Astro.params
-const { data: post } = await supabase
-  .from('posts')
-  .select('*')
-  .eq('id', id)
-  .single()
+const post = await getPost(id as string)
 
 if (!post) return Astro.redirect('/')
 
 const postTags: string[] = post.tags || []
 
-const { data: otherPosts } = await supabase
-  .from('posts')
-  .select('id, title, views, created_at')
-  .neq('id', id)
-  .order('created_at', { ascending: false })
-  .limit(8)
+const otherPosts = await getOtherPosts(post.id, 8)
 
 const relatedPosts = await getRelatedPosts(post.id, postTags, 5)
 
-const { data: allTagRows } = await supabase
-  .from('feeds')
-  .select('tags')
+const allTagRows = await listFeedTags()
 
 const allTags = new Set<string>()
 for (const t of postTags) allTags.add(t)
-for (const row of allTagRows || []) {
-  for (const t of row.tags || []) allTags.add(t)
+for (const rowTags of allTagRows) {
+  for (const t of rowTags || []) allTags.add(t)
 }
 
 const tocItems: { level: number; text: string; slug: string }[] = []

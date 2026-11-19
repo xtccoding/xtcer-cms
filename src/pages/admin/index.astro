@@ -2,8 +2,7 @@
 import '../../styles/admin.css'
 import Layout from '../../layouts/Layout.astro'
 import Sidebar from '../../components/Sidebar.astro'
-import { supabase } from '../../lib/supabase'
-import { createAdminClient } from '../../lib/supabase-admin'
+import { countBlacklist, countDeals, countFeeds, countFiles, countLinks, countPosts } from '../../lib/store'
 
 const runtimeEnv = (Astro.locals as any)?.runtime?.env
 const ADMIN_PASSWORD = runtimeEnv?.ADMIN_PASSWORD || import.meta.env.ADMIN_PASSWORD
@@ -11,28 +10,17 @@ if (!ADMIN_PASSWORD) return new Response('ADMIN_PASSWORD not configured', { stat
 const cookie = Astro.cookies.get('admin_auth')
 if (cookie?.value !== ADMIN_PASSWORD) return Astro.redirect('/admin/login')
 
-// visitors/files RLS 收紧后 anon 无法 SELECT；后台用 service_role 客户端
-const adminClient = createAdminClient(runtimeEnv)
-
-let postsRes = { count: 0 }, linksRes = { count: 0 }, dealsRes = { count: 0 }, feedsRes = { count: 0 }, visitorsRes = { count: 0 }, blacklistRes = { count: 0 }, filesRes = { count: 0 }
+// 数据全部走 D1（store 层），不再需要 service_role 客户端。
+let postsCount = 0, linksCount = 0, dealsCount = 0, feedsCount = 0, blacklistCount = 0, filesCount = 0
 try {
-  const vQuery = adminClient
-    ? adminClient.from('visitors').select('id', { count: 'exact', head: true })
-    : supabase.from('visitors').select('id', { count: 'exact', head: true })
-  const fQuery = adminClient
-    ? adminClient.from('files').select('id', { count: 'exact', head: true })
-    : supabase.from('files').select('id', { count: 'exact', head: true })
-  const results = await Promise.all([
-    supabase.from('posts').select('id', { count: 'exact', head: true }),
-    supabase.from('links').select('id', { count: 'exact', head: true }),
-    supabase.from('deals').select('id', { count: 'exact', head: true }),
-    supabase.from('feeds').select('id', { count: 'exact', head: true }),
-    vQuery,
-    supabase.from('blacklist').select('id', { count: 'exact', head: true }),
-    fQuery,
+  ;[postsCount, linksCount, dealsCount, feedsCount, blacklistCount, filesCount] = await Promise.all([
+    countPosts(),
+    countLinks(),
+    countDeals(),
+    countFeeds(),
+    countBlacklist(),
+    countFiles(),
   ])
-  postsRes = results[0]; linksRes = results[1]; dealsRes = results[2]; feedsRes = results[3]
-  visitorsRes = results[4]; blacklistRes = results[5]; filesRes = results[6]
 } catch (e) {}
 ---
 
@@ -50,37 +38,37 @@ try {
           <div class="arch-item">
             <span class="arch-icon">📝</span>
             <div><h3>文章 Posts</h3><p>Markdown 编辑器 + AI 助手 + 目录 + 评论</p></div>
-            <span class="arch-count">{postsRes.count ?? 0}</span>
+            <span class="arch-count">{postsCount}</span>
           </div>
           <div class="arch-item">
             <span class="arch-icon">🔗</span>
             <div><h3>导航 Links</h3><p>常用链接分组管理</p></div>
-            <span class="arch-count">{linksRes.count ?? 0}</span>
+            <span class="arch-count">{linksCount}</span>
           </div>
           <div class="arch-item">
             <span class="arch-icon">💰</span>
             <div><h3>优惠 Deals</h3><p>云服务产品目录，外部 cron 推送</p></div>
-            <span class="arch-count">{dealsRes.count ?? 0}</span>
+            <span class="arch-count">{dealsCount}</span>
           </div>
           <div class="arch-item">
             <span class="arch-icon">📡</span>
             <div><h3>情报 Feeds</h3><p>8 类情报流，3 层防重，Hermes + Junier 推送</p></div>
-            <span class="arch-count">{feedsRes.count ?? 0}</span>
+            <span class="arch-count">{feedsCount}</span>
           </div>
           <div class="arch-item">
             <span class="arch-icon">👁</span>
-            <div><h3>访客 Visitors</h3><p>中间件自动记录，支持 IP 黑名单</p></div>
-            <span class="arch-count">{visitorsRes.count ?? 0}</span>
+            <div><h3>访客 Visitors</h3><p>已改用 Cloudflare Web Analytics（零写入、免费）</p></div>
+            <span class="arch-count">—</span>
           </div>
           <div class="arch-item">
             <span class="arch-icon">🚫</span>
             <div><h3>黑名单 Blacklist</h3><p>IP 封禁管理</p></div>
-            <span class="arch-count">{blacklistRes.count ?? 0}</span>
+            <span class="arch-count">{blacklistCount}</span>
           </div>
           <div class="arch-item">
             <span class="arch-icon">📁</span>
             <div><h3>文件 Files</h3><p>文件存储 + 分享链接 + 密码保护 + 过期</p></div>
-            <span class="arch-count">{filesRes.count ?? '-'}</span>
+            <span class="arch-count">{filesCount}</span>
           </div>
         </div>
       </section>
@@ -89,7 +77,7 @@ try {
         <h2>技术栈</h2>
         <div class="tech-list">
           <span class="tech-tag">Astro (SSR)</span>
-          <span class="tech-tag">Supabase (PostgreSQL)</span>
+          <span class="tech-tag">Cloudflare D1 (SQLite + Drizzle)</span>
           <span class="tech-tag">Cloudflare Pages</span>
           <span class="tech-tag">Cerebras AI</span>
           <span class="tech-tag">Giscus (GitHub Discussions)</span>
@@ -116,7 +104,6 @@ try {
             <tr><td><code>/api/feeds/batch</code></td><td>批量 upsert（3 层防重）</td><td>Cookie / X-Feed-Key</td></tr>
             <tr><td><code>/api/search</code></td><td>全文搜索（posts + feeds + deals）</td><td>公开</td></tr>
             <tr><td><code>/api/ai</code></td><td>AI 写作助手</td><td>Cookie</td></tr>
-            <tr><td><code>/api/visitors</code></td><td>访客统计</td><td>Cookie</td></tr>
             <tr><td><code>/api/blacklist</code></td><td>黑名单管理</td><td>Cookie</td></tr>
             <tr><td><code>/api/files</code></td><td>文件管理（上传/编辑/删除）</td><td>Cookie</td></tr>
             <tr><td><code>/api/files/verify</code></td><td>文件密码验证</td><td>公开</td></tr>
@@ -131,176 +118,30 @@ try {
         <table class="route-table">
           <thead><tr><th>变量</th><th>说明</th></tr></thead>
           <tbody>
-            <tr><td><code>PUBLIC_SUPABASE_URL</code></td><td>Supabase 项目 URL</td></tr>
-            <tr><td><code>PUBLIC_SUPABASE_ANON_KEY</code></td><td>Supabase 匿名 Key</td></tr>
+            <tr><td><code>DB</code></td><td>D1 绑定（xtcer-content），wrangler.toml 已声明</td></tr>
             <tr><td><code>ADMIN_PASSWORD</code></td><td>管理后台密码（必须配置）</td></tr>
             <tr><td><code>FEED_API_KEY</code></td><td>外部推送认证 Key（Hermes + Junier 共用）</td></tr>
+            <tr><td><code>LIKE_SALT</code></td><td>点赞 IP 哈希盐（未配置则点赞接口关闭）</td></tr>
+            <tr><td><code>CF_WEB_ANALYTICS_TOKEN</code></td><td>Cloudflare Web Analytics 站点 token（可选）</td></tr>
           </tbody>
         </table>
       </section>
 
       <section class="setup-section glass-card">
-        <h2>数据库建表 SQL</h2>
-        <p>首次部署时在 Supabase SQL Editor 一次性执行：</p>
-        <div class="code-block">
-          <div class="code-header"><span>SQL — 全量建表</span><button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('sql-all').textContent);this.textContent='已复制';setTimeout(()=>this.textContent='复制',2000)">复制</button></div>
-          <pre><code id="sql-all">-- ==================== posts ====================
-CREATE TABLE IF NOT EXISTS posts (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  title TEXT NOT NULL,
-  content TEXT,
-  views INTEGER DEFAULT 0,
-  author TEXT DEFAULT 'XTcer',
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_posts_author ON posts(author);
-CREATE INDEX IF NOT EXISTS idx_posts_updated ON posts(updated_at DESC);
-ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS allow_all_posts ON posts;
-CREATE POLICY allow_all_posts ON posts FOR ALL USING (true) WITH CHECK (true);
-
--- ==================== links ====================
-CREATE TABLE IF NOT EXISTS links (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  title TEXT NOT NULL,
-  url TEXT NOT NULL,
-  description TEXT,
-  icon TEXT,
-  category TEXT DEFAULT '默认',
-  sort_order INTEGER DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-ALTER TABLE links ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS allow_all_links ON links;
-CREATE POLICY allow_all_links ON links FOR ALL USING (true) WITH CHECK (true);
-
--- ==================== visitors ====================
-CREATE TABLE IF NOT EXISTS visitors (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  ip TEXT,
-  path TEXT,
-  user_agent TEXT,
-  referer TEXT,
-  country TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-ALTER TABLE visitors ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS allow_all_visitors ON visitors;
-DROP POLICY IF EXISTS anon_insert_visitors ON visitors;
-CREATE POLICY anon_insert_visitors ON visitors
-  FOR INSERT TO anon WITH CHECK (true);
-
--- ==================== blacklist ====================
-CREATE TABLE IF NOT EXISTS blacklist (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  ip TEXT UNIQUE NOT NULL,
-  reason TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-ALTER TABLE blacklist ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS allow_all_blacklist ON blacklist;
-CREATE POLICY allow_all_blacklist ON blacklist FOR ALL USING (true) WITH CHECK (true);
-
--- ==================== deals ====================
-CREATE TABLE IF NOT EXISTS deals (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  provider TEXT NOT NULL,
-  product TEXT NOT NULL,
-  price TEXT NOT NULL,
-  price_usd NUMERIC,
-  price_cny NUMERIC,
-  config TEXT,
-  bandwidth TEXT,
-  type TEXT DEFAULT 'promotion',
-  target TEXT DEFAULT 'all_user',
-  renewal_price TEXT,
-  url TEXT,
-  notes TEXT,
-  category TEXT NOT NULL,
-  region TEXT DEFAULT 'global',
-  expiry TEXT,
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(provider, product)
-);
-CREATE INDEX IF NOT EXISTS idx_deals_category ON deals(category);
-CREATE INDEX IF NOT EXISTS idx_deals_is_active ON deals(is_active);
-CREATE INDEX IF NOT EXISTS idx_deals_price_cny ON deals(price_cny);
-ALTER TABLE deals ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS allow_all_deals ON deals;
-CREATE POLICY allow_all_deals ON deals FOR ALL USING (true) WITH CHECK (true);
-
--- ==================== feeds ====================
-CREATE TABLE IF NOT EXISTS feeds (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  feed_type TEXT NOT NULL,
-  title TEXT NOT NULL,
-  url TEXT,
-  normalized_url TEXT,
-  source TEXT,
-  summary TEXT,
-  tags TEXT[],
-  priority TEXT DEFAULT 'normal',
-  metadata JSONB,
-  url_hash TEXT,
-  published_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(feed_type, title)
-);
-CREATE INDEX IF NOT EXISTS idx_feeds_type ON feeds(feed_type);
-CREATE INDEX IF NOT EXISTS idx_feeds_published ON feeds(published_at DESC);
-CREATE INDEX IF NOT EXISTS idx_feeds_priority ON feeds(priority);
-CREATE INDEX IF NOT EXISTS idx_feeds_url_hash ON feeds(url_hash);
-CREATE INDEX IF NOT EXISTS idx_feeds_created ON feeds(created_at);
-ALTER TABLE feeds ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS allow_all_feeds ON feeds;
-CREATE POLICY allow_all_feeds ON feeds FOR ALL USING (true) WITH CHECK (true);
-
--- ==================== assets (图床) ====================
-CREATE TABLE IF NOT EXISTS assets (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  key TEXT NOT NULL UNIQUE,
-  url TEXT NOT NULL,
-  filename TEXT,
-  content_type TEXT,
-  size INTEGER,
-  content_hash TEXT,
-  tags TEXT[] DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_assets_hash ON assets(content_hash);
-CREATE INDEX IF NOT EXISTS idx_assets_tags ON assets USING GIN (tags);
-ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS allow_all_assets ON assets;
-CREATE POLICY allow_all_assets ON assets FOR ALL USING (true) WITH CHECK (true);
-
--- ==================== files (文件分享) ====================
-CREATE TABLE IF NOT EXISTS files (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  key TEXT NOT NULL,
-  url TEXT NOT NULL,
-  filename TEXT NOT NULL,
-  content_type TEXT,
-  size BIGINT,
-  share_slug TEXT NOT NULL UNIQUE,
-  password TEXT,
-  downloads INTEGER DEFAULT 0,
-  expires_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_files_share_slug ON files(share_slug);
-ALTER TABLE files ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS allow_all_files ON files;
--- files 表不对 anon 开放直接表操作；公开分享/验证/下载走服务端
-CREATE OR REPLACE FUNCTION increment_downloads(slug TEXT)
-RETURNS VOID AS $$ BEGIN UPDATE files SET downloads = downloads + 1 WHERE share_slug = slug; END; $$ LANGUAGE plpgsql SECURITY DEFINER;</code></pre>
-        </div>
+        <h2>数据库（Cloudflare D1）</h2>
+        <p>
+          全站数据已迁移到 Cloudflare D1（SQLite），库名 <code>xtcer-content</code>，
+          通过 <code>wrangler.toml</code> 的 <code>[[d1_databases]]</code> 绑定为 <code>DB</code>。
+          表结构定义见仓库 <code>database/d1-schema.sql</code> 与 <code>src/lib/schema.ts</code>（Drizzle）。
+        </p>
+        <p>
+          本地开发：<code>wrangler d1 execute xtcer-content --local --file=database/d1-schema.sql</code>；
+          线上变更：加 <code>--remote</code> 并在 Cloudflare 账号 <code>e0b59b…</code> 下执行。
+          访问统计改用 Cloudflare Web Analytics，不再写入 visitors 表。
+        </p>
         <div style="margin-top:1rem">
-          <a href="https://supabase.com/dashboard/project/ltwwyznurskgsphujarm/sql" target="_blank" class="btn btn-primary">
-            打开 SQL 编辑器
+          <a href="https://dash.cloudflare.com/?to=/:account/workers/d1" target="_blank" class="btn btn-primary">
+            打开 D1 控制台
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           </a>
         </div>

@@ -1,4 +1,4 @@
-import { supabase } from '../../../lib/supabase'
+import { getPost, listUntaggedPosts, updatePost } from '../../../lib/store'
 import { isAdminRequest } from '../../../lib/admin-auth'
 
 const CEREBRAS_KEY = import.meta.env.CEREBRAS_API_KEY || ''
@@ -56,20 +56,16 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
   if (!isAdminRequest(cookies, locals?.runtime?.env)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
 
   const body = await request.json().catch(() => ({}))
-  const { id, force } = body
+  const { id } = body
 
-  let query = supabase.from('posts').select('id, title, content, tags')
+  let posts: any[]
   if (id) {
-    query = query.eq('id', id)
+    const post = await getPost(id)
+    posts = post ? [post] : []
   } else {
-    if (!force) {
-      query = query.or('tags.is.null,tags.eq.{}')
-    }
+    posts = await listUntaggedPosts(50)
   }
-  query = query.limit(50)
 
-  const { data: posts, error } = await query
-  if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
   if (!posts || posts.length === 0) return new Response(JSON.stringify({ message: '没有需要打标的文章', tagged: 0 }))
 
   let tagged = 0
@@ -82,16 +78,12 @@ export async function POST({ request, cookies, locals }: { request: Request; coo
       continue
     }
 
-    const { error: updateError } = await supabase
-      .from('posts')
-      .update({ tags })
-      .eq('id', post.id)
-
-    if (updateError) {
-      results.push({ id: post.id, title: post.title, status: 'error', error: updateError.message })
-    } else {
+    try {
+      await updatePost(post.id, { tags })
       tagged++
       results.push({ id: post.id, title: post.title, status: 'ok', tags })
+    } catch (e: any) {
+      results.push({ id: post.id, title: post.title, status: 'error', error: e?.message })
     }
   }
 

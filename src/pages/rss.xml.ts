@@ -1,16 +1,9 @@
 import rss from '@astrojs/rss'
-import { fetchAll } from '../lib/query'
+import { listAllPosts } from '../lib/store'
 
 export async function GET() {
-  // 用 fetchAll 分页拉全量：PostgREST max-rows=1000 会截断，文章已 1041 篇。
-  const posts = await fetchAll<{
-    id: string
-    title: string
-    content: string | null
-    created_at: string
-  }>('posts', 'id, title, content, created_at', {
-    order: { column: 'created_at', ascending: false },
-  })
+  // D1 没有 PostgREST 的 max-rows 截断，直接全量取即可。
+  const posts = await listAllPosts()
 
   return rss({
     title: 'XTCer',
