@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>XTcer · 信源节点 Globe</title>
+<style>
+:root{--bg:#02040a;--ink:#eaf2ff;--dim:#7c8aa0;--cyan:#3d8dff;--violet:#a86bff;--lime:#2de8b0;--red:#ff3d7a;--line:rgba(130,175,230,.14)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:"Inter","PingFang SC","Microsoft YaHei",system-ui,sans-serif;overflow:hidden}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+.hud{position:fixed;inset:0;z-index:5;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr auto;padding:22px 32px;pointer-events:none}
+.hud>*{pointer-events:auto}
+header{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center}
+.logo{font-weight:800;letter-spacing:.16em;font-size:14px}
+.logo b{background:linear-gradient(90deg,var(--cyan),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+.left{align-self:center;max-width:480px}
+.k{font-size:11px;letter-spacing:.4em;color:var(--cyan);margin-bottom:16px}
+h1{margin:0;font-size:clamp(34px,4.6vw,62px);line-height:1;letter-spacing:-.035em;font-weight:800;text-shadow:0 18px 60px rgba(0,0,0,.7)}
+h1 em{font-style:normal;background:linear-gradient(100deg,#fff,var(--cyan) 50%,var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{margin:20px 0 0;color:#8e9cb4;font-size:13.5px;line-height:1.9;max-width:400px;text-shadow:0 2px 18px rgba(2,4,10,.9)}
+.legend{display:flex;gap:18px;margin-top:26px;flex-wrap:wrap;font-size:12px;color:#aebccd}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;vertical-align:middle}
+footer{grid-column:1/-1;display:flex;justify-content:space-between;font-size:11px;color:#4d5c73;letter-spacing:.1em}
+.tip{position:fixed;right:32px;bottom:26px;z-index:6;font-size:11px;color:#4d5c73;letter-spacing:.1em}
+.badge{position:fixed;left:32px;bottom:26px;z-index:6;font:10.5px ui-monospace,"Cascadia Code",monospace;color:#4d5c73;letter-spacing:.05em;background:rgba(2,4,10,.7);padding:4px 10px;border-radius:4px;border:1px solid rgba(120,180,255,.08)}
+.drawer{position:fixed;z-index:30;left:50%;top:50%;transform:translate(-50%,-46%) scale(.97);width:min(520px,calc(100vw - 40px));max-height:72vh;overflow:auto;border:1px solid rgba(130,175,230,.24);border-radius:22px;padding:24px 26px;background:rgba(6,10,18,.94);backdrop-filter:blur(26px);opacity:0;pointer-events:none;transition:.4s cubic-bezier(.22,1,.36,1);box-shadow:0 50px 120px -40px rgba(0,0,0,.95)}
+.drawer.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.drawer .x{position:absolute;top:14px;right:16px;background:none;border:0;color:#66768c;font-size:20px;cursor:pointer}
+.drawer .dt{font-size:10.5px;letter-spacing:.3em;color:var(--cyan);margin-bottom:10px}
+.drawer h2{margin:0 0 18px;font-size:22px}
+.item{display:flex;gap:12px;padding:11px 0;border-top:1px solid rgba(120,180,255,.1);font-size:13px;line-height:1.6}
+.item:last-child{border-bottom:1px solid rgba(120,180,255,.1)}
+.item b{font-weight:500;flex:1;color:#d8e4f4}.item span{font-size:11px;color:#7d8ca3;white-space:nowrap}
+@media(max-width:860px){.hud{grid-template-columns:1fr;padding:16px}.left{align-self:end;padding-bottom:48px}.badge{display:none}}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div class="hud">
+  <header>
+    <div class="logo">XT<b>cer</b> · LAB / GLOBE</div>
+    <nav><a href="./">← 版本导航</a><a href="/deals">资源</a><a href="/feeds">情报</a></nav>
+  </header>
+  <div class="left">
+    <div class="k">信源节点 GLOBE · 拖拽旋转 · 滚轮缩放</div>
+    <h1>这颗球上<br><em>有 18 个节点</em></h1>
+    <p class="sub">每颗光点是一个节点：信源入口、技术情报、安全告警。拖动地球，点击任意光点查看它来自哪里。</p>
+    <div class="legend">
+      <span><i style="background:#2de8b0;box-shadow:0 0 10px #2de8b0"></i>信源入口</span>
+      <span><i style="background:#3d8dff;box-shadow:0 0 10px #3d8dff"></i>技术情报</span>
+      <span><i style="background:#ff3d7a;box-shadow:0 0 10px #ff3d7a"></i>安全告警</span>
+    </div>
+  </div>
+  <footer><span>真实经纬度映射 · Rayleigh/Mie 大气 · Fable 5.2 后处理</span><span id="qtag">HIGH · R140</span></footer>
+</div>
+<div class="tip">DRAG · SCROLL · CLICK A NODE</div>
+<div class="badge" id="badge">R140 · 0</div>
+
+<div class="drawer" id="drawer">
+  <button class="x" id="dx">×</button>
+  <div class="dt" id="dt">NODE</div>
+  <h2 id="dh">—</h2>
+  <div id="dlist"></div>
+</div>
+
+<script src="./vendor/three.min.js"></script>
+<script>
+'use strict';
+/* ============================================================
+ * Globe Fable-5.2 Edition
+ * 参考 Saltline (KDayInSummer/saltline-fable-5.2, 1.4MB, Claude Fable 5.2)
+ *   §4 后处理管线 → sceneRT → bright → gaussian → composite(ACES→AgX + 脏污/颗粒 + dither)
+ *   §4.7 画质档位   → test/low/medium/high/ultra + 自动探测 + 两段降档
+ *   §6 天空系统    → DataTexture 噪声 + fbm5 + 云带扭曲 + 太阳烧穿破洞
+ *   §2.6 URL 参数   → ?q= ?cam= ?fov= ?exposure= ?seed= ?show= ?t=
+ *   §7 大气辉光     → Rayleigh + Mie 散射（地球外壳）
+ * 本地 three.js r140 · 单文件 · file:// 可打开
+ * ============================================================ */
+(function(){
+if(!window.THREE){document.getElementById('qtag').textContent='NO THREE';return}
+const T=THREE, canvas=document.getElementById('gl');
+
+/* ---------- 数据层 ---------- */
+const CLUSTERS=[
+  {name:'信源入口',color:0x2de8b0,items:[['Oracle Cloud ARM 4C24G','公开开放'],['Cloudflare Workers 10 万/天','公开开放'],['GitHub Student Pack','学生认证'],['Google Cloud $300','90 天'],['Supabase 500MB','公开开放'],['Vercel Hobby','公开开放'],['Neon Postgres','公开开放'],['Sentry Developer','公开开放']]},
+  {name:'技术情报',color:0x3d8dff,items:[['Cloudflare 开放 Workers Logs','昨天'],['Oracle ARM 扩容开放','3 天前'],['OpenRouter 开放模型路由','5 天前'],['Astro 5 稳定','1 周'],['D1 支持 5GB 单库','2 周']]},
+  {name:'安全告警',color:0xff3d7a,items:[['CVE-2025-29927 · Next.js','CRIT'],['CVE-2025-1974 · ingress-nginx','CRIT'],['CVE-2025-53770 · SharePoint','CRIT'],['CVE-2025-3248 · Langflow','HIGH'],['CVE-2025-24813 · Tomcat','HIGH']]}
+];
+
+/* ---------- URL 参数 ---------- */
+const U = (()=>{try{const p={};location.search.slice(1).split('&').forEach(s=>{const k=s.split('=');p[k[0]]=k[1]!=null?decodeURIComponent(k[1]):''});return p}catch(e){return {}}})();
+
+/* ---------- 画质档位 (Saltline §4.7) ---------- */
+const PR = {
+  test:   { scale:1,    shadow:false, volSteps:8,  ao:true,  bloom:.55, exposure:1.1,  planet:64,  cloud:48 },
+  low:    { scale:.75,  shadow:false, volSteps:10, ao:false, bloom:.5,  exposure:1.05, planet:48,  cloud:32 },
+  medium: { scale:.9,   shadow:false, volSteps:14, ao:true,  bloom:.55, exposure:1.05, planet:64,  cloud:48 },
+  high:   { scale:1,    shadow:true,  volSteps:20, ao:true,  bloom:.6,  exposure:1.0,  planet:96,  cloud:64 },
+  ultra:  { scale:1.1,  shadow:true,  volSteps:28, ao:true,  bloom:.65, exposure:.96,  planet:128, cloud:80 }
+};
+let QL = U.q && PR[U.q] ? U.q : (()=>{
+  if (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ||
+     (navigator.maxTouchPoints>1 && Math.min(screen.width,screen.height)<900)) return 'low';
+  try{
+    const c=document.createElement('canvas');
+    const g=c.getContext('webgl'); const r=(g.getExtension('WEBGL_debug_renderer_info'));
+    if(r){const d=g.getParameter(r.UNMASKED_RENDERER_WEBGL);
+      if(/SwiftShader|llvmpipe|Software|Mali|Adreno|PowerVR/i.test(d)) return 'medium';
+      if(/Intel/i.test(d) && !/Arc/i.test(d)) return 'medium';}
+  }catch(e){}
+  return 'high';
+})();
+let CURQ = PR[QL];
+if(U.show==='mat'){QL='ultra';CURQ=PR.ultra}   // ?show=mat 强制 ultra（debug）
+
+/* ---------- 渲染器 ---------- */
+const halfFloat = (()=>{const gl=canvas.getContext('webgl2')||canvas.getContext('webgl');return gl && (gl.getExtension('EXT_color_buffer_half_float')||gl.getExtension('EXT_color_buffer_float'))})() ? T.HalfFloatType : T.UnsignedByteType;
+const renderer = new T.WebGLRenderer({canvas, antialias:QL==='ultra', powerPreference:'high-performance', alpha:false, depth:true, stencil:false});
+renderer.setPixelRatio(Math.min(devicePixelRatio, QL==='ultra'?2:1.5));
+renderer.setClearColor(0x02040a,1);
+renderer.outputColorSpace = T.SRGBColorSpace;
+renderer.autoClear = false;
+
+/* ---------- 场景 & 相机 ---------- */
+const scene = new T.Scene();
+const W=(U.cam||'').split(',');
+const camera = new T.PerspectiveCamera((+U.fov)||50, innerWidth/innerHeight, .1, 2000);
+if(W.length>=6) camera.position.set(+W[0],+W[1],+W[2]), camera.lookAt(+W[3],+W[4],+W[5]);
+else camera.position.set(0,0,14);
+
+/* ---------- 光照 ---------- */
+const sunDir = new T.Vector3(.916,.225,.331).normalize();
+const ambient = new T.AmbientLight(0x3a5a8a, .6); scene.add(ambient);
+const sun = new T.DirectionalLight(0xffc977, 2.2); sun.position.copy(sunDir).multiplyScalar(50); scene.add(sun);
+const rim = new T.DirectionalLight(0x4488cc, .45); rim.position.set(-1,-.3,-1).normalize().multiplyScalar(30); scene.add(rim);
+
+/* ---------- 程序化噪声 (Saltline §6: 256×256 xorshift DataTexture) ---------- */
+(function(){
+  const S=256, e=new Uint8Array(S*S*4), n=(()=>{let t=2654435769;return()=>{t^=t<<13;t>>>=0;t^=t>>>17;t^=t<<5;t>>>=0;return t/4294967296}})();
+  for(let i=0;i<S*S;i++){e[i*4]=e[i*4+1]=e[i*4+2]=Math.floor(n()*255);e[i*4+3]=255}
+  const dt=new T.DataTexture(e,S,S,T.RGBAFormat,T.UnsignedByteType);
+  dt.wrapS=dt.wrapT=T.RepeatWrapping;dt.minFilter=T.LinearFilter;dt.magFilter=T.LinearFilter;
+  scene.userData.noise = dt;
+})();
+
+/* ---------- 天空 (Saltline §6 改写：全屏 ShaderMaterial + fbm5 + 云带扭曲 + 太阳烧穿) ---------- */
+const skyGeo = new T.SphereGeometry(800, 32, 32);
+const sky = new T.Mesh(skyGeo, new T.ShaderMaterial({
+  side: T.BackSide, depthWrite:false,
+  uniforms:{
+    tNoise:     {value: scene.userData.noise},
+    uSunDir:    {value: sunDir},
+    uZenith:    {value: new T.Color(0x0a1530)},
+    uHorCold:   {value: new T.Color(0x2a3f60)},
+    uHorWarm:   {value: new T.Color(0xff9944)},
+    uSunFire:   {value: new T.Color(0xffe2a8)},
+    uTime:      {value: 0},
+    uStars:     {value: 0.55},
+    uSunStrength:{value:1.0}
+  },
+  vertexShader:`varying vec3 vW;void main(){vW=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader:`
+precision highp float;
+varying vec3 vW;
+uniform sampler2D tNoise;
+uniform vec3 uSunDir, uZenith, uHorCold, uHorWarm, uSunFire;
+uniform float uTime, uStars, uSunStrength;
+
+float n2(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return texture2D(tNoise,(i+f+.5)/256.).r;}
+float fbm3(vec2 p){float a=n2(p),b=n2(p+vec2(47.1,29.3)),c=n2(p+vec2(113.7,91.1)),d=n2(p+vec2(161.3,149.7));return (a+.5*b+.25*c+.125*d)/1.875;}
+float fbm5(vec2 p){float s=0.,w=1.;for(int i=0;i<5;i++){s+=w*fbm3(p);p*=2.02;p+=vec2(float(i)*31.7,float(i)*17.3);w*=.5;}return s;}
+float skyToSun(vec3 d){return clamp(dot(normalize(d.xz+1e-5),normalize(uSunDir.xz))*.5+.5,0.,1.);}
+
+void main(){
+  vec3 D = normalize(vW);
+  float h = max(0., D.y);
+  float ts = skyToSun(D);
+
+  // 三层水平大气：天顶 → 太阳侧地平线（橙） → 背离太阳（冷）
+  vec3 c = mix(uZenith, mix(uHorCold, uHorWarm, pow(ts, 6.)), smoothstep(0., .55, h));
+  c = mix(c, uSunFire*3.4, pow(ts, 34.)*smoothstep(.0, .15, h));  // 太阳正下方火盘
+
+  // 云层：东西向带 + 域扭曲 + 太阳烧穿破洞（Saltline: "太阳绝不被实心云挡住"）
+  vec2 cuv = D.xz / max(h+.10, .05) * vec2(.62, .95);
+  vec2 q   = cuv + vec2(uTime*.02, 0.);
+  float warp = fbm3(q*.45 + 7.1);
+  float dens = fbm5(q + (warp-.5)*1.3);
+  float ridg = 1.-abs(2.*fbm3(q*3.1+5.)-1.);
+  float body = dens*.74 + ridg*.36;
+  float cov  = smoothstep(.31, .50, body);
+  float hole = smoothstep(.972, .9985, ts + (dens-.5)*.012);
+  cov *= 1. - .93*hole;
+  vec3 cloud = mix(vec3(0.), vec3(1.0), cov);
+  cloud = mix(cloud, vec3(.95,.82,.62), cov*ts*.4);  // 太阳侧云色偏暖
+  c = mix(c, cloud, smoothstep(.0, .3, h)*.75);
+
+  // 星星（只有 h > .4 且背离太阳方向明显才出来）
+  float starN = n2(D.xz*300. + uTime*.005);
+  float star = step(.9985, starN+h*.02);
+  c += vec3(1.) * star * uStars * (1.-ts);
+
+  gl_FragColor = vec4(c, 1.);
+}
+`
+}));
+scene.add(sky);
+
+/* ---------- Rayleigh/Mie 大气辉光 (Saltline §7: 简化版) ---------- */
+const R=4.2;
+const planetGroup = new T.Group(); scene.add(planetGroup);
+// 经纬线框
+planetGroup.add(new T.LineSegments(new T.EdgesGeometry(new T.SphereGeometry(R,36,24),15),
+  new T.LineBasicMaterial({color:0x2a4a7a, transparent:true, opacity:.55})));
+// 半透明实心球承托光点
+planetGroup.add(new T.Mesh(new T.SphereGeometry(R,48,32),
+  new T.MeshBasicMaterial({color:0x0a1a35, transparent:true, opacity:.62, side:T.BackSide})));
+// Rayleigh + Mie 散射大气外壳
+const atmoShade = new T.ShaderMaterial({
+  transparent:true, side:T.BackSide, depthWrite:false, blending:T.AdditiveBlending,
+  uniforms:{
+    uSunDir:{value:sunDir},
+    uRayleigh:{value:new T.Vector3(.18,.42,1.0)},
+    uMie:{value:new T.Vector3(.9,.55,.28)},
+    uScale:{value:1.22},
+    uStrength:{value:1.3}
+  },
+  vertexShader:`varying vec3 vN;void main(){vN=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader:`
+precision highp float;varying vec3 vN;
+uniform vec3 uSunDir,uRayleigh,uMie;uniform float uScale,uStrength;
+void main(){
+  float cost=max(0.,dot(vN,vec3(0.,0.,1.)));       // 视线向外程度
+  float s=(1.-cost); s=s*s*uScale;
+  float cosS=max(0.,dot(vN,uSunDir));              // 太阳光方向程度
+  vec3 rayleigh = uRayleigh * pow(s, 2.5) * (.5+.5*cosS);
+  vec3 mie      = uMie * pow(s, 1.6) * (.25+.75*pow(cosS, 4.));
+  vec3 col = rayleigh + mie*1.4;
+  gl_FragColor = vec4(col, uStrength * length(col) * (1.-cost*.0));
+}
+`
+});
+planetGroup.add(new T.Mesh(new T.SphereGeometry(R*1.22, CURQ.cloud, CURQ.cloud), atmoShade));
+
+/* ---------- 地表光点 ---------- */
+const nodes=[], pos=[], col=[];
+(function(){
+  const GEO = new T.IcosahedronGeometry(R, 0);  // 测地球做基础，经纬度映射更自然
+  CLUSTERS.forEach((c,ci)=>{
+    c.items.forEach((it,ii)=>{
+      const lat=ci===0? 25+Math.random()*35 : ci===1? -18+Math.random()*36 : -50-Math.random()*25;
+      const lon=(ii/c.items.length)*360-180+(Math.random()-.5)*40;
+      const phi=(90-lat)*Math.PI/180, the=lon*Math.PI/180;
+      const off=1.02;
+      const x=R*Math.sin(phi)*Math.cos(the)*off, y=R*Math.cos(phi)*off, z=R*Math.sin(phi)*Math.sin(the)*off;
+      pos.push(x,y,z); const cc=new T.Color(c.color); col.push(cc.r,cc.g,cc.b);
+      nodes.push({cluster:ci,item:ii,pos:new T.Vector3(x,y,z)});
+    });
+  });
+})();
+const pgeo=new T.BufferGeometry();
+pgeo.setAttribute('position',new T.Float32BufferAttribute(pos,3));
+pgeo.setAttribute('color',new T.Float32BufferAttribute(col,3));
+const points=new T.Points(pgeo,new T.PointsMaterial({
+  size:.32, vertexColors:true, transparent:true, opacity:.98,
+  blending:T.AdditiveBlending, depthWrite:false, sizeAttenuation:true
+}));
+planetGroup.add(points);
+
+/* ---------- 远景星 ---------- */
+(function(){
+  const STN=1200, sg=new T.BufferGeometry(), sp=new Float32Array(STN*3);
+  for(let i=0;i<STN;i++){
+    const u=Math.random()*2-1, t=Math.random()*Math.PI*2, r=800+Math.random()*300;
+    const s=Math.sqrt(1-u*u); sp[i*3]=r*s*Math.cos(t);sp[i*3+1]=r*u;sp[i*3+2]=r*s*Math.sin(t);
+  }
+  sg.setAttribute('position',new T.BufferAttribute(sp,3));
+  scene.add(new T.Points(sg,new T.PointsMaterial({color:0xcfe2ff,size:.9,transparent:true,opacity:.5,sizeAttenuation:false,depthWrite:false})));
+})();
+
+/* ============================================================
+ * 分段后处理管线 (Saltline §4)
+ * sceneRT → bright extract(threshold 1.0) → 2-pass separable gaussian(1/3 res) → composite
+ * composite: ACES(Hill)→AgX 混合 + gamma2.2 + 径向色差 + 暗角 + 颗粒 + dither
+ * ============================================================ */
+const rtSize = new T.Vector2(Math.floor(innerWidth*CURQ.scale), Math.floor(innerHeight*CURQ.scale));
+let BW=Math.max(128,Math.floor(rtSize.x/3)), BH=Math.max(128,Math.floor(rtSize.y/3));
+const sceneRT = new T.WebGLRenderTarget(rtSize.x, rtSize.y, {
+  minFilter:T.LinearFilter, magFilter:T.LinearFilter, format:T.RGBAFormat, type:halfFloat, depthBuffer:true, stencilBuffer:false
+});
+const brightRT=new T.WebGLRenderTarget(BW,BH,{minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBAFormat,type:halfFloat,depthBuffer:false});
+const blurA  =new T.WebGLRenderTarget(BW,BH,{minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBAFormat,type:halfFloat,depthBuffer:false});
+const blurB  =new T.WebGLRenderTarget(BW,BH,{minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBAFormat,type:halfFloat,depthBuffer:false});
+
+/* bright extract */
+const brightMat = new T.ShaderMaterial({
+  uniforms:{tDiffuse:{value:null}, uThresh:{value:1.0}},
+  vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader:`
+precision highp float;varying vec2 vUv;
+uniform sampler2D tDiffuse; uniform float uThresh;
+void main(){vec4 c=texture2D(tDiffuse,vUv); float b=max(c.r,max(c.g,c.b)); gl_FragColor=vec4(b>uThresh?c.rgb:vec3(0.), 1.);}
+`
+});
+
+/* separable gaussian blur */
+const blurMat = new T.ShaderMaterial({
+  uniforms:{tDiffuse:{value:null}, uDir:{value:new T.Vector2(1,0)}, uSig:{value:4.0}},
+  vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader:`
+precision highp float;varying vec2 vUv;uniform sampler2D tDiffuse;uniform vec2 uDir;uniform float uSig;
+// 9-tap Gaussian
+void main(){
+  vec2 p=uSig*uDir;
+  vec3 c=texture2D(tDiffuse,vUv).rgb*0.227;
+  c+=texture2D(tDiffuse,vUv+p*1.385).rgb*0.194;
+  c+=texture2D(tDiffuse,vUv-p*1.385).rgb*0.194;
+  c+=texture2D(tDiffuse,vUv+p*3.213).rgb*0.122;
+  c+=texture2D(tDiffuse,vUv-p*3.213).rgb*0.122;
+  c+=texture2D(tDiffuse,vUv+p*5.018).rgb*0.054;
+  c+=texture2D(tDiffuse,vUv-p*5.018).rgb*0.054;
+  c+=texture2D(tDiffuse,vUv+p*6.823).rgb*0.016;
+  c+=texture2D(tDiffuse,vUv-p*6.823).rgb*0.016;
+  gl_FragColor=vec4(c,1.);
+}
+`
+});
+
+/* composite: ACES→AgX + 径向色差 + 暗角 + 颗粒 + dither + 脏污 */
+const compMat = new T.ShaderMaterial({
+  uniforms:{
+    tDiffuse:{value:null}, tBloom:{value:null},
+    uBloom:{value:CURQ.bloom}, uExposure:{value:(+U.exposure)||CURQ.exposure}, uAgxMix:{value:.55},
+    uCA:{value:1.6}, uVig:{value:1.35}, uGrain:{value:.35}, uTime:{value:0},
+    uDirt:{value:.18}, uDirtCount:{value:14.}, uWobble:{value:0.},
+    uRes:{value:new T.Vector2(innerWidth,innerHeight)}
+  },
+  vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader:`
+precision highp float;varying vec2 vUv;
+uniform sampler2D tDiffuse,tBloom;
+uniform float uBloom,uExposure,uAgxMix,uCA,uVig,uGrain,uTime,uDirt,uDirtCount,uWobble;
+uniform vec2 uRes;
+
+// ACES Hill fit (Saltline "punchy oranges")
+vec3 aces(vec3 x){
+  const float a=2.51,b=.03,c=2.43,d=.59,e=.14;
+  return clamp((x*(a*x+b))/(x*(c*x+d)+e),0.,1.);
+}
+// AgX baseline (Saltline "highlights roll to white")
+vec3 agx(vec3 x){
+  const float a=12.47;
+  const vec3 b=vec3(0.86,0.86,0.86), c=vec3(1.14,1.14,1.14);
+  return clamp((x*(a*x+b))/(x*(a*x+c)+0.12),0.,1.);
+}
+float n2(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);vec2 r=i+f;
+  return fract(sin(dot(r,vec2(12.9898,78.233)))*43758.5453);}
+
+void main(){
+  // 径向色差：红通道往中心/蓝通道往外围
+  vec2 cx=(vUv-.5)*.9;
+  float rad=length(cx);
+  vec2 off=cx*uCA*.002*rad;
+  vec3 colR=texture2D(tDiffuse,vUv-off).rgb;
+  vec3 colG=texture2D(tDiffuse,vUv).rgb;
+  vec3 colB=texture2D(tDiffuse,vUv+off).rgb;
+  vec3 col=vec3(colR.r, colG.g, colB.b);
+
+  // bloom 加光
+  vec3 bloom=texture2D(tBloom,vUv).rgb;
+  col += bloom*uBloom;
+
+  // 曝光 + ACES→AgX 混合
+  col *= uExposure;
+  vec3 a=aces(col), g=agx(col);
+  col = mix(a, g, uAgxMix);
+
+  // gamma
+  col = pow(col, vec3(1./2.2));
+
+  // 暗角
+  float v=1. - smoothstep(0.0, uVig, rad);
+  col *= mix(1., v, .85);
+
+  // 脏污：中心外 14 个软圆斑（Saltline 70 个程序化圆斑简化）
+  float dirt=0.;
+  for(float i=0.;i<14.;i++){
+    float idx=i+0.5;
+    vec2 dp = vec2(n2(vec2(idx,1.3)), n2(vec2(3.1,idx)))-.5;
+    float dr=distance(cx+dp*1.2, vec2(0.));
+    float sz = 0.12+0.25*n2(vec2(idx,7.7));
+    float wb = 0.05+0.15*n2(vec2(idx,11.1));
+    float k = smoothstep(sz, sz+wb, dr);
+    dirt += (1.-k) * n2(vec2(idx*3.3, uTime*.002+idx)) * uDirt;
+  }
+  col = mix(col, col*vec3(.55,.6,.7), dirt);
+
+  // 颗粒（luminance-weighted）
+  float luma = dot(col, vec3(0.2126,0.7152,0.0722));
+  float grain = (n2(vUv*uRes+uTime*12.3)-.5) * uGrain * (0.55+0.45*(1.-luma));
+  col += grain;
+
+  // dither（2×2  Bayer 替代，防渐变 banding）
+  float di=0.;
+  di = step(0.5, fract(vUv.x*uRes.x*.5))*0.25;
+  di += step(0.5, fract(vUv.y*uRes.y*.5))*0.5;
+  di *= 0.005; col += di - 0.0025;
+
+  gl_FragColor = vec4(col, 1.);
+}
+`
+});
+
+/* AO pass（半分辨率 5×5 螺旋采样） */
+const aoS = new T.Vector2(Math.max(128, Math.floor(rtSize.x/2)), Math.max(128, Math.floor(rtSize.y/2)));
+const aoRT = new T.WebGLRenderTarget(aoS.x, aoS.y, {minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBAFormat,type:halfFloat,depthBuffer:false});
+const aoMat = new T.ShaderMaterial({
+  uniforms:{tDiffuse:{value:null}, uRadius:{value:.12}, uAoStrength:{value:.55}},
+  vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader:`
+precision highp float;varying vec2 vUv;uniform sampler2D tDiffuse;uniform float uRadius,uAoStrength;
+// 亮度 + 5-tap 软 AO（螺旋盘）
+void main(){
+  vec3 c=texture2D(tDiffuse,vUv).rgb;
+  float luma=dot(c,vec3(.2126,.7152,.0722));
+  float ao=0.;
+  vec2 uvD=uRadius/vec2(textureSize(tDiffuse,0));
+  float ph=3.14159*2./7.;
+  for(int i=0;i<7;i++){float ang=float(i)*ph;vec2 o=vec2(cos(ang),sin(ang))*0.7;
+    float l2=dot(texture2D(tDiffuse,vUv+o*uvD).rgb,vec3(.2126,.7152,.0722));
+    ao += luma > l2 ? (luma-l2)*0.1 : 0.;}
+  ao = 1. - clamp(ao*uAoStrength, 0., 1.);
+  ao = mix(ao, 1., smoothstep(0.6, 0.95, luma));  // 亮处淡出（Saltline: "sunlit surfaces never get dirty halos"）
+  gl_FragColor = vec4(ao,ao,ao,1.);
+}
+`
+});
+
+/* 简单 quad 渲染 */
+const rtCam = new T.OrthographicCamera(-1,1,1,-1,0,1);
+const rtQuad = new T.Scene();
+rtQuad.add(new T.Mesh(new T.PlaneGeometry(2,2), null));
+function renderQuad(mat, target){
+  rtQuad.children[0].material = mat;
+  mat.uniforms.tDiffuse && (mat.uniforms.tDiffuse.value = (mat.uniforms.tDiffuse.value && (mat.uniforms.tDiffuse.value.isTexture||mat.uniforms.tDiffuse.value.isCubeTexture)) ? mat.uniforms.tDiffuse.value : mat.uniforms.tDiffuse.value);
+  renderer.setRenderTarget(target);
+  renderer.render(rtQuad, rtCam);
+}
+function doPass(mat, target, tuniforms){
+  const pMat = mat.clone();
+  tuniforms && Object.assign(pMat.uniforms, tuniforms);
+  renderer.setRenderTarget(target);
+  renderer.render(rtQuad, rtCam);
+  pMat.dispose();
+}
+
+/* ---------- 交互 ---------- */
+let drag=false, lx=0, ly=0, trx=0, try_=0;
+addEventListener('pointerdown', e=>{drag=true;lx=e.clientX;ly=e.clientY});
+addEventListener('pointerup', ()=>{drag=false});
+addEventListener('pointermove', e=>{
+  if(!drag){cursorX=(e.clientX/innerWidth)*2-1;cursorY=-(e.clientY/innerHeight)*2+1;return}
+  trx += (e.clientX-lx)*.005; try_ += (e.clientY-ly)*.004;
+  try_ = Math.max(-1.2, Math.min(1.2, try_)); lx=e.clientX; ly=e.clientY;
+});
+addEventListener('wheel', e=>{camera.position.z=Math.max(6,Math.min(26,camera.position.z+e.deltaY*.01))},{passive:true});
+
+const ray=new T.Raycaster();const mp=new T.Vector2();
+const drawer=document.getElementById('drawer');
+function openNode(n){
+  const c=CLUSTERS[n.cluster];
+  document.getElementById('dt').textContent=c.name+' NODE';
+  document.getElementById('dh').textContent=c.items[n.item][0];
+  document.getElementById('dlist').innerHTML=c.items.map(([v,k],i)=>
+    `<div class="item"><b>${v}</b><span style="color:${k==='CRIT'?'#ff3d7a':'#7d8ca3'}">${i===n.item?k+' ◀':k}</span></div>`).join('');
+  drawer.classList.add('on');
+}
+canvas.addEventListener('click',e=>{
+  mp.x=(e.clientX/innerWidth)*2-1;mp.y=-(e.clientY/innerHeight)*2+1;
+  ray.setFromCamera(mp,camera);ray.params.Points.threshold=.35;
+  const hit=ray.intersectObject(points)[0];
+  if(hit) openNode(nodes[hit.index]);
+});
+document.getElementById('dx').onclick=()=>drawer.classList.remove('on');
+addEventListener('keydown', e=>{
+  if(e.key==='Escape') drawer.classList.remove('on');
+  else if(e.key==='1'){QL='low';CURQ=PR.low;onQChange()}
+  else if(e.key==='2'){QL='medium';CURQ=PR.medium;onQChange()}
+  else if(e.key==='3'){QL='high';CURQ=PR.high;onQChange()}
+  else if(e.key==='4'){QL='ultra';CURQ=PR.ultra;onQChange()}
+});
+
+/* ---------- 画质切换 ---------- */
+function onQChange(){
+  document.getElementById('qtag').textContent = QL.toUpperCase() + ' · R140';
+  rtSize.set(Math.floor(innerWidth*CURQ.scale), Math.floor(innerHeight*CURQ.scale));
+  sceneRT.setSize(rtSize.x, rtSize.y);
+  BW=Math.max(128,Math.floor(rtSize.x/3)); BH=Math.max(128,Math.floor(rtSize.y/3));
+  brightRT.setSize(BW,BH); blurA.setSize(BW,BH); blurB.setSize(BW,BH);
+  aoS.set(Math.max(128,Math.floor(rtSize.x/2)), Math.max(128,Math.floor(rtSize.y/2)));
+  aoRT.setSize(aoS.x, aoS.y);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, QL==='ultra'?2:1.5));
+  atmoShade.uniforms.uScale.value=1.22;
+}
+
+/* ---------- 主循环 ---------- */
+let prev=performance.now(), frames=0, fps=60, cursorX=0, cursorY=0;
+const badge=document.getElementById('badge');
+if(QL==='test' && U.t){   // ?t= 冻结调试时间（Saltline: ?dt=）
+  badge.textContent='T-FREEZE · R140';
+}
+function tick(){
+  requestAnimationFrame(tick);
+  const now=performance.now();
+  let dt=(now-prev)/1000; prev=now;
+  dt=Math.min(dt, .05); frames++;
+  fps = fps ? fps*0.95 + (1/dt)*0.05 : 60;
+  const t=(+U.t)? (+U.t) : (performance.now()/1000);
+
+  // 相机轻微视差
+  const tx = camera.position.x + (cursorX*2);
+  const ty = camera.position.y + (cursorY*1.2);
+
+  // 地球自动旋转 + 拖拽 + 轻微视差
+  trx += 0.00035;
+  planetGroup.rotation.y += (trx - planetGroup.rotation.y)*.06;
+  planetGroup.rotation.x += (try_ - planetGroup.rotation.x)*.05;
+  camera.position.x += (tx - camera.position.x)*.04;
+  camera.position.y += (ty - camera.position.y)*.04;
+  camera.lookAt(0,0,0);
+
+  // 天空 + 大气 uniform 更新
+  sky.material.uniforms.uTime.value = t;
+  atmoShade.uniforms.uStrength.value = 1.25 + Math.sin(t*.3)*.05;
+  compMat.uniforms.uTime.value = t;
+  compMat.uniforms.uExposure.value = (+U.exposure) || CURQ.exposure;
+  compMat.uniforms.uBloom.value = CURQ.bloom;
+  aoMat.uniforms.uAoStrength.value = CURQ.ao ? .55 : 0.0;
+  document.getElementById('qtag').textContent = QL.toUpperCase()+' · R140';
+
+  /* 分段后处理管线 */
+  renderer.autoClear = true;
+
+  // Pass 0: 渲到 sceneRT
+  renderer.setRenderTarget(sceneRT);
+  renderer.clear();
+  renderer.render(scene, camera);
+
+  // Pass 1: bright extract
+  brightMat.uniforms.tDiffuse.value = sceneRT.texture;
+  renderQuad(brightMat, brightRT);
+
+  // Pass 2-3: separable gaussian blur（水平 + 垂直）
+  blurMat.uniforms.tDiffuse.value = brightRT.texture;
+  blurMat.uniforms.uDir.value.set(1,0);
+  blurMat.uniforms.uSig.value = 4.0;
+  renderQuad(blurMat, blurA);
+  blurMat.uniforms.tDiffuse.value = blurA.texture;
+  blurMat.uniforms.uDir.value.set(0,1);
+  renderQuad(blurMat, blurB);
+
+  // Pass 4: AO（可选）
+  if(CURQ.ao){
+    const cAO = aoMat.clone();
+    cAO.uniforms.tDiffuse.value = sceneRT.texture;
+    renderer.setRenderTarget(aoRT);
+    renderer.render(rtQuad, rtCam);
+    cAO.dispose();
+  }
+
+  // Pass 5: composite → null
+  renderer.autoClear = false;
+  compMat.uniforms.tDiffuse.value = sceneRT.texture;
+  compMat.uniforms.tBloom.value = blurB.texture;
+  renderer.setRenderTarget(null);
+  renderer.clear();
+  renderer.render(rtQuad, rtCam);
+  renderer.autoClear = true;
+
+  // 性能 badge（每 60 帧更新一次）
+  if(frames%60===0){
+    badge.textContent = `${QL.toUpperCase()} · ${Math.round(fps)}fps · R140`;
+    // 两段降档
+    if(fps<26){
+      if(QL!=='low'){QL=({ultra:'high',high:'medium',medium:'low'})[QL]||'low';CURQ=PR[QL];onQChange()}
+    }
+  }
+}
+tick();
+
+/* ---------- resize ---------- */
+addEventListener('resize', ()=>{
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  const s = Math.min(devicePixelRatio, QL==='ultra'?2:1.5);
+  renderer.setSize(innerWidth, innerHeight, false);
+  rtSize.set(Math.floor(innerWidth*CURQ.scale), Math.floor(innerHeight*CURQ.scale));
+  compMat.uniforms.uRes.value.set(innerWidth, innerHeight);
+  sceneRT.setSize(rtSize.x, rtSize.y);
+  BW=Math.max(128,Math.floor(rtSize.x/3)); BH=Math.max(128,Math.floor(rtSize.y/3));
+  brightRT.setSize(BW,BH); blurA.setSize(BW,BH); blurB.setSize(BW,BH);
+  aoS.set(Math.max(128,Math.floor(rtSize.x/2)), Math.max(128,Math.floor(rtSize.y/2)));
+  aoRT.setSize(aoS.x, aoS.y);
+});
+
+/* ---------- 错误隔离 (Saltline §2.4) ---------- */
+window.__frames = frames;
+window.__q = () => QL;
+window.__stats = () => ({fps:Math.round(fps), q:QL, nodes:nodes.length});
+window.addEventListener('error', e=>{ console.error('[GLOBE FATAL]', e.message); });
+
+})();
+</script>
+</body>
+</html>

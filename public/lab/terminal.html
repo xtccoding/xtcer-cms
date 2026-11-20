@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>XTcer · 赛博终端 Cyber Terminal</title>
+<style>
+  :root{
+    --bg:#020604; --ink:#dff7ea; --dim:#5f8a76;
+    --cyan:#41e8ff; --lime:#5ef2b0; --amber:#ffcc66; --red:#ff5f7a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:"JetBrains Mono","SF Mono",Consolas,"Cascadia Code",monospace;overflow:hidden}
+  #gl{position:fixed;inset:0;width:100%;height:100%}
+  .crt{position:fixed;inset:0;z-index:3;pointer-events:none;
+    background:
+      repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px),
+      radial-gradient(120% 90% at 50% 50%,transparent 45%,rgba(0,0,0,.88) 100%);
+    animation:flick 6s infinite steps(60)}
+  @keyframes flick{0%,100%{opacity:.9}50%{opacity:.96}}
+  .scan{position:fixed;left:0;right:0;height:140px;z-index:4;pointer-events:none;
+    background:linear-gradient(180deg,transparent,rgba(94,242,176,.055),transparent);
+    animation:scan 7s linear infinite}
+  @keyframes scan{0%{top:-140px}100%{top:100%}}
+
+  .wrap{position:relative;z-index:5;height:100%;display:grid;
+    grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:0;padding:22px 26px}
+  .left{display:flex;flex-direction:column;justify-content:center;padding-right:26px}
+  .bar{display:flex;align-items:center;gap:10px;margin-bottom:26px;font-size:11px;color:var(--dim);letter-spacing:.16em}
+  .dots{display:flex;gap:6px}
+  .dots i{width:9px;height:9px;border-radius:50%;background:#1d3a2e;display:block}
+  .dots i:nth-child(1){background:#ff5f7a88}
+  .dots i:nth-child(2){background:#ffcc6688}
+  .dots i:nth-child(3){background:#5ef2b088}
+  h1{margin:0;font-size:clamp(26px,3.1vw,42px);line-height:1.22;font-weight:600;letter-spacing:-.01em}
+  h1 .g{color:var(--lime);text-shadow:0 0 26px rgba(94,242,176,.55)}
+  .sub{margin:18px 0 0;color:var(--dim);font-size:12.5px;line-height:2;max-width:560px}
+  .sub b{color:var(--cyan);font-weight:500}
+
+  .term{margin-top:28px;border:1px solid rgba(94,242,176,.22);border-radius:8px;
+    background:rgba(3,12,9,.72);backdrop-filter:blur(8px);overflow:hidden;
+    box-shadow:0 26px 70px -32px rgba(94,242,176,.5)}
+  .thead{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;
+    border-bottom:1px solid rgba(94,242,176,.16);font-size:10.5px;color:var(--dim);letter-spacing:.14em}
+  .tbody{padding:16px 16px 6px;height:232px;overflow-y:auto;font-size:12.5px;line-height:1.95;scrollbar-width:thin}
+  .tbody::-webkit-scrollbar{width:6px}
+  .tbody::-webkit-scrollbar-thumb{background:#1d3a2e;border-radius:4px}
+  .ln{white-space:pre-wrap;word-break:break-word}
+  .p{color:var(--lime)}
+  .k{color:var(--cyan)}
+  .r{color:var(--red)}
+  .a{color:var(--amber)}
+  .d{color:#547a68}
+  .inputline{display:flex;align-items:center;gap:8px;padding:10px 16px;border-top:1px solid rgba(94,242,176,.16)}
+  .inputline span{color:var(--lime);font-size:12.5px}
+  #cmd{flex:1;background:none;border:0;outline:0;color:var(--ink);font-family:inherit;font-size:12.5px;caret-color:var(--lime)}
+
+  .right{border-left:1px solid rgba(94,242,176,.12);padding-left:26px;
+    display:flex;flex-direction:column;justify-content:center;gap:22px}
+  .card{border:1px solid rgba(94,242,176,.15);border-radius:8px;padding:14px 16px;background:rgba(4,14,10,.55)}
+  .card h3{margin:0 0 10px;font-size:10px;letter-spacing:.26em;color:#6f9b88;font-weight:500}
+  .row{display:flex;justify-content:space-between;font-size:11.5px;padding:5px 0;color:#a9cbbb}
+  .row b{font-weight:500;color:var(--ink)}
+  .row b.g{color:var(--lime)} .row b.r{color:var(--red)} .row b.c{color:var(--cyan)}
+  .navlinks{display:flex;gap:16px;font-size:11px;color:#4f7a67;letter-spacing:.1em}
+  .navlinks a{color:inherit;text-decoration:none}.navlinks a:hover{color:var(--lime)}
+  @media(max-width:960px){
+    .wrap{grid-template-columns:1fr;padding:16px}
+    .right{display:none}
+    .left{padding-right:0}
+    .tbody{height:200px}
+  }
+</style>
+</head>
+<body>
+<nav>
+  <div class="logo">XT<b>cer</b> · LAB / TERMINAL</div>
+  <div class="navlinks"><a href="./">← 版本导航</a><a href="/deals">资源</a><a href="/feeds">情报</a></div>
+</nav>
+<canvas id="gl"></canvas>
+<div class="crt"></div><div class="scan"></div>
+
+<div class="wrap">
+  <div class="left">
+    <div class="bar">
+      <div class="dots"><i></i><i></i><i></i></div>
+      <span>xtcer@lab: ~ / cyber-terminal</span>
+    </div>
+    <h1>在这里，资源和漏洞<br><span class="g">都是可执行命令</span></h1>
+    <p class="sub">输入 <b>help</b> 查看可用指令。真实数据：今日可领资源、在野利用的 CVE、云厂商配额变动。</p>
+
+    <div class="term">
+      <div class="thead"><span>bash — 80x24</span><span id="clock">--:--:--</span></div>
+      <div class="tbody" id="out"></div>
+      <div class="inputline">
+        <span>➜ xtcer ~ $</span>
+        <input id="cmd" autocomplete="off" spellcheck="false" placeholder="help" />
+      </div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="card">
+      <h3>SYSTEM</h3>
+      <div class="row"><span>nodes</span><b class="c">online</b></div>
+      <div class="row"><span>deals</span><b>55</b></div>
+      <div class="row"><span>cve · today</span><b class="r">3</b></div>
+      <div class="row"><span>feeds</span><b>1.2k</b></div>
+    </div>
+    <div class="card">
+      <h3>TOP FREE</h3>
+      <div class="row"><span>Oracle ARM 4C24G</span><b class="g">0 元</b></div>
+      <div class="row"><span>CF Workers</span><b class="g">0 元</b></div>
+      <div class="row"><span>GCP $300</span><b class="a">试用</b></div>
+      <div class="row"><span>Supabase 500MB</span><b class="g">0 元</b></div>
+    </div> </div>
+</div>
+
+<script src="./vendor/three.min.js"></script>
+<script>
+(function(){
+  if(!window.THREE){document.body.innerHTML='<p style="padding:40px;color:#fff">three.js 未加载</p>';return}
+
+  // ===== 3D: 数字雨墙 + 网格地面 =====
+  const canvas=document.getElementById('gl');
+  const renderer=new THREE.WebGLRenderer({canvas,antialias:false,powerPreference:'high-performance'});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));
+  renderer.setSize(innerWidth,innerHeight);
+
+  const scene=new THREE.Scene();
+  scene.fog=new THREE.FogExp2(0x020604,.016);
+  const camera=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,.1,400);
+  camera.position.set(0,1.6,18);
+
+  // --- 数字雨纹理 ---
+  const CW=256, CH=256;
+  const rc=document.createElement('canvas'); rc.width=CW; rc.height=CH;
+  const rg=rc.getContext('2d');
+  rg.fillStyle='#020604'; rg.fillRect(0,0,CW,CH);
+  const CHARS='アイウエオカキクケコサシスセソタチツテトナニヌネノ0123456789$#@%&*+=<>/\\|';
+  const FS=13, COLS=Math.floor(CW/FS);
+  const drops=[];
+  for(let i=0;i<COLS;i++) drops.push({y:Math.random()*CH, s:(Math.random()*.5+.5)});
+  const rainTex=new THREE.CanvasTexture(rc);
+  rainTex.wrapS=rainTex.wrapT=THREE.RepeatWrapping;
+  rainTex.repeat.set(5,3);
+
+  function drawRain(){
+    rg.fillStyle='rgba(2,6,4,.16)'; rg.fillRect(0,0,CW,CH);
+    rg.font=FS+'px monospace';
+    for(let i=0;i<COLS;i++){
+      const d=drops[i];
+      const ch=CHARS[(Math.random()*CHARS.length)|0];
+      const y=d.y;
+      // 头部亮点
+      rg.fillStyle='rgba(180,255,225,.95)';
+      rg.fillText(ch, i*FS, y);
+      // 尾迹
+      rg.fillStyle='rgba(94,242,176,.34)';
+      rg.fillText(CHARS[(Math.random()*CHARS.length)|0], i*FS, y-FS);
+      rg.fillStyle='rgba(94,242,176,.14)';
+      rg.fillText(CHARS[(Math.random()*CHARS.length)|0], i*FS, y-FS*2);
+      d.y += FS*d.s*1.6;
+      if(d.y>CH){ d.y=0; d.s=Math.random()*.9+.4; }
+    }
+    rainTex.needsUpdate=true;
+  }
+  let rainT=0;
+
+  // 背景墙
+  const wall=new THREE.Mesh(new THREE.PlaneGeometry(150,90),
+    new THREE.MeshBasicMaterial({map:rainTex,transparent:true,opacity:.55,depthWrite:false}));
+  wall.position.set(0,6,-52); scene.add(wall);
+
+  const wall2=wall.clone();
+  wall2.rotation.y=Math.PI/2; wall2.position.set(-56,6,0); wall2.material=wall.material.clone();
+  wall2.material.opacity=.22; scene.add(wall2);
+  const wall3=wall2.clone(); wall3.rotation.y=-Math.PI/2; wall3.position.x=56; scene.add(wall3);
+
+  // 地面网格
+  const grid=new THREE.GridHelper(220,110,0x2a7f5e,0x113a2a);
+  grid.position.y=-3.2; grid.material.transparent=true; grid.material.opacity=.65;
+  scene.add(grid);
+
+  // 网格地面上的流动光带
+  const beams=[];
+  for(let i=0;i<8;i++){
+    const b=new THREE.Mesh(new THREE.PlaneGeometry(.35,120),
+      new THREE.MeshBasicMaterial({color:i%3===0?0x41e8ff:0x5ef2b0,transparent:true,opacity:.14,
+        blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
+    b.rotation.x=-Math.PI/2;
+    b.position.set((i-3.5)*7, -3.15, 0);
+    scene.add(b); beams.push(b);
+  }
+
+  // 远景竖条（"机柜"）
+  const bars=new THREE.Group(); scene.add(bars);
+  for(let i=0;i<26;i++){
+    const h=6+Math.random()*26;
+    const m=new THREE.Mesh(new THREE.BoxGeometry(.5,h,.5),
+      new THREE.MeshBasicMaterial({color:i%4===0?0x41e8ff:0x1c5f46,transparent:true,opacity:.42}));
+    m.position.set((Math.random()-.5)*110, -3.2+h/2, -20-Math.random()*40);
+    bars.add(m);
+  }
+
+  const clockT=new THREE.Clock();
+  function animate(){
+    requestAnimationFrame(animate);
+    const t=clockT.getElapsedTime();
+    rainT+=1;
+    if(rainT%2===0) drawRain();   // 30fps 更新纹理
+
+    camera.position.x = Math.sin(t*.22)*1.2;
+    camera.position.y = 1.6 + Math.sin(t*.5)*.12;
+    camera.lookAt(0,1.2,-20);
+
+    wall.position.x = Math.sin(t*.1)*2;
+    bars.children.forEach((b,i)=>{ b.material.opacity=.28+Math.abs(Math.sin(t*.6+i*.3))*.22; });
+    beams.forEach((b,i)=>{ b.material.opacity=.06+Math.abs(Math.sin(t*.9+i))*.12; });
+
+    renderer.render(scene,camera);
+  }
+  animate();
+
+  addEventListener('resize',()=>{
+    camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+    renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));
+    renderer.setSize(innerWidth,innerHeight);
+  });
+
+  // ===== 终端 =====
+  const out=document.getElementById('out');
+  const input=document.getElementById('cmd');
+
+  function line(html){
+    const d=document.createElement('div');
+    d.className='ln'; d.innerHTML=html;
+    out.appendChild(d); out.scrollTop=out.scrollHeight;
+  }
+
+  const DATA={
+    deals:[
+      ['Oracle Cloud ARM 4C24G','0 元 / 永久'],
+      ['Cloudflare Workers 10万次/天','0 元 / 月'],
+      ['GitHub Student Pack','0 元 / 学生'],
+      ['Google Cloud $300','试用 / 90天'],
+      ['Supabase 500MB','0 元 / 月'],
+      ['Vercel Hobby','0 元 / 月'],
+      ['Neon 0.5GB PG','0 元 / 月'],
+      ['Sentry 5k errors','0 元 / 月']
+    ],
+    cve:[
+      ['CVE-2025-29927','CRIT','Next.js 中间件鉴权绕过'],
+      ['CVE-2025-1974','CRIT','ingress-nginx 未授权 RCE'],
+      ['CVE-2025-53770','CRIT','SharePoint ToolShell 在野利用'],
+      ['CVE-2025-3248','HIGH','Langflow 未授权代码执行']
+    ],
+    feed:[
+      ['CLOUD','工作日志：Workers Logs 免费开放'],
+      ['CLOUD','Oracle 免费 ARM 扩容至 4C24G'],
+      ['AI','OpenRouter 新增免费模型路由'],
+      ['SEC','Next.js 修复中间件绕过，需升级 14.2.25+']
+    ]
+  };
+
+  function run(raw){
+    const cmd=raw.trim().toLowerCase();
+    line('<span class="p">➜ xtcer ~ $</span> '+raw.replace(/</g,'&lt;'));
+    if(!cmd){ return }
+    switch(cmd){
+      case 'help':
+        line('可用指令：');
+        line('  <span class="k">deals</span>   今日可发现的信源入口');
+        line('  <span class="k">cve</span>     高优先级漏洞');
+        line('  <span class="k">feed</span>    情报流');
+        line('  <span class="k">stats</span>   站点统计');
+        line('  <span class="k">open</span> deals|cve|feeds  打开网页');
+        line('  <span class="k">clear</span>   清屏');
+        break;
+      case 'deals':
+        DATA.deals.forEach(d=>line('  <span class="k">●</span> '+d[0].padEnd(30,' ')+' <span class="p">'+d[1]+'</span>'));
+        line('  <span class="d">共 55 项 → /deals</span>');
+        break;
+      case 'cve':
+        DATA.cve.forEach(c=>line('  <span class="'+(c[1]==='CRIT'?'r':'a')+'">['+c[1]+']</span> '+c[0]+' <span class="d">'+c[2]+'</span>'));
+        break;
+      case 'feed':
+        DATA.feed.forEach(f=>line('  <span class="d">['+f[0]+']</span> '+f[1]));
+        break;
+      case 'stats':
+        line('  deals=55  cve_today=3  feeds=1204  nodes=online');
+        break;
+      case 'whoami':
+        line('  guest@xtcer — 权限：read, discover_resources');
+        break;
+      case 'clear':
+        out.innerHTML=''; break;
+      case 'sudo':
+        line('  <span class="r">guest is not in the sudoers file. This incident will be reported.</span>');
+        break;
+      case 'open':
+        line('  <span class="a">用法：open deals|cve|feeds</span>'); break;
+      case 'open deals': location.href='/deals'; break;
+      case 'open cve': case 'open feeds': location.href='/feeds'; break;
+      default:
+        line('  <span class="r">command not found:</span> '+cmd.replace(/</g,'&lt;')+'  <span class="d">试试 help</span>');
+    }
+  }
+
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){ run(input.value); input.value=''; }
+  });
+
+  // 开场自导
+  const boot=[
+    '<span class="d">[boot]</span> xtcer-intel v2 · connecting mesh...',
+    '<span class="d">[boot]</span> <span class="p">link established</span> · 55 freebies / 1204 feeds',
+    '<span class="d">[info]</span> 输入 <span class="k">help</span> 查看可用指令'
+  ];
+  let bi=0;
+  const bootTimer=setInterval(()=>{
+    line(boot[bi++]);
+    if(bi>=boot.length){ clearInterval(bootTimer); }
+  },420);
+
+  setInterval(()=>{
+    document.getElementById('clock').textContent=new Date().toLocaleTimeString('zh-CN',{hour12:false});
+  },1000);
+  document.getElementById('clock').textContent=new Date().toLocaleTimeString('zh-CN',{hour12:false});
+  input.focus();
+})();
+</script>
+</body>
+</html>

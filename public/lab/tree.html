@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>XTcer · 分形之树 Arboretum</title>
+<style>
+  :root{--bg:#03060d;--ink:#eaf2ff;--dim:#7c8aa0;--cyan:#3d8dff;--violet:#a86bff;--lime:#2de8b0;--amber:#ffb454;--line:rgba(130,175,230,.14)}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:"Inter","PingFang SC","Microsoft YaHei",system-ui,sans-serif;overflow:hidden}
+  #gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+  .hud{position:fixed;inset:0;z-index:5;padding:22px 32px;pointer-events:none}
+  .hud>*{pointer-events:auto}
+  header{display:flex;justify-content:space-between;align-items:center}
+  .logo{font-weight:800;letter-spacing:.16em;font-size:14px}
+  .logo b{background:linear-gradient(90deg,var(--lime),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+nav{display:flex;gap:20px;font-size:12.5px;color:var(--dim)}
+  nav a{color:inherit;text-decoration:none}nav a:hover{color:var(--cyan)}
+  .left{position:absolute;right:32px;top:50%;transform:translateY(-50%);max-width:420px;text-align:right}
+  .k{font-size:11px;letter-spacing:.4em;color:var(--lime);margin-bottom:14px}
+  h1{margin:0;font-size:clamp(32px,4.4vw,58px);line-height:1.02;letter-spacing:-.035em;font-weight:800;text-shadow:0 18px 60px rgba(0,0,0,.7)}
+  h1 em{font-style:normal;background:linear-gradient(100deg,var(--lime),#fff 60%,var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{margin:18px 0 0;color:#9fb0c8;font-size:13.5px;line-height:1.9;text-shadow:0 2px 18px rgba(2,4,10,.9)}
+  .tip{position:fixed;left:32px;bottom:26px;z-index:6;font-size:11px;color:#4d5c73;letter-spacing:.1em}
+  .drawer{position:fixed;z-index:30;left:50%;top:50%;transform:translate(-50%,-46%) scale(.97);width:min(500px,calc(100vw - 40px));max-height:72vh;overflow:auto;border:1px solid rgba(130,175,230,.24);border-radius:22px;padding:24px 26px;background:rgba(6,10,18,.94);backdrop-filter:blur(26px);opacity:0;pointer-events:none;transition:.4s cubic-bezier(.22,1,.36,1);box-shadow:0 50px 120px -40px rgba(0,0,0,.95)}
+  .drawer.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+  .drawer .x{position:absolute;top:14px;right:16px;background:none;border:0;color:#66768c;font-size:20px;cursor:pointer}
+  .drawer .dt{font-size:10.5px;letter-spacing:.3em;color:var(--lime);margin-bottom:10px}
+  .drawer h2{margin:0 0 18px;font-size:22px}
+  .item{display:flex;gap:12px;padding:11px 0;border-top:1px solid rgba(120,180,255,.1);font-size:13px;line-height:1.6}
+  .item:last-child{border-bottom:1px solid rgba(120,180,255,.1)}
+  .item b{font-weight:500;flex:1;color:#d8e4f4}.item span{font-size:11px;color:#7d8ca3;white-space:nowrap}
+  @media(max-width:860px){.left{left:50%;right:auto;transform:translate(-50%,-50%);text-align:center;max-width:88vw}}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div class="hud">
+  <header>
+    <div class="logo">XT<b>cer</b> · LAB / ARBORETUM</div>
+    <nav><a href="./">← 版本导航</a><a href="/deals">资源</a><a href="/feeds">情报</a></nav>
+  </header>
+</div>
+<div class="left">
+  <div class="k">ARBORETUM · 滚动生长 · 点击果实</div>
+  <h1>信息在生长<br><em>沿着枝干向上</em></h1>
+  <p class="sub">一颗分形树，粒子从根部流向末梢。每颗发光的果实是一条信源入口，滚动让它生长，点击看详情。</p>
+</div>
+<div class="tip">SCROLL TO GROW · CLICK A FRUIT</div>
+
+<div class="drawer" id="drawer">
+  <button class="x" id="dx">×</button>
+  <div class="dt" id="dt">FRUIT</div>
+  <h2 id="dh">—</h2>
+  <div id="dlist"></div>
+</div>
+
+<script src="./vendor/three.min.js"></script>
+<script>
+(function(){
+  if(!window.THREE)return;
+  const FRUITS=[
+    ['Oracle Cloud ARM 4C24G','0 元 / 永久'],['Cloudflare Workers 10 万/天','0 元 / 月'],
+    ['GitHub Student Pack','学生'],['Google Cloud $300','90 天'],['Supabase 500MB','0 元 / 月'],
+    ['Vercel Hobby','0 元 / 月'],['Neon Postgres','0 元 / 月'],['Sentry Developer','0 元 / 月'],
+    ['Astro 5 稳定','1 周'],['D1 支持 5GB','2 周']
+  ];
+
+  const canvas=document.getElementById('gl');
+  const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+  const DPR=Math.min(devicePixelRatio,1.5);
+  renderer.setPixelRatio(DPR);renderer.setSize(innerWidth,innerHeight);
+  renderer.setClearColor(0x03060d,1);
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;
+  const scene=new THREE.Scene();
+  const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.1,300);
+  camera.position.set(0,5,18);
+
+  const tree=new THREE.Group();scene.add(tree);
+
+  // 递归生成分形枝干
+  const verts=[];const colors=[];
+  const tips=[];
+  const COL_ROOT=new THREE.Color(0xffb454),COL_TIP=new THREE.Color(0x2de8b0);
+  function branch(start,dir,len,depth,maxDepth){
+    if(depth>maxDepth){tips.push(start.clone());return;}
+    const end=start.clone().add(dir.clone().multiplyScalar(len));
+    verts.push(start.x,start.y,start.z,end.x,end.y,end.z);
+    const c=COL_ROOT.clone().lerp(COL_TIP,depth/maxDepth);
+    for(let i=0;i<2;i++){colors.push(c.r,c.g,c.b);}
+    const ang=0.42+depth*0.02;
+    const l=dir.clone().applyAxisAngle(new THREE.Vector3(0,0,1),ang).applyAxisAngle(dir,depth*1.3);
+    const r=dir.clone().applyAxisAngle(new THREE.Vector3(0,0,1),-ang).applyAxisAngle(dir,depth*1.7+1.1);
+    branch(end,l.clone().normalize(),len*0.72,depth+1,maxDepth);
+    branch(end,r.clone().normalize(),len*0.72,depth+1,maxDepth);
+    // 偶尔三叉
+    if(depth<3){
+      const m=dir.clone().applyAxisAngle(new THREE.Vector3(1,0,0),.3).applyAxisAngle(dir,depth*2.1);
+      branch(end,m.clone().normalize(),len*0.66,depth+2,maxDepth);
+    }
+  }
+  branch(new THREE.Vector3(0,-7,0),new THREE.Vector3(0,1,0),3.6,0,7);
+  const tg=new THREE.BufferGeometry();
+  tg.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+  tg.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  const treeLines=new THREE.LineSegments(tg,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.95,blending:THREE.AdditiveBlending,depthWrite:false}));
+  tree.add(treeLines);
+
+  // 果实 = 末梢 sprite，点击可查
+  const fruitGroup=new THREE.Group();tree.add(fruitGroup);
+  const fruits=[];
+  tips.slice(0,FRUITS.length).forEach((p,i)=>{
+    const col = i<8?0x2de8b0 : 0x3d8dff;
+    const s=new THREE.Sprite(new THREE.SpriteMaterial({color:col,transparent:true,opacity:.95,blending:THREE.AdditiveBlending,depthWrite:false}));
+    s.scale.setScalar(.9);s.position.copy(p);s.userData.idx=i;
+    fruitGroup.add(s);fruits.push(s);
+  });
+
+  // 上升粒子流（沿树体积）
+  const PN=IS_SMALL?1600:3800;
+  function IS_SMALL(){return innerWidth<700}
+  const pg=new THREE.BufferGeometry(),pp=new Float32Array(PN*3),ps=new Float32Array(PN),pc=new Float32Array(PN*3);
+  const colHot=new THREE.Color(0xffb454),colCool=new THREE.Color(0x2de8b0);
+  for(let i=0;i<PN;i++){
+    pp[i*3]=(Math.random()-.5)*6;pp[i*3+1]=Math.random()*14-7;pp[i*3+2]=(Math.random()-.5)*6;
+    ps[i]=Math.random();
+    const c=colHot.clone().lerp(colCool,(pp[i*3+1]+7)/14);
+    pc[i*3]=c.r;pc[i*3+1]=c.g;pc[i*3+2]=c.b;
+  }
+  pg.setAttribute('position',new THREE.BufferAttribute(pp,3));
+  pg.setAttribute('aSeed',new THREE.BufferAttribute(ps,1));
+  pg.setAttribute('aColor',new THREE.BufferAttribute(pc,3));
+  const particles=new THREE.Points(pg,new THREE.ShaderMaterial({
+    transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
+    uniforms:{uTime:{value:0},uSize:{value:1.0},uGrowth:{value:0}},
+    vertexShader:`
+      attribute float aSeed; attribute vec3 aColor; uniform float uTime,uSize,uGrowth; varying vec3 vC; varying float vA;
+      void main(){
+        vec3 p=position;
+        p.y=mod(p.y + uTime*(0.4+aSeed*0.8) + aSeed*20.0, 14.0)-7.0;
+        p.x+=sin(uTime*0.6+aSeed*9.0)*0.4;
+        p.z+=cos(uTime*0.5+aSeed*7.0)*0.4;
+        vC=aColor;
+        vA=0.4+0.6*sin(uTime*2.0+aSeed*12.0);
+        vec4 mv=modelViewMatrix*vec4(p,1.);
+        gl_PointSize=min(uSize*(180.0/-mv.z),10.0);
+        gl_Position=projectionMatrix*mv;
+      }`,
+    fragmentShader:`varying vec3 vC; varying float vA; void main(){float d=length(gl_PointCoord-0.5);float a=smoothstep(0.5,0.0,d);gl_FragColor=vec4(vC,a*vA*0.8);}`
+  }));
+  tree.add(particles);
+
+  // 远景星
+  const STN=600,sg=new THREE.BufferGeometry(),sp=new Float32Array(STN*3);
+  for(let i=0;i<STN;i++){const u=Math.random()*2-1,t=Math.random()*Math.PI*2,r=80+Math.random()*160,s=Math.sqrt(1-u*u);sp[i*3]=r*s*Math.cos(t);sp[i*3+1]=r*u;sp[i*3+2]=r*s*Math.sin(t);}
+  sg.setAttribute('position',new THREE.BufferAttribute(sp,3));
+  scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0xaac4e0,size:.45,transparent:true,opacity:.55,sizeAttenuation:false})));
+
+  // 交互：滚动生长 + 点击果实
+  let growth=0.35;
+  addEventListener('wheel',e=>{growth=Math.max(0,Math.min(1,growth-e.deltaY*.0008))},{passive:true});
+  const drawer=document.getElementById('drawer');
+  function openFruit(idx){
+    const it=FRUITS[idx];
+    document.getElementById('dt').textContent='FRUIT ·'+(idx<8?'FREE':'INTEL');
+    document.getElementById('dh').textContent=it[0];
+    document.getElementById('dlist').innerHTML=FRUITS.map(([v,k],i)=>
+      `<div class="item"><b>${v}</b><span style="color:${i===idx?'#2de8b0':'#7d8ca3'}">${i===idx?k+' ◀':k}</span></div>`).join('');
+    drawer.classList.add('on');
+  }
+  const ray=new THREE.Raycaster();const mp=new THREE.Vector2();
+  canvas.addEventListener('click',e=>{
+    mp.x=(e.clientX/innerWidth)*2-1;mp.y=-(e.clientY/innerHeight)*2+1;
+    ray.setFromCamera(mp,camera);
+    const hit=ray.intersectObjects(fruits,false)[0];
+    if(hit)openFruit(hit.object.userData.idx);
+  });
+  document.getElementById('dx').onclick=()=>drawer.classList.remove('on');
+  addEventListener('keydown',e=>{if(e.key==='Escape')drawer.classList.remove('on')});
+
+  let mx=0,my=0,tx=0,ty=0;
+  addEventListener('pointermove',e=>{tx=(e.clientX/innerWidth-.5);ty=(e.clientY/innerHeight-.5)});
+  const clock=new THREE.Clock();
+  function animate(){
+    requestAnimationFrame(animate);
+    const t=clock.getElapsedTime();
+    mx+=(tx-mx)*.05;my+=(ty-my)*.05;
+    // 生长：scale.y + 粒子可见度 + 果实显现
+    const g=growth;
+    tree.scale.y=0.35+g*0.65;
+    particles.material.uniforms.uTime.value=t;
+    particles.material.uniforms.uGrowth.value=g;
+    particles.material.opacity=0.35+g*0.65;
+    fruitGroup.children.forEach((f,i)=>{f.material.opacity=g*0.95;});
+    tree.rotation.y=t*.06+mx*.5;tree.rotation.x=my*.2;
+    fruits.forEach((f,i)=>{const s=.7+Math.sin(t*1.6+i)*.18;f.scale.setScalar(g<.2?.001:s);});
+    camera.position.x=mx*2;camera.position.y=5-my*1.5;
+    camera.lookAt(0,1,0);
+    renderer.render(scene,camera);
+  }
+  animate();
+  addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+})();
+</script>
+</body>
+</html>

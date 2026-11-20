@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>XTcer · 3D LAB · 十三个版本</title>
+<style>
+  :root{
+    --bg:#05070c; --ink:#eef4ff; --dim:#7f8da3;
+    --cyan:#41b6ff; --violet:#b45aff; --lime:#5ef2b0; --amber:#ffb454;
+    --line:rgba(130,175,230,.14);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Inter","PingFang SC","Microsoft YaHei",system-ui,sans-serif}
+  body{overflow-x:hidden}
+  body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background:
+      radial-gradient(60% 45% at 12% 0%,rgba(65,182,255,.14),transparent 60%),
+      radial-gradient(50% 40% at 92% 12%,rgba(180,90,255,.13),transparent 62%),
+      radial-gradient(60% 50% at 50% 100%,rgba(94,242,176,.07),transparent 65%)}
+  a{color:inherit}
+
+  header{padding:88px 6vw 44px;max-width:1340px;margin:0 auto}
+  .topline{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--dim);
+    letter-spacing:.2em;margin-bottom:70px}
+  .logo{font-weight:800;letter-spacing:.18em;color:var(--ink)}
+  .logo b{background:linear-gradient(90deg,var(--cyan),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .topline a{text-decoration:none}
+  .topline a:hover{color:var(--ink)}
+  .kicker{font-size:11px;letter-spacing:.44em;color:var(--cyan);text-transform:uppercase;margin-bottom:22px}
+  h1{margin:0;font-size:clamp(40px,7vw,96px);line-height:.94;letter-spacing:-.045em;font-weight:800}
+  h1 em{font-style:normal;background:linear-gradient(100deg,var(--cyan) 10%,#fff 48%,var(--violet) 90%);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{margin:28px 0 0;max-width:660px;color:var(--dim);font-size:15px;line-height:1.95}
+  .lede b{color:#cfe0f5;font-weight:500}
+  .note{display:inline-flex;align-items:center;gap:10px;margin-top:30px;padding:9px 16px;border-radius:99px;
+    border:1px solid rgba(94,242,176,.28);background:rgba(94,242,176,.07);font-size:12px;color:#9ef0c8}
+  .note i{width:6px;height:6px;border-radius:50%;background:var(--lime);box-shadow:0 0 10px var(--lime)}
+
+  /* grid */
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:22px;
+    padding:0 6vw 40px;max-width:1340px;margin:0 auto}
+  .card{grid-column:span 4;position:relative;border-radius:22px;overflow:hidden;
+    border:1px solid var(--line);background:#0a0f18;text-decoration:none;
+    transition:transform .5s cubic-bezier(.22,1,.36,1),box-shadow .5s,border-color .4s;
+    will-change:transform;display:flex;flex-direction:column;min-height:330px}
+  .card:hover{transform:translateY(-8px);border-color:rgba(65,182,255,.42);
+    box-shadow:0 34px 70px -34px rgba(65,182,255,.55)}
+  .card.big{grid-column:span 6;min-height:400px}
+  .thumb{position:relative;flex:1;min-height:190px;overflow:hidden;
+    background:#060a11;isolation:isolate}
+  .thumb canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .thumb .fallback{position:absolute;inset:0;
+    background:radial-gradient(70% 70% at 60% 40%,rgba(65,182,255,.35),transparent 65%),
+               radial-gradient(60% 60% at 25% 75%,rgba(180,90,255,.3),transparent 70%)}
+  .meta{padding:20px 22px 22px;position:relative;z-index:2;background:linear-gradient(180deg,rgba(10,15,24,.55),#0a0f18 60%)}
+  .meta .t{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .meta h2{margin:0;font-size:19px;font-weight:700;letter-spacing:-.01em}
+  .meta .no{font-size:10px;letter-spacing:.2em;color:#5d6c83;border:1px solid rgba(130,175,230,.2);
+    padding:2px 7px;border-radius:5px}
+  .meta p{margin:0;color:var(--dim);font-size:12.5px;line-height:1.8}
+  .tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:13px}
+  .tag{font-size:10px;color:#8fb0d0;border:1px solid rgba(130,175,230,.18);border-radius:99px;padding:3px 9px}
+  .card .go{position:absolute;right:18px;top:18px;z-index:3;width:36px;height:36px;border-radius:50%;
+    display:grid;place-items:center;background:rgba(6,10,17,.6);border:1px solid rgba(130,175,230,.25);
+    backdrop-filter:blur(8px);font-size:14px;color:#cfe0f5;transition:.35s}
+  .card:hover .go{background:var(--cyan);color:#04060d;border-color:var(--cyan);transform:rotate(-45deg)}
+
+  /* refs */
+  .refs{max-width:1340px;margin:0 auto;padding:70px 6vw 90px}
+  .refs h3{font-size:11px;letter-spacing:.36em;color:var(--dim);font-weight:500;margin:0 0 26px}
+  .reflist{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+  .ref{border:1px solid var(--line);border-radius:14px;padding:16px 18px;text-decoration:none;
+    background:rgba(255,255,255,.02);transition:.3s}
+  .ref:hover{background:rgba(65,182,255,.06);border-color:rgba(65,182,255,.35)}
+  .ref b{display:block;font-size:13.5px;font-weight:600;margin-bottom:6px}
+  .ref span{font-size:11.5px;color:var(--dim);line-height:1.7;display:block}
+  footer{border-top:1px solid var(--line);padding:26px 6vw;max-width:1340px;margin:0 auto;
+    display:flex;justify-content:space-between;font-size:11.5px;color:#5a6880;flex-wrap:wrap;gap:10px}
+  @media(max-width:1080px){
+    .card,.card.big{grid-column:span 6}
+  }
+  @media(max-width:720px){
+    .card,.card.big{grid-column:span 12}
+    header{padding:60px 5vw 30px}
+    .grid,.refs{padding-left:5vw;padding-right:5vw}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="topline">
+    <div class="logo">XT<b>cer</b> · 3D LAB</div>
+    <div><a href="/">← 返回主站（保持原版）</a></div>
+  </div>
+  <div class="kicker">THIRTEEN DIRECTIONS · ONE BRAND</div>
+  <h1>十三个方向<br><em>同一件事：发现信源</em></h1>
+  <p class="lede">
+    主站保持原样，这里是并行做的 13 个 3D 体验版本。每个都用真实内容（信源入口 / 情报流 / CVE），
+    <b>纯本地静态、无后端依赖</b>，全部真 WebGL，不是视频也不是序列帧。
+  </p>
+  <div class="note"><i></i>主站首页未改动 · 这些页面挂在 /lab/ 下独立访问</div>
+</header>
+
+<div class="grid" id="grid"></div>
+
+<div class="refs">
+  <h3>REFERENCE — 调研过的获奖 3D 站点</h3>
+  <div class="reflist">
+    <a class="ref" href="https://oryzo.ai/" target="_blank" rel="noopener"><b>Oryzo</b><span>Awwwards 月度 · 单一物件电影级打光 + Z 轴景深滚动</span></a>
+    <a class="ref" href="https://brand.ivress.co.jp/" target="_blank" rel="noopener"><b>IVRESS</b><span>FWA 月度 · WebGPU + WebGL 双后端，TSL 一套着色器</span></a>
+    <a class="ref" href="https://members-play.lacoste.com/ace-breaker-rg/gb/en/" target="_blank" rel="noopener"><b>Lacoste Ace Breaker</b><span>品牌化 Three.js 街机小游戏 · 一个动词的可玩循环</span></a>
+    <a class="ref" href="https://www.shopify.com/editions/spring2026" target="_blank" rel="noopener"><b>Shopify Editions</b><span>滚动作为叙事装置 · 文字粒子散开再聚合</span></a>
+    <a class="ref" href="https://hubtown.co.in/" target="_blank" rel="noopener"><b>Hubtown</b><span>Awwwards SOTD · 发光单体 + 鼠标揭示，B2B 也高级</span></a>
+    <a class="ref" href="https://sleep-well-creatives.com/" target="_blank" rel="noopener"><b>Sleep Well Creative</b><span>Awwwards SOTD · 编辑式 3D 叙事，滚动推进故事</span></a>
+    <a class="ref" href="https://explore.ownprimland.com/" target="_blank" rel="noopener"><b>Explore Primland</b><span>Awwwards SOTD · 地形飞行穿越，雾与高度差营造尺度</span></a>
+    <a class="ref" href="https://www.cartier.com/en-fr/watchesandwonders" target="_blank" rel="noopener"><b>Cartier Watches &amp; Wonders</b><span>一产品一房间 · 博物馆式滚动 + Web Audio</span></a>
+    <a class="ref" href="https://www.awwwards.com/sites/everest-the-ascent" target="_blank" rel="noopener"><b>Everest · The Ascent</b><span>真实地形的电影级攀登 · 自适应画质</span></a>
+    <a class="ref" href="https://bruno-simon.com/" target="_blank" rel="noopener"><b>Bruno Simon</b><span>可驾驶物理小车的作品集 · Three.js Journey 作者</span></a>
+    <a class="ref" href="https://www.felixparadis.com/" target="_blank" rel="noopener"><b>Felix Paradis</b><span>3D 作品集 · 粒子与形变的视觉大师</span></a>
+    <a class="ref" href="https://www.the9elements.com/" target="_blank" rel="noopener"><b>The 9 Elements</b><span>实验性 agency · WebGL 互动精品</span></a>
+    <a class="ref" href="https://cuberto.com/" target="_blank" rel="noopener"><b>Cuberto</b><span>动效 + 3D 精品站，滚动编排参考</span></a>
+    <a class="ref" href="https://www.awwwards.com/websites/three-js/" target="_blank" rel="noopener"><b>Awwwards · Three.js</b><span>持续更新的 Three.js 站点索引</span></a>
+    <a class="ref" href="https://www.awwwards.com/websites/experimental/" target="_blank" rel="noopener"><b>Awwwards · Experimental</b><span>实验性站点索引 · 前沿交互</span></a>
+    <a class="ref" href="https://threejs.org/examples/" target="_blank" rel="noopener"><b>Three.js Examples</b><span>官方示例库 · 技术源头</span></a>
+    <a class="ref" href="https://thefwa.com/" target="_blank" rel="noopener"><b>The FWA</b><span>每日 / 每月最佳交互站</span></a>
+    <a class="ref" href="https://www.cssdesignawards.com/" target="_blank" rel="noopener"><b>CSS Design Awards</b><span>3D 与动效获奖站点</span></a>
+  </div>
+</div>
+
+<footer>
+  <span>XTcer 3D Lab · 静态页面 · 本地可直接打开</span>
+  <span>three.js r140 · 无构建步骤 · 60fps 目标</span>
+</footer>
+
+<script src="./vendor/three.min.js"></script>
+<script>
+(function(){
+  const V=[
+    {f:'chrome.html',  no:'01', n:'液态铬',   d:'全屏 shader 的液态金属：鼠标就是引力源，球体会跟着你融合、分裂、流动。', tags:['Fragment Shader','Metaball','鼠标交互'], big:true, c:['#7fd4ff','#c08bff'], k:'chrome'},
+    {f:'neural.html',  no:'02', n:'神经星云', d:'12,000 颗粒子分成资源 / 情报 / 告警三团星云，可切换四种形态；悬停聚焦、点开看真实条目，还能"扫描"随机一条情报。', tags:['GPU Points','聚类聚焦','形态变形'], c:['#41b6ff','#b45aff'], k:'neural'},
+    {f:'monolith.html',no:'03', n:'黑石碑',   d:'Hubtown 式单体：程序化环境贴图做的铬合金碑体，鼠标扫光，滚动环绕。', tags:['PBR 金属','PMREM 环境光','极简排版'], c:['#9fd4ff','#b48bff'], k:'monolith'},
+    {f:'orbital.html', no:'04', n:'轨道星球', d:'信源入口变成绕着星球转的卫星，点击任意一颗弹出详情，滚动把镜头拉远露出情报流。', tags:['Raycast 点击','视差相机','Sprite 辉光'], c:['#41b6ff','#5ef2b0'], k:'orbital'},
+    {f:'voxel.html',   no:'05', n:'体素机房', d:'把 55 个云资源堆成一座等距地形：高度=额度，颜色=类型，可拖拽旋转、悬停查看。', tags:['InstancedMesh','等距相机','悬停拾取'], c:['#5ef2b0','#41b6ff'], k:'voxel'},
+    {f:'terrain.html', no:'06', n:'低多边形飞行', d:'滚动即前进的山谷飞越，雾深=情报新鲜度，光点=今天新增的资源。', tags:['地形生成','雾效','滚动飞行'], c:['#54c9ff','#a97bff'], k:'terrain'},
+    {f:'tunnel.html',  no:'07', n:'玻璃隧道', d:'沿隧道向前冲，四章内容随滚动切换：信源 → 今日 → 情报 → 告警。', tags:['滚动编排','速度粒子','章节切换'], c:['#41b6ff','#ff5f7a'], k:'tunnel'},
+    {f:'terminal.html',no:'08', n:'赛博终端', d:'数字雨 3D 墙面 + 可执行终端：输入 deals / cve / feed 真的会返回数据。', tags:['Canvas 纹理','CRT 效果','命令行交互'], c:['#5ef2b0','#41e8ff'], k:'terminal'},
+    {f:'globe.html',   no:'09', n:'全息地球', d:'真实经纬度映射：信源入口 / 情报 / 告警变成地表光点，拖拽旋转地球，点击任意光点看它来自哪里。', tags:['线框地球','Raycast 拾取','经纬度映射'], c:['#3d8dff','#2de8b0'], k:'globe'},
+    {f:'ocean.html',   no:'10', n:'流体海面', d:'自定义 shader 的起伏海面，鼠标掀起涟漪，滚动沿海面前飞；波峰浮标是信源入口，点击查看。', tags:['海面 Shader','鼠标涟漪','滚动飞行'], c:['#3d8dff','#a86bff'], k:'ocean'},
+    {f:'tree.html',    no:'11', n:'分形之树', d:'程序化递归生成的发光分形树，粒子从根流向末梢，滚动控制生长，点击发光的果实看详情。', tags:['L-System','粒子流','滚动生长'], c:['#2de8b0','#ffb454'], k:'tree'},
+    {f:'wormhole.html',no:'12', n:'虫洞跃迁', d:'扭曲条纹隧道里持续跃迁，滚动微调，四章内容（信源 → 今日 → 情报 → 告警）随深度自动切换。', tags:['隧道 Shader','章节编排','自动前进'], c:['#a86bff','#ff3d7a'], k:'wormhole'},
+    {f:'crystal.html', no:'13', n:'晶体矩阵', d:'悬浮的八面体棱镜，真实折射程序化环境光；悬停高亮，每颗晶体封存一条信源入口，点击查看。', tags:['PBR 折射','PMREM 环境光','悬停拾取'], c:['#ffb454','#a86bff'], k:'crystal'}
+  ];
+
+  const grid=document.getElementById('grid');
+  V.forEach(v=>{
+    const a=document.createElement('a');
+    a.className='card'+(v.big?' big':'');
+    a.href='./'+v.f;
+    a.innerHTML=`
+      <div class="thumb"><div class="fallback" style="background:
+        radial-gradient(70% 70% at 62% 38%,${v.c[0]}55,transparent 65%),
+        radial-gradient(60% 60% at 28% 78%,${v.c[1]}44,transparent 72%)"></div>
+        <canvas data-k="${v.k}"></canvas></div>
+      <div class="go">↗</div>
+      <div class="meta">
+        <div class="t"><span class="no">${v.no}</span><h2>${v.n}</h2></div>
+        <p>${v.d}</p>
+        <div class="tags">${v.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+      </div>`;
+    grid.appendChild(a);
+  });
+
+  // ---- 每个卡片一个迷你 3D 预览（轻量、失败降级为渐变）----
+  const scenes=[];
+  document.querySelectorAll('.thumb canvas').forEach(cv=>{
+    if(!window.THREE) return;
+    const kind=cv.dataset.k;
+    const w=cv.clientWidth||320, h=cv.clientHeight||200;
+    const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:false,alpha:true});
+    renderer.setPixelRatio(Math.min(devicePixelRatio,1.4));
+    renderer.setSize(w,h,false);
+    const scene=new THREE.Scene();
+    const cam=new THREE.PerspectiveCamera(50,w/h,.1,100);
+    cam.position.set(0,0,7);
+    let obj;
+
+    if(kind==='voxel'||kind==='terrain'){
+      const g=new THREE.Group();
+      for(let i=0;i<7;i++){
+        const hh=.6+Math.random()*2.4;
+        const m=new THREE.Mesh(new THREE.BoxGeometry(.8,hh,.8),
+          new THREE.MeshBasicMaterial({color:new THREE.Color().setHSL(.55-i*.02,.65,.45+i*.02),transparent:true,opacity:.85}));
+        m.position.set((i-3)*1.05, -1.4+hh/2, 0);
+        g.add(m);
+      }
+      g.rotation.y=-.55; g.rotation.x=.18;
+      scene.add(g); obj=g;
+    } else if(kind==='neural'||kind==='orbital'){
+      const N=900, geo=new THREE.BufferGeometry(), p=new Float32Array(N*3);
+      for(let i=0;i<N;i++){
+        const u=Math.random()*2-1,t=Math.random()*Math.PI*2,r=2.1+Math.random()*.35,s=Math.sqrt(1-u*u);
+        p[i*3]=r*s*Math.cos(t); p[i*3+1]=r*u; p[i*3+2]=r*s*Math.sin(t);
+      }
+      geo.setAttribute('position',new THREE.BufferAttribute(p,3));
+      obj=new THREE.Points(geo,new THREE.PointsMaterial({
+        color:0x63c8ff,size:.055,transparent:true,opacity:.95,
+        blending:THREE.AdditiveBlending,depthWrite:false}));
+      scene.add(obj);
+      if(kind==='orbital'){
+        const ring=new THREE.Mesh(new THREE.TorusGeometry(2.6,.006,6,80),
+          new THREE.MeshBasicMaterial({color:0x41b6ff,transparent:true,opacity:.5}));
+        ring.rotation.x=1.25; scene.add(ring); obj.add(ring);
+      }
+    } else if(kind==='monolith'){
+      const g=new THREE.Group();
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(1.1,3.4,.55),
+        new THREE.MeshStandardMaterial({color:0xdfe9f5,metalness:1,roughness:.18,
+          emissive:0x0a1a2a,emissiveIntensity:.6})));
+      g.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1.1,3.4,.55)),
+        new THREE.LineBasicMaterial({color:0x9fd4ff,transparent:true,opacity:.5})));
+      scene.add(g); obj=g;
+      scene.add(new THREE.PointLight(0xbfe4ff,8,30));
+      scene.add(new THREE.AmbientLight(0x334455,2));
+    } else if(kind==='tunnel'){
+      const g=new THREE.Group();
+      for(let i=0;i<7;i++){
+        const r=new THREE.Mesh(new THREE.TorusGeometry(1.9,.02,6,60),
+          new THREE.MeshBasicMaterial({color:i%2?0x41b6ff:0xb45aff,transparent:true,opacity:.75}));
+        r.position.z=-i*1.5; g.add(r);
+      }
+      scene.add(g); obj=g;
+    } else if(kind==='terminal'){
+      const N=700, geo=new THREE.BufferGeometry(), p=new Float32Array(N*3);
+      for(let i=0;i<N;i++){ p[i*3]=(Math.random()-.5)*7; p[i*3+1]=(Math.random()-.5)*4; p[i*3+2]=(Math.random()-.5)*4 }
+      geo.setAttribute('position',new THREE.BufferAttribute(p,3));
+      obj=new THREE.Points(geo,new THREE.PointsMaterial({color:0x5ef2b0,size:.05,transparent:true,opacity:.8,depthWrite:false}));
+      scene.add(obj);
+    } else if(kind==='globe'){
+      const g=new THREE.Group();
+      const sph=new THREE.SphereGeometry(1.8,24,16);
+      g.add(new THREE.LineSegments(new THREE.EdgesGeometry(sph,12),
+        new THREE.LineBasicMaterial({color:0x3d8dff,transparent:true,opacity:.6})));
+      const N=60,pg=new THREE.BufferGeometry(),pp=new Float32Array(N*3);
+      for(let i=0;i<N;i++){const u=Math.random()*2-1,tt=Math.random()*Math.PI*2,r=1.9,s=Math.sqrt(1-u*u);pp[i*3]=r*s*Math.cos(tt);pp[i*3+1]=r*u;pp[i*3+2]=r*s*Math.sin(tt);}
+      pg.setAttribute('position',new THREE.BufferAttribute(pp,3));
+      g.add(new THREE.Points(pg,new THREE.PointsMaterial({color:0x2de8b0,size:.12,transparent:true,opacity:.9,blending:THREE.AdditiveBlending,depthWrite:false})));
+      scene.add(g);obj=g;
+    } else if(kind==='ocean'){
+      const geo=new THREE.PlaneGeometry(5,3.2,24,16);const po=geo.attributes.position.array;
+      for(let i=0;i<po.length;i+=3){po[i+2]=Math.sin(po[i]*1.5)*0.3+Math.cos(po[i+1]*2)*0.2;}
+      geo.computeVertexNormals();
+      const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x1b6fd6,metalness:.4,roughness:.25,emissive:0x0a2a5a,emissiveIntensity:.5,transparent:true,opacity:.92}));
+      m.rotation.x=-0.9;scene.add(m);obj=m;
+      scene.add(new THREE.PointLight(0x6fb0ff,8,30));
+    } else if(kind==='tree'){
+      const g=new THREE.Group();const tm=new THREE.LineBasicMaterial({color:0x2de8b0,transparent:true,opacity:.85});
+      (function draw(s,dir,len,d){
+        if(d>4)return;const e=s.clone().add(dir.clone().multiplyScalar(len));
+        g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([s,e]),tm));
+        const l=dir.clone().applyAxisAngle(new THREE.Vector3(0,0,1),.5),r=dir.clone().applyAxisAngle(new THREE.Vector3(0,0,1),-.5);
+        draw(e,l,len*.7,d+1);draw(e,r,len*.7,d+1);
+      })(new THREE.Vector3(0,-1.6,0),new THREE.Vector3(0,1,0),1.1,0);
+      g.rotation.y=.4;scene.add(g);obj=g;
+    } else if(kind==='wormhole'){
+      const g=new THREE.Group();
+      for(let i=0;i<6;i++){const r=new THREE.Mesh(new THREE.TorusGeometry(1.6-i*.12,.025,6,60),new THREE.MeshBasicMaterial({color:i%2?0xa86bff:0x3d8dff,transparent:true,opacity:.75}));r.position.z=-i*1.1;g.add(r);}
+      scene.add(g);obj=g;
+    } else if(kind==='crystal'){
+      const g=new THREE.Group();const col=[0x5ad1ff,0x7c5cff,0x2de8b0,0xff8a5a];
+      for(let i=0;i<4;i++){const m=new THREE.Mesh(new THREE.OctahedronGeometry(.55,0),new THREE.MeshStandardMaterial({color:col[i],metalness:.3,roughness:.1,emissive:col[i],emissiveIntensity:.25,transparent:true,opacity:.92}));const a=i/4*Math.PI*2;m.position.set(Math.cos(a)*1.3,Math.sin(i)*.6,Math.sin(a)*1.3);g.add(m);}
+      g.add(new THREE.Mesh(new THREE.OctahedronGeometry(.9,0),new THREE.MeshStandardMaterial({color:0xffffff,metalness:.2,roughness:.05,emissive:0x88aaff,emissiveIntensity:.3})));
+      scene.add(g);obj=g;scene.add(new THREE.PointLight(0xaaccff,6,30));
+    } else {
+      // chrome：用变色球近似
+      const m=new THREE.Mesh(new THREE.SphereGeometry(1.9,48,48),
+        new THREE.MeshStandardMaterial({color:0xdfe9f5,metalness:1,roughness:.12,
+          emissive:0x1a2a55,emissiveIntensity:.5}));
+      scene.add(m); obj=m;
+      scene.add(new THREE.PointLight(0x9fd4ff,20,40));
+      scene.add(new THREE.PointLight(0xb45aff,12,40));
+      scene.add(new THREE.AmbientLight(0x223344,1.5));
+    }
+
+    scenes.push({renderer,scene,cam,obj,kind,t:Math.random()*6});
+  });
+
+  let visible=true;
+  new IntersectionObserver(es=>{visible=es[0].isIntersecting}).observe(document.body);
+
+  let mx=0, my=0;
+  addEventListener('pointermove',e=>{
+    mx=(e.clientX/innerWidth-.5)*2; my=(e.clientY/innerHeight-.5)*2;
+  });
+
+  function loop(){
+    requestAnimationFrame(loop);
+    if(!visible) return;
+    const now=performance.now()*.001;
+    scenes.forEach(s=>{
+      const t=now+s.t;
+      if(s.obj){
+        s.obj.rotation.y=t*.5 + mx*.3;
+        s.obj.rotation.x=Math.sin(t*.4)*.1 + my*.16;
+      }
+      if(s.kind==='terminal') s.obj.position.y=Math.sin(t*.8)*.15;
+      if(s.kind==='tunnel') s.obj.rotation.z=t*.15;
+      s.cam.position.z += (7 + Math.sin(t*.5)*.4 - s.cam.position.z)*.05;
+      s.cam.lookAt(0,0,0);
+      s.renderer.render(s.scene,s.cam);
+    });
+  }
+  loop();
+
+  addEventListener('resize',()=>{
+    scenes.forEach(s=>{
+      const cv=s.renderer.domElement;
+      const w=cv.clientWidth,h=cv.clientHeight;
+      if(!w||!h) return;
+      s.cam.aspect=w/h; s.cam.updateProjectionMatrix();
+      s.renderer.setSize(w,h,false);
+    });
+  });
+})();
+</script>
+</body>
+</html>

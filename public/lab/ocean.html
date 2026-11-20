@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>XTcer · 流体海面 Wavefield</title>
+<style>
+  :root{--bg:#02040a;--ink:#eaf2ff;--dim:#7c8aa0;--cyan:#3d8dff;--violet:#a86bff;--lime:#2de8b0;--line:rgba(130,175,230,.14)}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:"Inter","PingFang SC","Microsoft YaHei",system-ui,sans-serif;overflow:hidden}
+  #gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+  .hud{position:fixed;inset:0;z-index:5;padding:22px 32px;pointer-events:none}
+  .hud>*{pointer-events:auto}
+  header{display:flex;justify-content:space-between;align-items:center}
+  .logo{font-weight:800;letter-spacing:.16em;font-size:14px}
+  .logo b{background:linear-gradient(90deg,var(--cyan),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+nav{display:flex;gap:20px;font-size:12.5px;color:var(--dim)}
+  nav a{color:inherit;text-decoration:none}nav a:hover{color:var(--cyan)}
+  .left{position:absolute;left:32px;bottom:64px;max-width:460px}
+  .k{font-size:11px;letter-spacing:.4em;color:var(--cyan);margin-bottom:14px}
+  h1{margin:0;font-size:clamp(34px,4.6vw,62px);line-height:1;letter-spacing:-.035em;font-weight:800;text-shadow:0 18px 60px rgba(0,0,0,.7)}
+  h1 em{font-style:normal;background:linear-gradient(100deg,#fff,var(--cyan) 50%,var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{margin:18px 0 0;color:#9fb0c8;font-size:13.5px;line-height:1.9;max-width:400px;text-shadow:0 2px 18px rgba(2,4,10,.9)}
+  .scan{margin-top:22px;background:rgba(45,232,176,.08);color:#7fe6c0;border:1px solid rgba(45,232,176,.32);padding:10px 20px;border-radius:99px;font-size:12.5px;cursor:pointer;font-family:inherit;backdrop-filter:blur(10px);transition:.3s}
+  .scan:hover{border-color:var(--lime);color:var(--lime)}
+  .tip{position:fixed;right:32px;bottom:26px;z-index:6;font-size:11px;color:#4d5c73;letter-spacing:.1em}
+  .drawer{position:fixed;z-index:30;left:50%;top:50%;transform:translate(-50%,-46%) scale(.97);width:min(520px,calc(100vw - 40px));max-height:72vh;overflow:auto;border:1px solid rgba(130,175,230,.24);border-radius:22px;padding:24px 26px;background:rgba(6,10,18,.94);backdrop-filter:blur(26px);opacity:0;pointer-events:none;transition:.4s cubic-bezier(.22,1,.36,1);box-shadow:0 50px 120px -40px rgba(0,0,0,.95)}
+  .drawer.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+  .drawer .x{position:absolute;top:14px;right:16px;background:none;border:0;color:#66768c;font-size:20px;cursor:pointer}
+  .drawer .dt{font-size:10.5px;letter-spacing:.3em;color:var(--cyan);margin-bottom:10px}
+  .drawer h2{margin:0 0 18px;font-size:22px}
+  .item{display:flex;gap:12px;padding:11px 0;border-top:1px solid rgba(120,180,255,.1);font-size:13px;line-height:1.6}
+  .item:last-child{border-bottom:1px solid rgba(120,180,255,.1)}
+  .item b{font-weight:500;flex:1;color:#d8e4f4}.item span{font-size:11px;color:#7d8ca3;white-space:nowrap}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div class="hud">
+  <header>
+    <div class="logo">XT<b>cer</b> · LAB / WAVEFIELD</div>
+    <nav><a href="./">← 版本导航</a><a href="/deals">资源</a><a href="/feeds">情报</a></nav>
+  </header>
+</div>
+<div class="left">
+  <div class="k">WAVEFIELD · 鼠标扰波 · 点击浮标</div>
+  <h1>在免费的海面<br><em>往前飞</em></h1>
+  <p class="sub">波峰上的每只浮标是一条信源入口。移动鼠标掀起涟漪，点击任意浮标看它带了什么。</p>
+  <button class="scan" id="scan">随机捞一条 →</button>
+</div>
+<div class="tip">MOVE · CLICK A BUOY</div>
+
+<div class="drawer" id="drawer">
+  <button class="x" id="dx">×</button>
+  <div class="dt" id="dt">BUOY</div>
+  <h2 id="dh">—</h2>
+  <div id="dlist"></div>
+</div>
+
+<script src="./vendor/three.min.js"></script>
+<script>
+(function(){
+  if(!window.THREE)return;
+  const ITEMS=[
+    ['Oracle Cloud ARM 4C24G','0 元 / 永久'],['Cloudflare Workers 10 万/天','0 元 / 月'],
+    ['GitHub Student Pack','学生'],['Google Cloud $300','90 天'],['Supabase 500MB','0 元 / 月'],
+    ['Vercel Hobby','0 元 / 月'],['Neon Postgres','0 元 / 月'],['Sentry Developer','0 元 / 月'],
+    ['Cloudflare 开放 Workers Logs','昨天'],['Oracle 免费 ARM 扩容','3 天前'],
+    ['CVE-2025-29927 · Next.js','CRIT'],['CVE-2025-53770 · SharePoint','CRIT']
+  ];
+
+  const canvas=document.getElementById('gl');
+  const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+  const DPR=Math.min(devicePixelRatio,1.5);
+  renderer.setPixelRatio(DPR);renderer.setSize(innerWidth,innerHeight);
+  renderer.setClearColor(0x04080f,1);
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
+  const scene=new THREE.Scene();
+  scene.fog=new THREE.FogExp2(0x04080f,.035);
+  const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.1,400);
+  camera.position.set(0,4.2,14);
+
+  // 自定义海面 shader：多波叠加位移 + 法线 + 菲涅尔 + 高光
+  const oceanMat=new THREE.ShaderMaterial({
+    transparent:true,
+    uniforms:{uTime:{value:0},uMouse:{value:new THREE.Vector2(999,999)},uRes:{value:new THREE.Vector2(innerWidth,innerHeight)}},
+    vertexShader:`
+      uniform float uTime; uniform vec2 uMouse; varying vec3 vN; varying vec3 vP; varying float vH;
+      float wave(vec2 p,vec2 dir,float f,float s,float t){ return sin(dot(p,dir)*f + t*s)*0.5; }
+      void main(){
+        vec3 p=position;
+        float h=0.0;
+        h+=wave(p.xz,normalize(vec2(1.,.6)),0.45,0.9,uTime);
+        h+=wave(p.xz,normalize(vec2(-.7,1.)),0.7,1.3,uTime)*0.5;
+        h+=wave(p.xz,normalize(vec2(.3,-1.)),1.1,1.8,uTime)*0.28;
+        // 鼠标涟漪
+        float d=distance(p.xz,uMouse);
+        h+=sin(d*3.5-uTime*4.0)*exp(-d*0.35)*1.2;
+        p.y+=h; vH=h;
+        // 法线（数值微分）
+        float e=0.35;
+        float hL=0.0,hR=0.0,hD=0.0,hU=0.0;
+        hL+=wave(vec2(p.x-e,p.z),normalize(vec2(1.,.6)),0.45,0.9,uTime);
+        hR+=wave(vec2(p.x+e,p.z),normalize(vec2(1.,.6)),0.45,0.9,uTime);
+        hD+=wave(vec2(p.x,p.z-e),normalize(vec2(1.,.6)),0.45,0.9,uTime);
+        hU+=wave(vec2(p.x,p.z+e),normalize(vec2(1.,.6)),0.45,0.9,uTime);
+        vec3 n=normalize(vec3(hL-hR,2.0*e,hD-hU));
+        vN=n; vP=p;
+        gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);
+      }`,
+    fragmentShader:`
+      varying vec3 vN; varying vec3 vP; varying float vH;
+      void main(){
+        vec3 deep=vec3(0.01,0.06,0.16), shallow=vec3(0.12,0.5,0.85);
+        vec3 base=mix(deep,shallow,smoothstep(-0.6,1.2,vH));
+        vec3 view=normalize(cameraPosition-vP);
+        float fres=pow(1.0-max(dot(vN,view),0.0),3.0);
+        vec3 col=base+fres*vec3(0.4,0.7,1.0);
+        float spec=pow(max(dot(reflect(-view,vN),normalize(vec3(.3,.8,.4))),0.0),48.0);
+        col+=spec*vec3(0.8,0.95,1.0)*0.9;
+        gl_FragColor=vec4(col,0.95);
+      }`
+  });
+  const ocean=new THREE.Mesh(new THREE.PlaneGeometry(240,240,260,260),oceanMat);
+  ocean.rotation.x=-Math.PI/2;scene.add(ocean);
+
+  // 浮标（资源卡片）随波浮动
+  const buoys=[];
+  const drawer=document.getElementById('drawer');
+  function openBuoy(idx){
+    const it=ITEMS[idx];
+    document.getElementById('dt').textContent='BUOY ·'+(idx<8?'FREE':idx<10?'INTEL':'CVE');
+    document.getElementById('dh').textContent=it[0];
+    document.getElementById('dlist').innerHTML=ITEMS.map(([v,k],i)=>
+      `<div class="item"><b>${v}</b><span style="color:${k==='CRIT'?'#ff3d7a':'#7d8ca3'}">${i===idx?k+' ◀':k}</span></div>`).join('');
+    drawer.classList.add('on');
+  }
+  ITEMS.forEach((it,i)=>{
+    const grp=new THREE.Group();
+    grp.userData.idx=i;
+    const col = i<8?0x2de8b0 : i<10?0x3d8dff : 0xff3d7a;
+    const pole=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,2.4,8),new THREE.MeshStandardMaterial({color:0x1a2a3a,metalness:.7,roughness:.4}));
+    pole.position.y=1.2;grp.add(pole);
+    const light=new THREE.Mesh(new THREE.SphereGeometry(.26,16,16),new THREE.MeshBasicMaterial({color:col}));
+    light.position.y=2.5;grp.add(light);
+    const halo=new THREE.Sprite(new THREE.SpriteMaterial({color:col,transparent:true,opacity:.5,blending:THREE.AdditiveBlending,depthWrite:false}));
+    halo.scale.setScalar(2.4);halo.position.y=2.5;grp.add(halo);
+    const ang=(i/ITEMS.length)*Math.PI*2;const rad=6+i%3*2.2;
+    grp.position.set(Math.cos(ang)*rad, 0, Math.sin(ang)*rad - 4);
+    scene.add(grp);buoys.push(grp);
+  });
+
+  // 波峰泡沫粒子
+  const FN=900,fg=new THREE.BufferGeometry(),fp=new Float32Array(FN*3);
+  for(let i=0;i<FN;i++){fp[i*3]=(Math.random()-.5)*120;fp[i*3+1]=0;fp[i*3+2]=(Math.random()-.5)*120;}
+  fg.setAttribute('position',new THREE.BufferAttribute(fp,3));
+  const foam=new THREE.Points(fg,new THREE.PointsMaterial({color:0xbfe6ff,size:.18,transparent:true,opacity:.6,blending:THREE.AdditiveBlending,depthWrite:false}));
+  scene.add(foam);
+
+  // 鼠标 → 海面世界坐标
+  const ray=new THREE.Raycaster();const mp=new THREE.Vector2();const plane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+  const hit=new THREE.Vector3();
+  addEventListener('pointermove',e=>{
+    mp.x=(e.clientX/innerWidth)*2-1;mp.y=-(e.clientY/innerHeight)*2+1;
+    ray.setFromCamera(mp,camera);
+    if(ray.ray.intersectPlane(plane,hit)) oceanMat.uniforms.uMouse.value.set(hit.x,hit.z);
+  });
+  canvas.addEventListener('click',e=>{
+    mp.x=(e.clientX/innerWidth)*2-1;mp.y=-(e.clientY/innerHeight)*2+1;
+    ray.setFromCamera(mp,camera);
+    const hit=ray.intersectObjects(buoys.map(b=>b.children[1]),true)[0];
+    if(hit){let o=hit.object;while(o&&o.userData.idx===undefined)o=o.parent;if(o)openBuoy(o.userData.idx);}
+  });
+  document.getElementById('scan').onclick=()=>openBuoy(Math.floor(Math.random()*ITEMS.length));
+  document.getElementById('dx').onclick=()=>drawer.classList.remove('on');
+  addEventListener('keydown',e=>{if(e.key==='Escape')drawer.classList.remove('on')});
+
+  const clock=new THREE.Clock();
+  function waveH(x,z,t){
+    let h=Math.sin((x*1.+z*.6)*.45+t*.9)*.5;
+    h+=Math.sin((x*-.7+z*1.)*.7+t*1.3)*.25;
+    h+=Math.sin((x*.3-z*1.)*1.1+t*1.8)*.14;
+    return h;
+  }
+  let camZ=14,mx=0,my=0,tx=0,ty=0;
+  addEventListener('pointermove',e=>{tx=(e.clientX/innerWidth-.5);ty=(e.clientY/innerHeight-.5)});
+  function animate(){
+    requestAnimationFrame(animate);
+    const t=clock.getElapsedTime();
+    mx+=(tx-mx)*.05;my+=(ty-my)*.05;
+    oceanMat.uniforms.uTime.value=t;
+    // 浮标随波浮动
+    buoys.forEach((b,i)=>{
+      b.position.y=waveH(b.position.x,b.position.z,t);
+      b.children[0].rotation.z=Math.sin(t*.7+i)*.08;
+    });
+    // 相机缓慢前进 + 视差
+    camZ-=.012;if(camZ<-40)camZ=14;
+    camera.position.x=mx*3;camera.position.y=4.2-my*1.2;camera.position.z=camZ;
+    camera.lookAt(mx*2,2.2,camZ-10);
+    // 泡沫只在波峰显现
+    const pa=foam.geometry.attributes.position.array;
+    for(let i=0;i<FN;i++){pa[i*3+1]=waveH(pa[i*3],pa[i*3+2],t)+.2;}
+    foam.geometry.attributes.position.needsUpdate=true;
+    renderer.render(scene,camera);
+  }
+  animate();
+  addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);oceanMat.uniforms.uRes.value.set(innerWidth,innerHeight)});
+})();
+</script>
+</body>
+</html>

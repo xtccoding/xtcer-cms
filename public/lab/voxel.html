@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>XTcer · 体素机房 Voxel Ops</title>
+<style>
+  :root{
+    --bg:#07090f; --ink:#eaf1ff; --dim:#77859c;
+    --cyan:#41b6ff; --violet:#b45aff; --lime:#5ef2b0; --amber:#ffb454;
+    --line:rgba(120,180,255,.15);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:"Inter","PingFang SC","Microsoft YaHei",system-ui,sans-serif;overflow:hidden}
+  #gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+  .grid-bg{position:fixed;inset:0;pointer-events:none;z-index:1;
+    background:
+      radial-gradient(70% 60% at 50% 30%,rgba(65,182,255,.10),transparent 70%),
+      linear-gradient(180deg,rgba(7,9,15,.85),transparent 30%,transparent 65%,rgba(7,9,15,.95))}
+  .ui{position:relative;z-index:5;height:100%;display:grid;
+    grid-template-columns:1fr 360px;grid-template-rows:auto 1fr auto;padding:22px 26px;gap:0}
+  header{display:flex;align-items:center;justify-content:space-between;grid-column:1/-1}
+  .logo{font-weight:800;letter-spacing:.16em;font-size:14px}
+  .logo b{background:linear-gradient(90deg,var(--cyan),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+.badge{font-size:10px;letter-spacing:.24em;color:var(--dim);border:1px solid var(--line);padding:4px 9px;border-radius:99px}
+  nav{display:flex;gap:20px;font-size:12.5px;color:var(--dim)}
+  nav a{color:inherit;text-decoration:none;transition:.25s}
+  nav a:hover{color:var(--cyan)}
+
+  .title{align-self:end;grid-column:1;padding-bottom:8px;max-width:520px}
+  .kick{font-size:11px;letter-spacing:.36em;color:var(--cyan);margin-bottom:14px}
+  h1{margin:0;font-size:clamp(32px,4.4vw,58px);line-height:1.04;letter-spacing:-.025em;font-weight:800}
+  h1 em{font-style:normal;background:linear-gradient(100deg,var(--cyan),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--dim);font-size:13.5px;line-height:1.85;margin:18px 0 0;max-width:430px}
+
+  .side{grid-column:2;grid-row:2;align-self:start;justify-self:end;width:100%;
+    border:1px solid var(--line);border-radius:20px;padding:20px;
+    background:rgba(11,16,26,.62);backdrop-filter:blur(18px)}
+  .side h3{margin:0 0 4px;font-size:13px;letter-spacing:.18em;color:#cfe0f7;font-weight:600}
+  .side .cap{font-size:11.5px;color:var(--dim);margin-bottom:16px}
+  .row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(120,180,255,.08);font-size:12.5px}
+  .row:last-child{border:0}
+  .sw{width:10px;height:10px;border-radius:3px;flex:none}
+  .row .n{flex:1}
+  .row .c{color:var(--dim);font-variant-numeric:tabular-nums}
+
+  .legend{grid-column:2;grid-row:3;justify-self:end;display:flex;gap:16px;font-size:11px;color:var(--dim);padding-bottom:6px}
+  .legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
+
+  .tip{position:fixed;z-index:20;pointer-events:none;padding:10px 14px;border-radius:12px;
+    background:rgba(9,14,24,.94);border:1px solid rgba(65,182,255,.4);
+    box-shadow:0 18px 40px -18px rgba(0,0,0,.9);font-size:12.5px;opacity:0;transition:opacity .18s;white-space:nowrap}
+  .tip.on{opacity:1}
+  .tip b{color:var(--cyan);font-weight:600}
+  .tip s{display:block;text-decoration:none;color:var(--dim);font-size:11px;margin-top:3px}
+  .hint{position:fixed;left:26px;bottom:22px;z-index:6;font-size:11px;color:#4d5c73;letter-spacing:.08em}
+  @media(max-width:980px){
+    .ui{grid-template-columns:1fr;grid-template-rows:auto 1fr auto}
+    .side{display:none}
+    .title{padding-bottom:60px}
+    .legend{grid-column:1;justify-self:start}
+  }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div class="grid-bg"></div>
+
+<div class="ui">
+  <header>
+    <div class="logo">XT<b>cer</b> &nbsp;<span class="badge">LAB · VOXEL OPS</span></div>
+    <nav><a href="./">← 版本导航</a><a href="/deals">资源</a><a href="/feeds">情报</a></nav>
+  </header>
+
+  <div class="title">
+    <div class="kick">INFRASTRUCTURE, AS TERRAIN</div>
+    <h1>把云资源<br>堆成<em>一座机房</em></h1>
+    <p class="sub">每根柱子是一个信源入口。高度 = 额度大小，颜色 = 类型。拖动旋转，滚轮缩放，悬停看细节。</p>
+  </div>
+
+  <aside class="side">
+    <h3>资源地形</h3>
+    <div class="cap">按类别统计 · 地主视角</div>
+    <div id="rows"></div>
+  </aside>
+
+  <div class="legend">
+    <span><i style="background:#5ef2b0"></i>永久免费</span>
+    <span><i style="background:#41b6ff"></i>公开额度度</span>
+    <span><i style="background:#b45aff"></i>限时试用</span>
+    <span><i style="background:#ffb454"></i>AI / Token</span>
+  </div>
+</div>
+
+<div class="tip" id="tip"><b id="tn"></b><s id="td"></s></div>
+<div class="hint">拖拽旋转 · 滚轮缩放 · 点击方块</div>
+
+<script src="./vendor/three.min.js"></script>
+<script>
+(function(){
+  if(!window.THREE){document.body.innerHTML='<p style="padding:40px;color:#fff">three.js 未加载</p>';return}
+
+  const C = {free:0x5ef2b0, quota:0x41b6ff, trial:0xb45aff, ai:0xffb454};
+  const LABEL = {free:'永久免费', quota:'公开额度度', trial:'限时试用', ai:'AI / Token'};
+
+  const ITEMS = [
+    ['Oracle Cloud ARM 4C24G','free', 9],['Cloudflare Workers','quota',7],['GitHub Student Pack','free',8],
+    ['Google Cloud $300','trial',6],['Supabase 500MB','quota',5],['Vercel Hobby','free',6],
+    ['Neon Postgres','quota',4],['Sentry 5k errors','free',5],['MongoDB Atlas M0','free',6],
+    ['Azure $200','trial',5],['Fly.io 额度','quota',4],['Railway $5','trial',3],
+    ['HuggingFace 推理额度','ai',7],['OpenRouter 免费模型','ai',6],['Groq 免费速率','ai',8],
+    ['Cloudflare R2 10G','quota',5],['D1 5GB','quota',4],['Workers AI 10k','ai',6],
+    ['DigitalOcean $200','trial',6],['Namecheap 域名','free',3],['JetBrains 学生版','free',5],
+    ['Figma 教育版','free',4],['Notion 教育版','free',3],['1Password 学生','free',3]
+  ];
+
+  const canvas=document.getElementById('gl');
+  const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(innerWidth,innerHeight);
+  renderer.outputEncoding=THREE.sRGBEncoding;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.2;
+
+  const scene=new THREE.Scene();
+  scene.fog=new THREE.FogExp2(0x07090f,.0075);
+  const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.1,900);
+
+  // ---- 相机球坐标 ----
+  const cam={theta:-0.72, phi:0.92, radius:46, tTheta:-0.72, tPhi:0.92, tRadius:46};
+  let dragging=false, lastX=0, lastY=0, auto=true;
+  canvas.addEventListener('pointerdown',e=>{dragging=true;auto=false;lastX=e.clientX;lastY=e.clientY});
+  addEventListener('pointerup',()=>dragging=false);
+  addEventListener('pointermove',e=>{
+    if(!dragging)return;
+    cam.tTheta -= (e.clientX-lastX)*.006;
+    cam.tPhi = Math.min(1.45, Math.max(.28, cam.tPhi - (e.clientY-lastY)*.005));
+    lastX=e.clientX; lastY=e.clientY;
+  });
+  canvas.addEventListener('wheel',e=>{
+    e.preventDefault();
+    cam.tRadius = Math.min(78, Math.max(24, cam.tRadius + e.deltaY*.03));
+  },{passive:false});
+
+  // ---- 地形 ----
+  const GRID=13, GAP=2.05;
+  const total=GRID*GRID;
+  const geo=new THREE.BoxGeometry(1.5,1,1.5);
+  geo.translate(0,.5,0);
+  const mat=new THREE.MeshStandardMaterial({
+    metalness:.42, roughness:.36, vertexColors:false,
+    emissive:0x000000
+  });
+  const mesh=new THREE.InstancedMesh(geo,mat,total);
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(total*3),3);
+
+  const dummy=new THREE.Object3D();
+  const heights=new Float32Array(total);
+  const colors=new Float32Array(total*3);
+  const meta=[];
+
+  // 用值噪声铺一个"机房高地"
+  function hash(x,z){ const s=Math.sin(x*127.1+z*311.7)*43758.5453; return s-Math.floor(s) }
+  function noise(x,z){
+    const xi=Math.floor(x), zi=Math.floor(z), xf=x-xi, zf=z-zi;
+    const u=xf*xf*(3-2*xf), v=zf*zf*(3-2*zf);
+    const a=hash(xi,zi), b=hash(xi+1,zi), c=hash(xi,zi+1), d=hash(xi+1,zi+1);
+    return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v;
+  }
+
+  let idx=0;
+  const pick=[]; // 用于 tooltip 的索引 → item
+  for(let gx=0; gx<GRID; gx++){
+    for(let gz=0; gz<GRID; gz++){
+      const x=(gx-(GRID-1)/2)*GAP;
+      const z=(gz-(GRID-1)/2)*GAP;
+      const n=noise(gx*.42, gz*.42)*.75 + noise(gx*1.1,gz*1.1)*.25;
+      const it = ITEMS[idx % ITEMS.length];
+      const isItem = idx % 3 === 0;
+      const h = (isItem ? 1.6 + it[2]*.85 : 0.5 + n*5.2);
+      heights[idx]=h;
+      dummy.position.set(x, -2.6 + Math.sin(idx)*.001, z);
+      dummy.scale.set(1, h, 1);
+      dummy.rotation.y = 0;
+      dummy.updateMatrix();
+      mesh.setMatrixAt(idx, dummy.matrix);
+
+      const c = new THREE.Color(isItem ? C[it[1]] : 0x1b3350);
+      if(!isItem) c.offsetHSL(0, 0, n*.25);
+      // 顶部更亮
+      c.multiplyScalar(isItem? .95 : .55 + n*.5);
+      colors[idx*3]=c.r; colors[idx*3+1]=c.g; colors[idx*3+2]=c.b;
+      mesh.instanceColor.setXYZ(idx,c.r,c.g,c.b);
+      meta.push(isItem? {name:it[0], type:it[1], h} : null);
+      idx++;
+    }
+  }
+  mesh.instanceMatrix.needsUpdate=true;
+  mesh.instanceColor.needsUpdate=true;
+  scene.add(mesh);
+
+  // 地台网格
+  const gridHelper=new THREE.GridHelper(GRID*GAP+6, 26, 0x1a3350, 0x102338);
+  gridHelper.position.y=-2.62;
+  gridHelper.material.transparent=true; gridHelper.material.opacity=.55;
+  scene.add(gridHelper);
+
+  // 底部镜面
+  const floor=new THREE.Mesh(new THREE.CircleGeometry(70,64),
+    new THREE.MeshBasicMaterial({color:0x060a12,transparent:true,opacity:.9}));
+  floor.rotation.x=-Math.PI/2; floor.position.y=-2.7; scene.add(floor);
+
+  // 光
+  scene.add(new THREE.AmbientLight(0x223a5c,1.15));
+  const key=new THREE.DirectionalLight(0xbfe0ff,1.5); key.position.set(18,26,14); scene.add(key);
+  const fill=new THREE.PointLight(0xb45aff,2.4,90); fill.position.set(-20,8,-16); scene.add(fill);
+  const rim=new THREE.PointLight(0x41b6ff,2.6,80); rim.position.set(16,-2,18); scene.add(rim);
+
+  // 悬停高亮
+  const hgeo=new THREE.BoxGeometry(1.62,1,1.62); hgeo.translate(0,.5,0);
+  const hmat=new THREE.MeshBasicMaterial({color:0x8ef0ff,transparent:true,opacity:.28,blending:THREE.AdditiveBlending,depthWrite:false});
+  const hbox=new THREE.Mesh(hgeo,hmat); hbox.visible=false; scene.add(hbox);
+
+  const ray=new THREE.Raycaster();
+  const ndc=new THREE.Vector2();
+  const tip=document.getElementById('tip'), tn=document.getElementById('tn'), td=document.getElementById('td');
+  let mouseX=-999, mouseY=-999;
+  canvas.addEventListener('pointermove',e=>{mouseX=e.clientX;mouseY=e.clientY});
+
+  // 统计面板
+  const rowsEl=document.getElementById('rows');
+  const counts={free:0,quota:0,trial:0,ai:0};
+  ITEMS.forEach(i=>counts[i[1]]++);
+  Object.keys(counts).forEach(k=>{
+    const r=document.createElement('div'); r.className='row';
+    r.innerHTML=`<i class="sw" style="background:#${C[k].toString(16).padStart(6,'0')}"></i>
+      <span class="n">${LABEL[k]}</span><span class="c">${counts[k]} 项</span>`;
+    rowsEl.appendChild(r);
+  });
+
+  const clock=new THREE.Clock();
+  function animate(){
+    requestAnimationFrame(animate);
+    const t=clock.getElapsedTime();
+
+    if(auto) cam.tTheta += .0012;
+    cam.theta += (cam.tTheta-cam.theta)*.07;
+    cam.phi += (cam.tPhi-cam.phi)*.07;
+    cam.radius += (cam.tRadius-cam.radius)*.06;
+
+    const r=cam.radius;
+    camera.position.set(
+      r*Math.sin(cam.phi)*Math.cos(cam.theta),
+      r*Math.cos(cam.phi)+6,
+      r*Math.sin(cam.phi)*Math.sin(cam.theta)
+    );
+    camera.lookAt(0,-2,0);
+
+    // 悬停检测（每 3 帧一次，省性能）
+    if(performance.now()%3<1){
+      ndc.x=(mouseX/innerWidth)*2-1; ndc.y=-(mouseY/innerHeight)*2+1;
+      ray.setFromCamera(ndc,camera);
+      const hit=ray.intersectObject(mesh,false)[0];
+      if(hit && meta[hit.instanceId]){
+        const m=meta[hit.instanceId];
+        const iid=hit.instanceId;
+        const gx=(iid/GRID)|0, gz=iid%GRID;
+        hbox.visible=true;
+        hbox.position.set((gx-(GRID-1)/2)*GAP, -2.6, (gz-(GRID-1)/2)*GAP);
+        hbox.scale.set(1, heights[iid]+.4, 1);
+
+        tip.classList.add('on');
+        tip.style.left=Math.min(innerWidth-220, mouseX+18)+'px';
+        tip.style.top=(mouseY-10)+'px';
+        tn.textContent=m.name;
+        td.textContent=LABEL[m.type]+' · 额度 '+(m.h*1.8).toFixed(0);
+        canvas.style.cursor='pointer';
+      }else{
+        hbox.visible=false; tip.classList.remove('on'); canvas.style.cursor='grab';
+      }
+    }
+
+    // 方块缓慢呼吸
+    rim.position.x=Math.sin(t*.4)*20;
+    rim.position.z=Math.cos(t*.4)*20;
+    renderer.render(scene,camera);
+  }
+  animate();
+
+  addEventListener('resize',()=>{
+    camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+    renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+    renderer.setSize(innerWidth,innerHeight);
+  });
+})();
+</script>
+</body>
+</html>
