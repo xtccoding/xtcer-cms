@@ -147,6 +147,21 @@ CREATE TABLE IF NOT EXISTS feedback (
 );
 CREATE INDEX IF NOT EXISTS idx_feedback_created_at ON feedback(created_at);
 
+-- 文章评论（自建，取代 Giscus）。status: visible / hidden
+CREATE TABLE IF NOT EXISTS comments (
+  id TEXT PRIMARY KEY,
+  post_id TEXT NOT NULL,
+  parent_id TEXT,
+  author TEXT NOT NULL,
+  content TEXT NOT NULL,
+  ip_hash TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'visible',
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_comments_status ON comments(status);
+CREATE INDEX IF NOT EXISTS idx_comments_parent ON comments(parent_id);
+
 CREATE TABLE IF NOT EXISTS site_settings (
   id TEXT PRIMARY KEY,
   key TEXT NOT NULL UNIQUE,

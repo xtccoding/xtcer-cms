@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro'
-import { getPost, getOtherPosts, listFeedTags } from '../../lib/store'
+import { getPost, getOtherPosts, listFeedTags, listComments, type CommentRow } from '../../lib/store'
 import { marked } from 'marked'
 import { getRelatedPosts } from '../../lib/related-posts'
 
@@ -8,6 +8,20 @@ const { id } = Astro.params
 const post = await getPost(id as string)
 
 if (!post) return Astro.redirect('/')
+
+// 自建评论（取代 Giscus）。表未建时不阻断文章页渲染。
+let comments: CommentRow[] = []
+try {
+  comments = await listComments(post.id)
+} catch (e) {
+  console.error('[post] comments load failed:', e)
+}
+
+const commentTime = (iso: string) => {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
 
 const postTags: string[] = post.tags || []
 
@@ -222,9 +236,50 @@ if (faqItems.length > 0) {
         </section>
       )}
 
-      <section class="comments-section">
-        <h2>评论</h2>
-        <div class="giscus"></div>
+      <section class="comments-section" id="comments">
+        <h2>评论 <span class="comment-count">{comments.length}</span></h2>
+
+        <form class="comment-form" id="comment-form" autocomplete="off">
+          <div class="comment-form-row">
+            <input
+              type="text"
+              name="author"
+              id="comment-author"
+              class="comment-input"
+              placeholder="昵称"
+              maxlength="24"
+              required
+            />
+          </div>
+          <textarea
+            name="content"
+            id="comment-content"
+            class="comment-textarea"
+            placeholder="说点什么…"
+            maxlength="1000"
+            rows="4"
+            required
+          ></textarea>
+          <div class="comment-form-foot">
+            <span class="comment-hint" id="comment-hint">无需登录 · 同一 IP 每 10 分钟最多 5 条</span>
+            <button type="submit" class="comment-submit" id="comment-submit">发表评论</button>
+          </div>
+        </form>
+
+        <ul class="comment-list" id="comment-list">
+          {comments.length === 0 && (
+            <li class="comment-empty">还没有评论，来说第一句。</li>
+          )}
+          {comments.map(c => (
+            <li class="comment-item" data-id={c.id}>
+              <div class="comment-head">
+                <span class="comment-author">{c.author}</span>
+                <time class="comment-time" datetime={c.created_at}>{commentTime(c.created_at)}</time>
+              </div>
+              <p class="comment-body">{c.content}</p>
+            </li>
+          ))}
+        </ul>
       </section>
 
       {relatedPosts.length > 0 && (
@@ -307,22 +362,97 @@ if (faqItems.length > 0) {
       if (data.views) document.getElementById('view-count')!.textContent = data.views + ' 次浏览'
     }).catch(() => {})
 
-    const script = document.createElement('script')
-    script.src = 'https://giscus.app/client.js'
-    script.setAttribute('data-repo', 'xtccoding/xtcer-cms')
-    script.setAttribute('data-repo-id', 'R_kgDOSpr5iQ')
-    script.setAttribute('data-category', 'Announcements')
-    script.setAttribute('data-category-id', 'DIC_kwDOSpr5ic4C9_2_')
-    script.setAttribute('data-mapping', 'pathname')
-    script.setAttribute('data-strict', '0')
-    script.setAttribute('data-reactions-enabled', '1')
-    script.setAttribute('data-emit-metadata', '0')
-    script.setAttribute('data-input-position', 'top')
-    script.setAttribute('data-theme', 'dark')
-    script.setAttribute('data-lang', 'zh-CN')
-    script.setAttribute('crossorigin', 'anonymous')
-    script.async = true
-    document.querySelector('.giscus')?.appendChild(script)
+    // ---- 自建评论（取代 Giscus 外部脚本）----
+    const commentForm = document.getElementById('comment-form') as HTMLFormElement | null
+    const commentList = document.getElementById('comment-list')
+    const commentHint = document.getElementById('comment-hint')
+    const commentSubmit = document.getElementById('comment-submit') as HTMLButtonElement | null
+    const authorInput = document.getElementById('comment-author') as HTMLInputElement | null
+    const contentInput = document.getElementById('comment-content') as HTMLTextAreaElement | null
+
+    if (authorInput) {
+      const saved = localStorage.getItem('xtcer.comment.author')
+      if (saved) authorInput.value = saved
+    }
+
+    function renderComment(c: { author: string; content: string; created_at: string }) {
+      const li = document.createElement('li')
+      li.className = 'comment-item'
+
+      const head = document.createElement('div')
+      head.className = 'comment-head'
+
+      const name = document.createElement('span')
+      name.className = 'comment-author'
+      name.textContent = c.author
+
+      const time = document.createElement('time')
+      time.className = 'comment-time'
+      const d = new Date(c.created_at)
+      time.textContent = Number.isNaN(d.getTime()) ? '' : d.toLocaleString('zh-CN')
+      time.dateTime = c.created_at
+
+      head.append(name, time)
+
+      const body = document.createElement('p')
+      body.className = 'comment-body'
+      body.textContent = c.content
+
+      li.append(head, body)
+      return li
+    }
+
+    commentForm?.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      if (!authorInput || !contentInput || !commentSubmit || !commentList) return
+
+      const author = authorInput.value.trim()
+      const content = contentInput.value.trim()
+      if (!author || content.length < 2) {
+        if (commentHint) commentHint.textContent = '昵称必填，内容至少 2 个字'
+        return
+      }
+
+      commentSubmit.disabled = true
+      const original = commentSubmit.textContent
+      commentSubmit.textContent = '提交中…'
+      if (commentHint) commentHint.textContent = ''
+
+      try {
+        const res = await fetch('/api/comments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ post: postId, author, content }),
+        })
+        const data = await res.json().catch(() => ({}))
+
+        if (!res.ok) {
+          if (commentHint) {
+            commentHint.textContent =
+              res.status === 429 ? '发表太频繁，请稍后再试'
+              : res.status === 403 ? '该 IP 已被限制'
+              : (data?.error === 'invalid content' ? '内容长度需在 2–1000 字'
+              : data?.error === 'invalid author' ? '昵称需在 1–24 字'
+              : '提交失败，请稍后再试')
+          }
+          return
+        }
+
+        localStorage.setItem('xtcer.comment.author', author)
+        commentList.querySelector('.comment-empty')?.remove()
+        if (data?.comment) commentList.appendChild(renderComment(data.comment))
+        contentInput.value = ''
+
+        const counter = document.querySelector('.comment-count')
+        if (counter) counter.textContent = String(Number(counter.textContent || '0') + 1)
+        if (commentHint) commentHint.textContent = '已发布'
+      } catch {
+        if (commentHint) commentHint.textContent = '网络异常，请稍后再试'
+      } finally {
+        commentSubmit.disabled = false
+        commentSubmit.textContent = original || '发表评论'
+      }
+    })
 
     const tocLinks = document.querySelectorAll('.toc-link')
     if (tocLinks.length > 0) {
@@ -460,6 +590,63 @@ if (faqItems.length > 0) {
     border-top: 1px solid var(--border);
   }
   .comments-section h2 { font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem; }
+  .comment-count {
+    display: inline-block; margin-left: 0.35rem; padding: 0.05rem 0.5rem;
+    font-size: 0.8125rem; font-weight: 500; color: var(--text-muted);
+    background: var(--surface); border: 1px solid var(--glass-border); border-radius: 999px;
+    vertical-align: middle;
+  }
+  .comment-form {
+    display: flex; flex-direction: column; gap: 0.625rem;
+    margin-bottom: 1.75rem;
+  }
+  .comment-input,
+  .comment-textarea {
+    width: 100%; padding: 0.6875rem 0.875rem;
+    font-family: inherit; font-size: 0.9375rem; line-height: 1.5;
+    color: var(--text); background: var(--surface);
+    border: 1px solid var(--glass-border); border-radius: var(--radius-sm);
+    outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+    resize: vertical;
+  }
+  .comment-input:focus,
+  .comment-textarea:focus {
+    border-color: rgba(41,151,255,0.45);
+    box-shadow: 0 0 0 3px rgba(41,151,255,0.12);
+  }
+  .comment-form-foot {
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  }
+  .comment-hint { font-size: 0.8125rem; color: var(--text-muted); }
+  .comment-submit {
+    flex-shrink: 0; padding: 0.5625rem 1.125rem;
+    font-family: inherit; font-size: 0.875rem; font-weight: 600;
+    color: #fff; background: var(--accent);
+    border: none; border-radius: var(--radius-sm); cursor: pointer;
+    transition: opacity 0.15s, transform 0.15s;
+  }
+  .comment-submit:hover:not(:disabled) { opacity: 0.88; }
+  .comment-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .comment-list { display: flex; flex-direction: column; gap: 0.75rem; list-style: none; padding: 0; margin: 0; }
+  .comment-empty {
+    padding: 1.5rem 1rem; text-align: center;
+    font-size: 0.875rem; color: var(--text-muted);
+    background: var(--surface); border: 1px dashed var(--glass-border); border-radius: var(--radius-sm);
+  }
+  .comment-item {
+    background: var(--surface); border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm); padding: 0.875rem 1rem;
+  }
+  .comment-head {
+    display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 0.4375rem;
+  }
+  .comment-author { font-size: 0.9375rem; font-weight: 600; color: var(--text); }
+  .comment-time { font-size: 0.75rem; color: var(--text-muted); }
+  .comment-body {
+    font-size: 0.9375rem; line-height: 1.7; color: var(--text);
+    white-space: pre-wrap; word-break: break-word; margin: 0;
+  }
 
   .faq-section {
     max-width: 720px; margin-top: 2rem; padding-top: 2rem;

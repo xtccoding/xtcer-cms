@@ -5,7 +5,7 @@ import DealsTable from '../components/DealsTable.astro'
 import Pagination from '../components/Pagination.astro'
 import FeedbackBox from '../components/FeedbackBox.astro'
 import FestivalBanner from '../components/FestivalBanner.astro'
-import { listDeals, listLikeTargets } from '../lib/store'
+import { listDeals, listLikeCounts } from '../lib/store'
 import { resolveSalt } from '../lib/interactions'
 import { monthlyCny } from '../lib/price.mjs'
 import { resolveFreebie, FREEBIE_META, type FreebieKind } from '../lib/freebie'
@@ -231,16 +231,13 @@ const groupedSections =
 const sortHint = SORT_OPTIONS.find(o => o.key === sort)?.hint || ''
 
 // ---------------------------------------------------------------- 点赞
-// 一次性拉取全站点赞数，在 JS 里聚合成 { target: count }，再传给每张 DealCard，
-// 避免每张卡各发一次请求。
-const likeCounts: Record<string, number> = {}
+// 直接在 SQL 里 GROUP BY 聚合成 { target: count }，再传给每张 DealCard。
+// 旧写法是拉全表点赞记录回 JS 里 reduce，行读取量等于点赞总数（D1 配额杀手）。
+let likeCounts: Record<string, number> = {}
 let likesTableReady = false
 try {
-  const targets = await listLikeTargets()
+  likeCounts = await listLikeCounts()
   likesTableReady = true
-  for (const target of targets) {
-    if (typeof target === 'string') likeCounts[target] = (likeCounts[target] || 0) + 1
-  }
 } catch (err) {
   console.error('[deals] like counts fetch threw:', err)
 }

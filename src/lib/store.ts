@@ -14,6 +14,26 @@ import * as s from './schema'
 
 const db = (env?: any) => getDb(env)
 
+/**
+ * 计数类查询的 isolate 级内存缓存。
+ *
+ * 背景：`SELECT count(*)` 在 SQLite 里要扫全表（走最小索引），单次几百行起。
+ * xtcer.cn 每天 7000+ 次页面访问，`/feeds` 每次都要 count 一次，
+ * 一天就把 D1 免费额度（500 万行读/天）打穿并报 7500。
+ * 计数本身允许秒级滞后，缓存 60 秒能把这块行读取压掉 95%+。
+ */
+const COUNT_TTL_MS = 60_000
+const countCache = new Map<string, { n: number; at: number }>()
+
+async function cachedCount(key: string, fn: () => Promise<number>): Promise<number> {
+  const hit = countCache.get(key)
+  const now = Date.now()
+  if (hit && now - hit.at < COUNT_TTL_MS) return hit.n
+  const n = await fn()
+  countCache.set(key, { n, at: now })
+  return n
+}
+
 function isoOrNull(v: unknown): string | null {
   if (v === null || v === undefined || v === '') return null
   if (typeof v === 'string') return v
@@ -309,6 +329,9 @@ export async function listDeals(opts: { includeExpired?: boolean; category?: str
     .from(s.deals)
     .where(and(...where))
     .orderBy(sql`${s.deals.price_cny} IS NULL`, asc(s.deals.price_cny))
+    // 保护性上限：这条查询原来没有 LIMIT，deals 表一到几百行就是每次全读，
+    // 是 D1 行读取的主要消耗点之一。2000 条足够覆盖站点全部在售优惠。
+    .limit(2000)
 }
 
 export async function listAllDeals(env?: any) {
@@ -356,16 +379,20 @@ const feedRow = (row: any) => ({
 })
 
 export async function countFeeds(env?: any) {
-  const [row] = await db(env).select({ n: sql<number>`count(*)` }).from(s.feeds)
-  return Number(row?.n ?? 0)
+  return cachedCount('feeds:all', async () => {
+    const [row] = await db(env).select({ n: sql<number>`count(*)` }).from(s.feeds)
+    return Number(row?.n ?? 0)
+  })
 }
 
 export async function countFeedsByType(type: string, env?: any) {
-  const [row] = await db(env)
-    .select({ n: sql<number>`count(*)` })
-    .from(s.feeds)
-    .where(eq(s.feeds.feed_type, type))
-  return Number(row?.n ?? 0)
+  return cachedCount(`feeds:type:${type}`, async () => {
+    const [row] = await db(env)
+      .select({ n: sql<number>`count(*)` })
+      .from(s.feeds)
+      .where(eq(s.feeds.feed_type, type))
+    return Number(row?.n ?? 0)
+  })
 }
 
 export async function listFeedsPage(opts: { limit: number; offset: number; type?: string | null }, env?: any) {
@@ -690,6 +717,33 @@ export async function listLikeTargets(env?: any) {
   return rows.map((r) => r.target)
 }
 
+const likeCountCache = new Map<string, { map: Record<string, number>; at: number }>()
+
+/**
+ * 点赞计数（按 target 聚合）。
+ *
+ * 原来页面用 `listLikeTargets()` 把**每一行点赞记录**都拉回来再在 JS 里 reduce，
+ * 行读取量等于点赞总数。改成 SQL GROUP BY 后返回行数降为「被点赞过的 deal 数」，
+ * 并套 60 秒内存缓存（点赞数允许短暂滞后）。
+ */
+export async function listLikeCounts(env?: any): Promise<Record<string, number>> {
+  const now = Date.now()
+  const hit = likeCountCache.get('all')
+  if (hit && now - hit.at < COUNT_TTL_MS) return hit.map
+
+  const rows = await db(env)
+    .select({ target: s.dealLikes.target, n: sql<number>`count(*)` })
+    .from(s.dealLikes)
+    .groupBy(s.dealLikes.target)
+
+  const map: Record<string, number> = {}
+  for (const r of rows) {
+    if (typeof r.target === 'string') map[r.target] = Number(r.n)
+  }
+  likeCountCache.set('all', { map, at: now })
+  return map
+}
+
 export async function hasLiked(target: string, ipHash: string, env?: any) {
   const row = await db(env)
     .select({ id: s.dealLikes.id })
@@ -742,6 +796,77 @@ export async function setFeedbackHandled(id: string, handled: boolean, env?: any
 
 export async function deleteFeedback(id: string, env?: any) {
   await db(env).delete(s.feedback).where(eq(s.feedback.id, id))
+}
+
+// ---------------------------------------------------------------- comments
+
+export type CommentRow = {
+  id: string
+  post_id: string
+  parent_id: string | null
+  author: string
+  content: string
+  created_at: string
+}
+
+/**
+ * 某篇文章的可见评论（不含 ip_hash / status，公开接口用）。
+ * 走 idx_comments_post(post_id, created_at)，只读该文章的评论。
+ */
+export async function listComments(postId: string, env?: any): Promise<CommentRow[]> {
+  const rows = await db(env)
+    .select({
+      id: s.comments.id,
+      post_id: s.comments.post_id,
+      parent_id: s.comments.parent_id,
+      author: s.comments.author,
+      content: s.comments.content,
+      created_at: s.comments.created_at,
+    })
+    .from(s.comments)
+    .where(and(eq(s.comments.post_id, postId), eq(s.comments.status, 'visible')))
+    .orderBy(asc(s.comments.created_at))
+    .limit(500)
+  return rows
+}
+
+export async function countComments(postId: string, env?: any): Promise<number> {
+  const [row] = await db(env)
+    .select({ n: sql<number>`count(*)` })
+    .from(s.comments)
+    .where(and(eq(s.comments.post_id, postId), eq(s.comments.status, 'visible')))
+  return Number(row?.n ?? 0)
+}
+
+export async function createComment(
+  input: { post_id: string; parent_id?: string | null; author: string; content: string; ip_hash: string },
+  env?: any,
+) {
+  return db(env)
+    .insert(s.comments)
+    .values({
+      post_id: input.post_id,
+      parent_id: input.parent_id ?? null,
+      author: input.author,
+      content: input.content,
+      ip_hash: input.ip_hash,
+      status: 'visible',
+      created_at: nowIso(),
+    })
+    .returning()
+    .get()
+}
+
+export async function listAllComments(env?: any) {
+  return db(env).select().from(s.comments).orderBy(desc(s.comments.created_at)).limit(500)
+}
+
+export async function setCommentStatus(id: string, status: 'visible' | 'hidden', env?: any) {
+  return db(env).update(s.comments).set({ status }).where(eq(s.comments.id, id)).returning().get()
+}
+
+export async function deleteComment(id: string, env?: any) {
+  await db(env).delete(s.comments).where(eq(s.comments.id, id))
 }
 
 // ---------------------------------------------------------------- blacklist

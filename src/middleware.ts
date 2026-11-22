@@ -211,14 +211,44 @@ export const onRequest = defineMiddleware(async (context, next) => {
     const buf = await final.arrayBuffer()
     const headers = new Headers(final.headers)
 
+    // ⚠️ Cache API 的 TTL 只认 `max-age`，不认 `s-maxage`。
+    // 之前只设了 s-maxage=300，Cache API 侧拿不到 TTL，缓存命中率极低，
+    // 每个请求都穿透到 D1 —— 这是「行读取打爆免费额度」的直接原因。
+    // 这里给缓存副本单独设 1 小时 max-age：
+    //   · 客户端/CDN 仍按响应头的 s-maxage（5 分钟）走
+    //   · Worker 内部 Cache API 保留 1 小时，同类页面 1 小时只打 1 次 D1
+    const cacheHeaders = new Headers(headers)
+    cacheHeaders.set('cache-control', 'public, max-age=3600')
+
     // put 走 waitUntil：不阻塞响应，缓存写入在后台完成。
     cfCtx.waitUntil(
       edgeCache
-        .put(cacheKey, new Response(buf, { status: 200, headers }))
+        .put(cacheKey, new Response(buf, { status: 200, headers: cacheHeaders }))
         .catch((e: any) => console.error('[edge cache put]', e?.message || e)),
     )
 
     return new Response(buf, { status: 200, headers })
+  }
+
+  // ---- 失败兜底缓存（打破「504 → 不缓存 → 下次照样打 D1 → 再 504」死锁）----
+  // D1 越接近配额上限越慢，超时返回 5xx；5xx 不进任何缓存的话，每个请求
+  // 都会真实穿透到 D1，把配额彻底打穿。这里把 5xx 也缓存 15 秒：
+  // 短到不影响恢复，长到足以挡住爬虫/重试风暴。
+  if (cacheKey && cfCtx?.waitUntil && final.status >= 500) {
+    try {
+      const buf = await final.arrayBuffer()
+      const headers = new Headers(final.headers)
+      const cacheHeaders = new Headers(headers)
+      cacheHeaders.set('cache-control', 'public, max-age=15')
+      cfCtx.waitUntil(
+        edgeCache
+          .put(cacheKey, new Response(buf, { status: final.status, headers: cacheHeaders }))
+          .catch((e: any) => console.error('[edge cache put 5xx]', e?.message || e)),
+      )
+      return new Response(buf, { status: final.status, statusText: final.statusText, headers })
+    } catch (e: any) {
+      console.error('[edge cache 5xx]', e?.message || e)
+    }
   }
 
   return final

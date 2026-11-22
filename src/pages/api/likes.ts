@@ -1,4 +1,4 @@
-import { addLike, countLikes, listLikeTargets } from '../../lib/store'
+import { addLike, countLikes, listLikeCounts } from '../../lib/store'
 import {
   JSON_HEADERS,
   getClientIp,
@@ -13,17 +13,12 @@ function json(body: unknown, status = 200): Response {
 
 /**
  * GET → 返回全站点赞数映射 { "<target>": count }。
- * 一次性取出所有 target 后在 JS 里聚合，避免 /deals 页 332 张卡各发一次请求。
+ * 直接在 SQL 里 GROUP BY（listLikeCounts 内含 60 秒内存缓存），
+ * 不再把整表点赞记录拉回 JS 聚合。
  */
 export async function GET() {
   try {
-    const targets = await listLikeTargets()
-    const counts: Record<string, number> = {}
-    for (const target of targets) {
-      if (typeof target !== 'string') continue
-      counts[target] = (counts[target] || 0) + 1
-    }
-    return json(counts)
+    return json(await listLikeCounts())
   } catch {
     return json({})
   }

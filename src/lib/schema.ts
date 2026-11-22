@@ -183,6 +183,32 @@ export const feedback = sqliteTable(
   (t) => [index('idx_feedback_created_at').on(t.created_at)],
 )
 
+/**
+ * 文章评论（自建，取代 Giscus 外部脚本）。
+ *
+ * - 单层回复：parent_id 指向同 post 下的顶层评论（不递归嵌套，UI 只有一级）
+ * - status: visible / hidden，后台可隐藏，公开接口只返回 visible
+ * - ip_hash 只存 SHA-256(salt+ip)，用于限流与防刷，不存明文
+ */
+export const comments = sqliteTable(
+  'comments',
+  {
+    id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    post_id: text('post_id').notNull(),
+    parent_id: text('parent_id'),
+    author: text('author').notNull(),
+    content: text('content').notNull(),
+    ip_hash: text('ip_hash').notNull(),
+    status: text('status').notNull().default('visible'),
+    created_at: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+  },
+  (t) => [
+    index('idx_comments_post').on(t.post_id, t.created_at),
+    index('idx_comments_status').on(t.status),
+    index('idx_comments_parent').on(t.parent_id),
+  ],
+)
+
 export const siteSettings = sqliteTable(
   'site_settings',
   {
